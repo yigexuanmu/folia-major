@@ -27,6 +27,10 @@
   mesa,
   nss,
   zlib,
+
+  # pass the repo root (e.g. path:.) to build from local Git checkout
+  # otherwise downloads the prebuilt release from GitHub
+  src ? null,
 }:
 
 let
@@ -59,16 +63,18 @@ let
   ];
 
   libraryPath = lib.makeLibraryPath runtimeDependencies;
+
+  source = if src != null then src else fetchzip {
+    url = "https://github.com/yigexuanmu/folia-major/releases/download/v${version}/folia-major-${version}-linux-x64.tar.gz";
+    hash = versionJson."${stdenv.hostPlatform.system}-hash" or lib.fakeHash;
+    stripRoot = false;
+  };
 in
 
 stdenv.mkDerivation (finalAttrs: {
   inherit pname version;
 
-  src = fetchzip {
-    url = "https://github.com/chthollyphile/folia-major/releases/download/v${finalAttrs.version}/folia-major-${finalAttrs.version}-linux-x64.tar.gz";
-    hash = versionJson."${stdenv.hostPlatform.system}-hash" or lib.fakeHash;
-    stripRoot = false;
-  };
+  src = source;
 
   nativeBuildInputs = [
     autoPatchelfHook
@@ -126,7 +132,7 @@ stdenv.mkDerivation (finalAttrs: {
       Supports Netease Cloud Music, Navidrome, local music,
       AI-generated themes, and rich lyrics animations.
     '';
-    homepage = "https://github.com/chthollyphile/folia-major";
+    homepage = "https://github.com/yigexuanmu/folia-major";
     license = lib.licenses.agpl3Only;
     mainProgram = "folia-major";
     maintainers = with lib.maintainers; [ ];
