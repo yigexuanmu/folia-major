@@ -121,9 +121,6 @@
     "linux": {
       "artifactName": "${name}-${version}-linux-${arch}.${ext}",
       "target": [
-        "tar.gz",
-        "deb",
-        "rpm",
         "pacman"
       ],
       "publish": {
