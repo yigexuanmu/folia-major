@@ -260,8 +260,8 @@ const LatentBackground: React.FC<LatentBackgroundProps> = ({
                         opacity: showMesh ? tuning.ditheringOpacity : 1,
                         transform: 'scale(1.015)',
                         transformOrigin: 'center',
-                        backgroundImage: `repeating-conic-gradient(${shaderColors.ditheringFront} 0% 25%, ${shaderColors.ditheringBack} 0% 50%)`,
-                        backgroundSize: `${Math.max(1, tuning.ditheringSize)}px ${Math.max(1, tuning.ditheringSize)}px`,
+                        backgroundImage: `repeating-conic-gradient(${shaderColors.ditheringFront} 0% 25%, ${shaderColors.ditheringBack} 25% 50%)`,
+                        backgroundSize: `${Math.max(2, tuning.ditheringSize * 2)}px ${Math.max(2, tuning.ditheringSize * 2)}px`,
                     }}
                 />
             )}
