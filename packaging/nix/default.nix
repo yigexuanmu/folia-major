@@ -94,10 +94,14 @@ stdenv.mkDerivation (finalAttrs: {
     runHook preInstall
     appdir=$out/lib/folia-major
     mkdir -p $appdir
+
     cp -a dist $appdir/
     cp -a electron $appdir/
     cp -a shared $appdir/
     cp package.json $appdir/
+
+    pnpm deploy --filter=. --prod $appdir/node_modules
+
     mkdir -p $out/bin
     makeWrapper ${electron}/bin/electron $out/bin/folia-major \
       --add-flags $appdir \
