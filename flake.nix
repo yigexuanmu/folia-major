@@ -16,7 +16,7 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
-        folia-major = pkgs.callPackage ./packaging/nix/default.nix { };
+        folia-major = pkgs.callPackage ./packaging/nix/default.nix { src = self; };
       in
       {
         packages.default = folia-major;

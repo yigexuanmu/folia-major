@@ -1,7 +1,6 @@
 {
   lib,
   stdenv,
-  fetchFromGitHub,
   fetchPnpmDeps,
   nodejs,
   pnpm,
@@ -9,7 +8,6 @@
   copyDesktopItems,
   makeDesktopItem,
   makeWrapper,
-  autoPatchelfHook,
   alsa-lib,
   at-spi2-core,
   cups,
@@ -39,11 +37,14 @@
   wayland,
   libxkbcommon,
   zlib,
+
+  # pass src override for flake builds (e.g. self)
+  src ? null,
 }:
 
 let
   pname = "folia-major";
-  version = (lib.importJSON ./version.json).version;
+  version = "0.6.1";
 
   runtimeLibs = lib.makeLibraryPath [
     stdenv.cc.cc.lib alsa-lib at-spi2-core cups dbus expat
@@ -57,12 +58,7 @@ in
 stdenv.mkDerivation (finalAttrs: {
   inherit pname version;
 
-  src = fetchFromGitHub {
-    owner = "yigexuanmu";
-    repo = "folia-major";
-    rev = "7364cdfed02a2eb24fbc3dba9f2f143f702d8d64";
-    hash = "sha256-ylAReo2yrSE+N9J3wwR7b1pgWT/61eTIPMn9aUXMjNU=";
-  };
+  src = src;
 
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
@@ -95,14 +91,11 @@ stdenv.mkDerivation (finalAttrs: {
     runHook preInstall
     appdir=$out/lib/folia-major
     mkdir -p $appdir
-
     cp -a dist $appdir/
     cp -a electron $appdir/
     cp -a shared $appdir/
     cp package.json $appdir/
-
     cp -a node_modules $appdir/node_modules
-
     mkdir -p $out/bin
     makeWrapper ${electron}/bin/electron $out/bin/folia-major \
       --add-flags $appdir \
