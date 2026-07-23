@@ -60,8 +60,8 @@ stdenv.mkDerivation (finalAttrs: {
   src = fetchFromGitHub {
     owner = "yigexuanmu";
     repo = "folia-major";
-    rev = "dc1386534dad97e77a675262d404ff37d8f55ffc";
-    hash = "sha256-BZMLdEvaCeNvQlAKFnIi6vqRgRP0PveoKjqudLyYJGQ=";
+    rev = "7364cdfed02a2eb24fbc3dba9f2f143f702d8d64";
+    hash = "sha256-ylAReo2yrSE+N9J3wwR7b1pgWT/61eTIPMn9aUXMjNU=";
   };
 
   pnpmDeps = fetchPnpmDeps {
