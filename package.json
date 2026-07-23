@@ -123,7 +123,8 @@
       "target": [
         "tar.gz",
         "deb",
-        "rpm"
+        "rpm",
+        "pacman"
       ],
       "publish": {
         "provider": "github",

@@ -183,6 +183,7 @@ jobs:
             release/*.deb
             release/*.rpm
             release/*.tar.gz
+            release/*.pkg.tar.zst
             build/release-notes.md
           if-no-files-found: error
           retention-days: 14
