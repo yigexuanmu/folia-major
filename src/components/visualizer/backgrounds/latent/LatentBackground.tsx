@@ -156,6 +156,13 @@ const LatentBackground: React.FC<LatentBackgroundProps> = ({
         const ditheringMount = ditheringRef.current?.paperShaderMount;
         const meshMount = meshRef.current?.paperShaderMount;
 
+        if (!ditheringMount && showDithering) {
+            console.warn('[LatentBackground] Dithering shader mount not available');
+        }
+        if (!meshMount && showMesh) {
+            console.warn('[LatentBackground] Mesh shader mount not available');
+        }
+
         if (staticMode) {
             ditheringMount?.setSpeed(0);
             meshMount?.setSpeed(0);
@@ -266,6 +273,7 @@ const LatentBackground: React.FC<LatentBackgroundProps> = ({
                     style={{ transform: 'scale(1.025)', transformOrigin: 'center' }}
                 >
                     <MeshGradient
+                        key={shaderColors.mesh.join('-')}
                         ref={meshRef}
                         width="100%"
                         height="100%"
@@ -295,6 +303,7 @@ const LatentBackground: React.FC<LatentBackgroundProps> = ({
                     }}
                 >
                     <Dithering
+                        key={`${shaderColors.ditheringBack}-${shaderColors.ditheringFront}`}
                         ref={ditheringRef}
                         width="100%"
                         height="100%"
