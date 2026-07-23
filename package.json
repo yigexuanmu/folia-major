@@ -121,7 +121,7 @@
     "linux": {
       "artifactName": "${name}-${version}-linux-${arch}.${ext}",
       "target": [
-        "pacman"
+        "dir"
       ],
       "publish": {
         "provider": "github",

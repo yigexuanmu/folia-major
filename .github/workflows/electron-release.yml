@@ -163,6 +163,25 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npx electron-builder --publish never --config.publish.channel=latest
 
+      - name: Build Arch Linux .pkg.tar.zst
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKAGE_VERSION="${{ needs.validate-release.outputs.version }}"
+          PKGNAME="folia-major-${PACKAGE_VERSION}-x86_64"
+          DIR="release/linux-unpacked"
+          if [ ! -d "$DIR" ]; then
+            echo "linux-unpacked dir not found, skipping arch package"
+            exit 0
+          fi
+          mkdir -p "release/${PKGNAME}"
+          cp -a "$DIR"/. "release/${PKGNAME}/"
+          tar --zstd -cf "release/folia-major-${PACKAGE_VERSION}-linux-x64.pkg.tar.zst" \
+            -C release "${PKGNAME}"
+          rm -rf "release/${PKGNAME}"
+          echo "Created release/folia-major-${PACKAGE_VERSION}-linux-x64.pkg.tar.zst"
+
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v6
         with:
