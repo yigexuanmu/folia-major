@@ -60,8 +60,8 @@ stdenv.mkDerivation (finalAttrs: {
   src = fetchFromGitHub {
     owner = "yigexuanmu";
     repo = "folia-major";
-    rev = "c1b5837a4953d8e3412071425c5693de19493775";
-    hash = "sha256-7r9ryJ7cMyS1haOGw4FOjK7SH9dpNFRHgP2DMgPqVv4=";
+    rev = "9af5c662f3396a54babcd8edad6b8f20d699903a";
+    hash = "sha256-Swa7+pl+TIErgsAOVXPnkehFzko0Xj+EwPgBg1KSMl8=";
   };
 
   pnpmDeps = fetchPnpmDeps {
@@ -76,12 +76,13 @@ stdenv.mkDerivation (finalAttrs: {
   env.ELECTRON_DEV = "false";
   env.ELECTRON = "true";
 
+  dontAutoPatchelf = true;
+
   nativeBuildInputs = [
     nodejs
     pnpm.configHook
     copyDesktopItems
     makeWrapper
-    autoPatchelfHook
   ];
 
   buildPhase = ''
@@ -100,7 +101,7 @@ stdenv.mkDerivation (finalAttrs: {
     cp -a shared $appdir/
     cp package.json $appdir/
 
-    pnpm deploy --filter=. --prod $appdir/node_modules
+    cp -rL node_modules $appdir/node_modules
 
     mkdir -p $out/bin
     makeWrapper ${electron}/bin/electron $out/bin/folia-major \
