@@ -12,6 +12,7 @@ import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState } fro
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
 import { createSafeObjectUrl } from '../utils/blobGuards';
+import { getUnlockAudioSource } from './songUnlockService';
 
 const normalizeAudioUrl = (url?: string | null) => {
     if (!url) return null;
@@ -31,7 +32,7 @@ export async function loadOnlineSongAudioSource(
     audioQuality: string,
     prefetched: PrefetchedSongData | null
 ): Promise<
-    | { kind: 'ok'; audioSrc: string; blobUrl?: string }
+    | { kind: 'ok'; audioSrc: string; blobUrl?: string; isUnlocked?: boolean }
     | { kind: 'unavailable' }
 > {
     const audioCacheKey = getOnlineSongCacheKey('audio', song);
@@ -47,7 +48,17 @@ export async function loadOnlineSongAudioSource(
 
     const urlRes = await neteaseApi.getSongUrl(song.id, audioQuality);
     const url = normalizeAudioUrl(urlRes.data?.[0]?.url);
-    if (!url) {
+    const isTrial = urlRes.data?.[0]?.freeTrialInfo != null;
+
+    if (!url || isTrial) {
+        const settings = useSettingsUiStore.getState();
+        if (settings.useSongUnlock) {
+            const unlockResult = await getUnlockAudioSource(song, settings.songUnlockServers);
+            if (unlockResult.url) {
+                updatePrefetchedAudioUrl(song, unlockResult.url, audioQuality);
+                return { kind: 'ok', audioSrc: unlockResult.url, isUnlocked: true };
+            }
+        }
         return { kind: 'unavailable' };
     }
 

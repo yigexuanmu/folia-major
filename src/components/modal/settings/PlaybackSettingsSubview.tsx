@@ -48,20 +48,28 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
         enableAlternativeLyricSources,
         preferredAlternativeLyricSource,
         queueAddBehavior,
+        useSongUnlock,
+        songUnlockServers,
         onToggleAlternativeLyricSources,
         onToggleAutoUseBestLyric,
         onPreferredAlternativeLyricSourceChange,
         onQueueAddBehaviorChange,
+        onToggleSongUnlock,
+        onToggleSongUnlockServer,
     } = useSettingsUiStore(useShallow(state => ({
         audioOutputDeviceId: state.audioOutputDeviceId,
         autoUseBestLyric: state.autoUseBestLyric,
         enableAlternativeLyricSources: state.enableAlternativeLyricSources,
         preferredAlternativeLyricSource: state.preferredAlternativeLyricSource,
         queueAddBehavior: state.queueAddBehavior,
+        useSongUnlock: state.useSongUnlock,
+        songUnlockServers: state.songUnlockServers,
         onToggleAlternativeLyricSources: state.handleToggleAlternativeLyricSources,
         onToggleAutoUseBestLyric: state.handleToggleAutoUseBestLyric,
         onPreferredAlternativeLyricSourceChange: state.handleSetPreferredAlternativeLyricSource,
         onQueueAddBehaviorChange: state.handleSetQueueAddBehavior,
+        onToggleSongUnlock: state.handleToggleSongUnlock,
+        onToggleSongUnlockServer: state.handleToggleSongUnlockServer,
     })));
     const [audioOutputDevices, setAudioOutputDevices] = useState<AudioOutputDeviceOption[]>([]);
     const [isAudioOutputDevicesLoading, setIsAudioOutputDevicesLoading] = useState(false);
@@ -283,6 +291,43 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                                     );
                                 })}
                             </div>
+                        </div>
+                    )}
+                </div>
+            </section>
+
+            <section>
+                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                    <RefreshCw size={14} /> Song Unlock (VIP Bypass)
+                </h3>
+                <div className={`rounded-xl border overflow-hidden ${settingsCardClass}`}>
+                    <div className="p-4 flex items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                <RefreshCw size={14} />
+                                Enable Song Unlock
+                            </div>
+                            <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                                When a VIP or copyrighted song is unavailable, try to find a playable source from other platforms (Bodian/Kuwo).
+                            </div>
+                        </div>
+                        {renderToggle(useSongUnlock, () => onToggleSongUnlock(!useSongUnlock))}
+                    </div>
+                    {useSongUnlock && (
+                        <div className="border-t divide-y" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
+                            {songUnlockServers.map((server) => (
+                                <div key={server.key} className="p-4 flex items-center justify-between gap-4">
+                                    <div className="space-y-0.5">
+                                        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                            {server.key === 'netease' ? 'Netease (GD Music)' : server.key === 'bodian' ? 'Bodian (波点音乐)' : 'Kuwo (酷我)'}
+                                        </div>
+                                        <div className="text-[11px] opacity-50" style={{ color: 'var(--text-secondary)' }}>
+                                            {server.key === 'netease' ? 'Via 3rd-party API' : server.key === 'bodian' ? 'Kuwo sub-platform, 320kbps' : 'Kuwo mobile API, 128kbps'}
+                                        </div>
+                                    </div>
+                                    {renderToggle(server.enabled, () => onToggleSongUnlockServer(server.key, !server.enabled))}
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>

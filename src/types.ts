@@ -856,6 +856,17 @@ export interface NoCopyrightRecommendation {
 export type LyricProviderSource = 'netease' | 'qq' | 'kugou' | 'amll';
 export type AmllDbPlatform = 'ncm' | 'qq';
 
+export type SongUnlockServer = 'netease' | 'bodian' | 'kuwo';
+export interface UnlockServerConfig {
+  key: SongUnlockServer;
+  enabled: boolean;
+}
+export interface UnlockSongUrlResult {
+  code: number;
+  url: string | null;
+  source?: SongUnlockServer;
+}
+
 export interface SongResult {
   id: number;
   name: string;

@@ -17,6 +17,7 @@ import { isPureMusicLyricText } from '../utils/lyrics/pureMusic';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
 import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState } from '../utils/onlineLyricsState';
+import { getUnlockAudioSource } from './songUnlockService';
 
 // Prefetch configuration
 const PREFETCH_COUNT_NEXT = 2;  // Prefetch 2 songs ahead
@@ -150,12 +151,24 @@ const prefetchSong = async (
             } else if (!signal.aborted) {
                 const urlRes = await neteaseApi.getSongUrl(songId, audioQuality);
                 let url = urlRes.data?.[0]?.url;
-                if (url) {
+                const isTrial = urlRes.data?.[0]?.freeTrialInfo != null;
+                if (url && !isTrial) {
                     if (url.startsWith('http:')) url = url.replace('http:', 'https:');
                     data.audioUrl = url;
                     data.audioUrlFetchedAt = Date.now();
                     data.audioUrlQuality = audioQuality;
                     console.log(`[Prefetch] Got audio URL for: ${song.name} (quality: ${audioQuality})`);
+                } else if (!signal.aborted) {
+                    const settings = useSettingsUiStore.getState();
+                    if (settings.useSongUnlock) {
+                        const unlockResult = await getUnlockAudioSource(song, settings.songUnlockServers);
+                        if (unlockResult.url) {
+                            data.audioUrl = unlockResult.url;
+                            data.audioUrlFetchedAt = Date.now();
+                            data.audioUrlQuality = audioQuality;
+                            console.log(`[Prefetch] Got unlocked URL for: ${song.name}`);
+                        }
+                    }
                 }
             }
         } catch (e) {
