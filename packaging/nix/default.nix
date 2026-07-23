@@ -101,7 +101,7 @@ stdenv.mkDerivation (finalAttrs: {
     cp -a shared $appdir/
     cp package.json $appdir/
 
-    cp -rL node_modules $appdir/node_modules
+    cp -a node_modules $appdir/node_modules
 
     mkdir -p $out/bin
     makeWrapper ${electron}/bin/electron $out/bin/folia-major \
