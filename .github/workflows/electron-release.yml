@@ -193,11 +193,9 @@ jobs:
             release/*.blockmap
             release/*.yml
             !release/builder-debug.yml
-            release/*.deb
-            release/*.rpm
             release/*.pkg.tar.zst
             build/release-notes.md
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
   publish-release:
