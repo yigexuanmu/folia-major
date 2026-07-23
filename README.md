@@ -9,9 +9,9 @@
 
 Lyrics Reimagined // 辞曲新境
 
-[![GitHub release](https://img.shields.io/github/v/release/chthollyphile/folia-major?label=release)](https://github.com/chthollyphile/folia-major/releases)
-[![License](https://img.shields.io/github/license/chthollyphile/folia-major)](https://github.com/chthollyphile/folia-major/blob/main/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/chthollyphile/folia-major?style=social)](https://github.com/chthollyphile/folia-major/stargazers)
+[![GitHub release](https://img.shields.io/github/v/release/yigexuanmu/folia-major?label=release)](https://github.com/yigexuanmu/folia-major/releases)
+[![License](https://img.shields.io/github/license/yigexuanmu/folia-major)](https://github.com/yigexuanmu/folia-major/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/yigexuanmu/folia-major?style=social)](https://github.com/yigexuanmu/folia-major/stargazers)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-35-orange.svg?style=flat-square)](CONTRIBUTORS.md)
@@ -105,6 +105,26 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 - **Windows / macOS / Linux**: 最新版本的安装包请前往 [Releases 页面](https://github.com/chthollyphile/folia-major/releases) 下载。
 - **Arch Linux**: 可通过 AUR 获取 [folia-major-bin](https://aur.archlinux.org/packages/folia-major-bin)。
 - **Flatpak**: 社区提供的第三方 flatpak，详情见 [Flatpark](https://flatpark.org/apps/top.izuna.foliamajor/)。
+- **NixOS / Nix with flakes**:
+
+  ```bash
+  # 直接运行（不安装）
+  nix run github:yigexuanmu/folia-major
+
+  # 临时进入 shell
+  nix shell github:yigexuanmu/folia-major -c folia-major
+
+  # 安装到系统（NixOS flake）
+  {
+    inputs.folia-major.url = "github:yigexuanmu/folia-major";
+    # 可选：复用你的 nixpkgs
+    inputs.folia-major.inputs.nixpkgs.follows = "nixpkgs";
+  }
+  # environment.systemPackages = [ inputs.folia-major.packages.${system}.default ];
+
+  # Home Manager
+  # home.packages = [ inputs.folia-major.packages.${system}.default ];
+  ```
 
 Linux 包、Wayland / Hyprland 遥控窗和桌面端细节见 [技术与开发说明](docs/technical.md)。
 
