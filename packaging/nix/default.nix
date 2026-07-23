@@ -60,15 +60,15 @@ stdenv.mkDerivation (finalAttrs: {
   src = fetchFromGitHub {
     owner = "yigexuanmu";
     repo = "folia-major";
-    rev = "b1fb5244da18b80a15775c9a753109c2e9979350";
-    hash = "sha256-bxdrh/YI8GOFyOmfOBy0jwx9ReQdVK5Ign1a5yaydEo=";
+    rev = "c1b5837a4953d8e3412071425c5693de19493775";
+    hash = "sha256-7r9ryJ7cMyS1haOGw4FOjK7SH9dpNFRHgP2DMgPqVv4=";
   };
 
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
     inherit pnpm;
     fetcherVersion = 4;
-    hash = "sha256-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb=";
+    hash = "sha256-t3W63ncj9QNIw+p+cNaH3s2yfgpEzw88A04Nz01kaRY=";
   };
 
   env.SKIP_NATIVE_BUILD = "true";
@@ -86,7 +86,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   buildPhase = ''
     runHook preBuild
-    vite build
+    pnpm exec vite build
     runHook postBuild
   '';
 
