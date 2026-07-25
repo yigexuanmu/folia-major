@@ -116,7 +116,12 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 
   # 安装到系统（NixOS flake）
   {
-    inputs.folia-major.url = "github:yigexuanmu/folia-major";
+    inputs = {
+      folia-major = {
+        url = "github:yigexuanmu/folia-major";
+        inputs.nixpkgs.follows = "nixpkgs";
+      };
+    };
     # 可选：复用你的 nixpkgs
     inputs.folia-major.inputs.nixpkgs.follows = "nixpkgs";
   }
