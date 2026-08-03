@@ -1620,7 +1620,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     handleToggleSongUnlock: (enable) => {
         setStoredBoolean('use_song_unlock', enable);
         set({ useSongUnlock: enable });
-        notify(get, { type: 'info', text: enable ? 'Song unlock enabled' : 'Song unlock disabled' });
+        notify(get, { type: 'info', text: enable ? '歌曲解锁已开启' : '歌曲解锁已关闭' });
     },
     handleToggleSongUnlockServer: (key, enabled) => {
         const servers = get().songUnlockServers.map(s =>
@@ -1630,7 +1630,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             localStorage.setItem('song_unlock_servers', JSON.stringify(servers));
         }
         set({ songUnlockServers: servers });
-        notify(get, { type: 'info', text: `${key} unlock ${enabled ? 'enabled' : 'disabled'}` });
+        notify(get, { type: 'info', text: `${key} 解锁已${enabled ? '开启' : '关闭'}` });
     },
     handleSetLocalLyricsPriority: (priority) => {
         if (typeof window !== 'undefined') {

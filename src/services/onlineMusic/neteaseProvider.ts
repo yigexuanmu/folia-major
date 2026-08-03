@@ -263,7 +263,7 @@ export const neteaseProvider: OnlineMusicProvider = {
         async getAudioSource(song, quality) {
             const response = await neteaseApi.getSongUrl(toNeteaseId(song.id), mapQuality(quality));
             const raw = response?.data?.[0];
-            const rawUrl = raw?.url;
+            const rawUrl = raw?.url && raw?.freeTrialInfo == null ? raw.url : null;
             if (!rawUrl) return null;
             const trackGain = toFiniteNumber(raw?.gain);
             return {

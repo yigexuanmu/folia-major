@@ -353,17 +353,17 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
 
             <section>
                 <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                    <RefreshCw size={14} /> Song Unlock (VIP Bypass)
+                    <RefreshCw size={14} /> 歌曲解锁
                 </h3>
                 <div className={`rounded-xl border overflow-hidden ${settingsCardClass}`}>
                     <div className="p-4 flex items-center justify-between gap-4">
                         <div className="space-y-1">
                             <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                                 <RefreshCw size={14} />
-                                Enable Song Unlock
+                                启用歌曲解锁
                             </div>
                             <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                                When a VIP or copyrighted song is unavailable, try to find a playable source from other platforms (Bodian/Kuwo).
+                                当歌曲为 VIP/版权受限而无法播放时，自动尝试从其他平台（波点/酷我）寻找可播放音源。
                             </div>
                         </div>
                         {renderToggle(useSongUnlock, () => onToggleSongUnlock(!useSongUnlock))}
@@ -374,10 +374,10 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                                 <div key={server.key} className="p-4 flex items-center justify-between gap-4">
                                     <div className="space-y-0.5">
                                         <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                            {server.key === 'netease' ? 'Netease (GD Music)' : server.key === 'bodian' ? 'Bodian (波点音乐)' : 'Kuwo (酷我)'}
+                                            {server.key === 'netease' ? '网易云' : server.key === 'bodian' ? '波点音乐' : '酷我音乐'}
                                         </div>
                                         <div className="text-[11px] opacity-50" style={{ color: 'var(--text-secondary)' }}>
-                                            {server.key === 'netease' ? 'Via 3rd-party API' : server.key === 'bodian' ? 'Kuwo sub-platform, 320kbps' : 'Kuwo mobile API, 128kbps'}
+                                            {server.key === 'netease' ? '通过第三方 API' : server.key === 'bodian' ? '酷我子平台，320kbps' : '酷我移动端 API，128kbps'}
                                         </div>
                                     </div>
                                     {renderToggle(server.enabled, () => onToggleSongUnlockServer(server.key, !server.enabled))}
