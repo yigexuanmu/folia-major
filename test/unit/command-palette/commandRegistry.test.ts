@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { PlayerState } from '../../../src/types';
-import { getCommandPaletteMatches } from '../../../src/components/command-palette/commandRegistry';
+import { PlayerState, type SongResult } from '../../../src/types';
+import { COMMAND_PALETTE_COMMANDS, getCommandPaletteMatches, getQueueSongMatches } from '../../../src/components/command-palette/commandRegistry';
 import type { CommandPaletteContext } from '../../../src/components/command-palette/types';
 
 const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandPaletteContext => ({
@@ -23,6 +23,7 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     submitSearch: vi.fn(async () => true),
     togglePlay: vi.fn(),
     toggleLoop: vi.fn(),
+    onReplayGainModeChange: vi.fn(),
     handleNextTrack: vi.fn(),
     handlePrevTrack: vi.fn(),
     shuffleQueue: vi.fn(),
@@ -38,8 +39,8 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     toggleTransparentBackground: vi.fn(),
     hideBottomSubtitleOverlay: false,
     toggleBottomSubtitleOverlay: vi.fn(),
-    showSubtitleTranslation: true,
-    toggleSubtitleTranslation: vi.fn(),
+    subtitleContentMode: 'translation',
+    cycleSubtitleContentMode: vi.fn(),
     subtitleOverlayBackground: false,
     toggleSubtitleOverlayBackground: vi.fn(),
     alwaysShowPlayerBackButton: false,
@@ -51,7 +52,6 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     voiceInputPauseSupported: false,
     toggleVoiceInputPause: vi.fn(),
     setAppLanguagePreference: vi.fn(async () => undefined),
-    enableAlternativeLyricSources: false,
     runAutoMatchBestLyric: vi.fn(async () => true),
     setIsUserGuideModalOpen: vi.fn(),
     openThemeQuickEditor: vi.fn(),
@@ -62,6 +62,15 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
 });
 
 describe('command palette registry', () => {
+    it('cycles the subtitle content mode via the unified command', async () => {
+        const context = createContext();
+        const command = COMMAND_PALETTE_COMMANDS.find(entry => entry.id === 'settings-cycle-subtitle-content-mode');
+
+        expect(command).toBeDefined();
+        await command!.execute('', context);
+        expect(context.cycleSubtitleContentMode).toHaveBeenCalled();
+    });
+
     it('parses source-specific search input', async () => {
         const context = createContext();
         const [match] = getCommandPaletteMatches('local touhou');
@@ -91,6 +100,35 @@ describe('command palette registry', () => {
         match.command.execute(match.input, context);
 
         expect(context.openSettings).toHaveBeenCalledWith('options', 'integration');
+    });
+
+    it('opens the local lyrics priority setting from the command palette', () => {
+        const context = createContext();
+        const [match] = getCommandPaletteMatches('在线优先');
+
+        expect(match.command.id).toBe('settings-local-lyrics-priority');
+        match.command.execute(match.input, context);
+
+        expect(context.openSettings).toHaveBeenCalledWith('options', 'playback');
+    });
+
+    it('switches ReplayGain modes from the command palette', () => {
+        const context = createContext();
+
+        const [trackMatch] = getCommandPaletteMatches('单曲增益');
+        expect(trackMatch.command.id).toBe('playback-replaygain-track');
+        trackMatch.command.execute(trackMatch.input, context);
+        expect(context.onReplayGainModeChange).toHaveBeenCalledWith('track');
+
+        const [albumMatch] = getCommandPaletteMatches('album gain');
+        expect(albumMatch.command.id).toBe('playback-replaygain-album');
+        albumMatch.command.execute(albumMatch.input, context);
+        expect(context.onReplayGainModeChange).toHaveBeenCalledWith('album');
+
+        const [offMatch] = getCommandPaletteMatches('关闭音频增益');
+        expect(offMatch.command.id).toBe('playback-replaygain-off');
+        offMatch.command.execute(offMatch.input, context);
+        expect(context.onReplayGainModeChange).toHaveBeenCalledWith('off');
     });
 
     it('matches sync server settings and manual sync commands', () => {
@@ -153,6 +191,26 @@ describe('command palette registry', () => {
         expect(match.command.getPreview?.(match.input, context)).toBeNull();
     });
 
+    it('keeps the complete queue available for virtualization and preserves queue search', () => {
+        const playQueue = Array.from({ length: 24 }, (_, index): SongResult => ({
+            id: index + 1,
+            name: index === 17 ? 'Needle Song' : `Queue Song ${index + 1}`,
+            artists: [{ id: index + 1, name: `Artist ${index + 1}` }],
+            album: { id: index + 1, name: `Album ${index + 1}` },
+            durationMs: 180_000,
+        }));
+        const context = createContext({ playQueue });
+
+        const fullQueue = getQueueSongMatches('', context);
+        const filteredQueue = getQueueSongMatches('needle', context);
+
+        expect(fullQueue).toHaveLength(playQueue.length);
+        expect(fullQueue[17].command.queueIndex).toBe(17);
+        expect(fullQueue[17].command.queueSong).toBe(playQueue[17]);
+        expect(filteredQueue).toHaveLength(1);
+        expect(filteredQueue[0].command.queueIndex).toBe(17);
+    });
+
     it('matches commands by Chinese keyword and pinyin', () => {
         expect(getCommandPaletteMatches('本地 bad apple')[0].command.id).toBe('search-local');
         expect(getCommandPaletteMatches('bendi bad apple')[0].command.id).toBe('search-local');
@@ -190,10 +248,10 @@ describe('command palette registry', () => {
         mainWindowTitlebarMatch.command.execute(mainWindowTitlebarMatch.input, context);
         expect(context.toggleAlwaysShowMainWindowTitlebar).toHaveBeenCalled();
 
-        const [matchSubtitleTranslation] = getCommandPaletteMatches('字幕翻译');
-        expect(matchSubtitleTranslation.command.id).toBe('settings-toggle-subtitle-translation');
-        matchSubtitleTranslation.command.execute(matchSubtitleTranslation.input, context);
-        expect(context.toggleSubtitleTranslation).toHaveBeenCalled();
+        const [matchSubtitleCycle] = getCommandPaletteMatches('字幕翻译');
+        expect(matchSubtitleCycle.command.id).toBe('settings-cycle-subtitle-content-mode');
+        matchSubtitleCycle.command.execute(matchSubtitleCycle.input, context);
+        expect(context.cycleSubtitleContentMode).toHaveBeenCalled();
 
         const [matchSubtitleBackground] = getCommandPaletteMatches('字幕背景');
         expect(matchSubtitleBackground.command.id).toBe('settings-toggle-subtitle-background');
@@ -334,16 +392,13 @@ describe('command palette registry', () => {
         expect(context.shuffleQueue).toHaveBeenCalled();
     });
 
-    it('shows best lyric auto-match command only when alternative lyric sources are enabled', async () => {
-        const disabledContext = createContext({ enableAlternativeLyricSources: false });
-        expect(getCommandPaletteMatches('最佳歌词', disabledContext).some(match => match.command.id === 'playback-auto-match-best-lyric')).toBe(false);
-
-        const enabledContext = createContext({ enableAlternativeLyricSources: true });
-        const [match] = getCommandPaletteMatches('最佳歌词', enabledContext);
+    it('always exposes the best lyric auto-match command', async () => {
+        const context = createContext();
+        const [match] = getCommandPaletteMatches('最佳歌词', context);
         expect(match.command.id).toBe('playback-auto-match-best-lyric');
 
-        await match.command.execute(match.input, enabledContext);
-        expect(enabledContext.runAutoMatchBestLyric).toHaveBeenCalled();
+        await match.command.execute(match.input, context);
+        expect(context.runAutoMatchBestLyric).toHaveBeenCalled();
     });
 
     it('filters out settings-desktop command in a web browser environment without electron', () => {
@@ -372,6 +427,24 @@ describe('command palette registry', () => {
 
     it('limits suggestions to ten commands', () => {
         expect(getCommandPaletteMatches('')).toHaveLength(10);
+    });
+
+    it('allows recent input commands to fill the ten-command landing list', () => {
+        const recentIds = [
+            'queue',
+            'search-current',
+            'playback-prev',
+            'playback-next',
+            'playback-pause',
+            'playback-play',
+            'playback-loop',
+            'playback-shuffle',
+            'panel-queue',
+            'settings-general',
+        ];
+
+        expect(getCommandPaletteMatches('', createContext(), recentIds).map(match => match.command.id))
+            .toEqual(recentIds);
     });
 
     it('matches and executes background and visualizer monet switching commands', () => {

@@ -6,8 +6,6 @@ export default {
     "staticModeOff": "Mode statis dimatikan",
     "homeBgDisabled": "Latar belakang dinamis beranda dimatikan",
     "homeBgEnabled": "Latar belakang dinamis beranda diaktifkan",
-    "altLyricsOn": "Sumber lirik alternatif diaktifkan",
-    "altLyricsOff": "Sumber lirik alternatif dimatikan",
     "autoBestLyricOn": "Otomatis pakai lirik terbaik diaktifkan",
     "autoBestLyricOff": "Otomatis pakai lirik terbaik dimatikan",
     "lyricSourceChanged": "Sumber lirik utama diganti ke {{source}}",
@@ -44,6 +42,7 @@ export default {
     "monetBgReset": "Penyetelan latar Monet direset",
     "latentBgReset": "Penyetelan latar Latent direset",
     "monetReset": "Penyetelan Monet direset",
+    "pendoloReset": "Penyetelan Pendolo direset",
     "uploadEmojiFirst": "Unggah dulu paket emoji kustom",
     "monetBgUpdated": "Gambar latar Monet diperbarui",
     "monetBgCleared": "Gambar latar Monet dihapus",
@@ -149,6 +148,7 @@ export default {
     "queueUpdated": "Ditambahkan ke antrean",
     "copiedSongInfo": "Info lagu disalin",
     "copied": "Disalin",
+    "copyFailed": "Gagal menyalin, coba lagi",
     "added_to_next_play": "Ditambahkan untuk diputar berikutnya",
     "added_to_play_queue": "Ditambahkan ke antrean putar",
     "matchingLyricsAndCover": "Mencocokkan lirik dan sampul...",
@@ -271,7 +271,7 @@ export default {
       "settings-toggle-player-back-button": { "title": "Selalu tampilkan tombol kembali pemutar", "description": "Alihkan apakah tombol kembali halaman pemutar tetap terlihat" },
       "settings-toggle-main-window-titlebar": { "title": "Selalu tampilkan tombol kontrol jendela", "description": "Alihkan apakah tombol kontrol jendela utama tetap terlihat" },
       "settings-toggle-bottom-subtitle-overlay": { "title": "Alihkan overlay subtitle bawah", "description": "Tampilkan atau sembunyikan seluruh overlay subtitle bawah" },
-      "settings-toggle-subtitle-translation": { "title": "Alihkan terjemahan subtitle", "description": "Tampilkan atau sembunyikan teks terjemahan di subtitle visualizer" },
+      "settings-cycle-subtitle-content-mode": { "title": "Alihkan mode konten subtitle", "description": "Beralih antara mode terjemahan dan romanisasi" },
       "settings-toggle-subtitle-background": { "title": "Alihkan latar subtitle", "description": "Tampilkan atau sembunyikan latar agar subtitle lebih mudah dibaca" },
       "settings-language-system": { "title": "Ikuti bahasa sistem", "description": "Gunakan bahasa browser atau sistem" },
       "settings-language-zh-CN": { "title": "Ganti bahasa ke Tionghoa", "description": "Gunakan Bahasa Tionghoa Sederhana di antarmuka" },
@@ -313,6 +313,7 @@ export default {
     "visualizerCappella": "Cappella",
     "visualizerTilt": "Tilt",
     "visualizerCladdagh": "Claddagh",
+    "visualizerPendolo": "Pendolo",
     "cadenzeTuning": "Penyetelan Mindscape",
     "resetVisualizerTuning": "Reset Penyetelan Animasi Lirik",
     "livePreview": "Pratinjau langsung",
@@ -359,6 +360,7 @@ export default {
     "guestMode": "Mode Tamu",
     "loginOnHome": "Login di Beranda",
     "audioQuality": "Kualitas Bawaan",
+    "qualityStandard": "Standar",
     "qualityExhigh": "Sangat Tinggi",
     "qualityLossless": "Lossless",
     "qualityHires": "Hi-Res",
@@ -382,14 +384,22 @@ export default {
     "songs": "lagu",
     "loginTitle": "Pindai dengan Aplikasi Netease",
     "loginNote": "Buka Aplikasi Netease Music > Jelajahi > Pindai QR",
+    "loginTitleKugou": "Pindai dengan KuGou Music",
+    "loginNoteKugou": "Buka KuGou Music dan pindai kode QR ini",
     "loadingQr": "Memuat QR...",
     "scanQr": "Silakan pindai kode QR",
     "qrExpired": "Kode QR kedaluwarsa. Segarkan untuk mencoba lagi.",
     "qrScanned": "Dipindai! Konfirmasi di ponsel Anda.",
     "loginSuccess": "Login Berhasil!",
     "loginError": "Kesalahan Login",
+    "retryQr": "Segarkan kode QR",
+    "closeLogin": "Tutup login",
     "logout": "Logout",
     "backToPlayer": "Kembali ke Pemutar",
+    "switchOnlineProvider": "Ganti penyedia musik online",
+    "onlineProvider": "Penyedia musik online",
+    "providerNotLoggedIn": "Belum login · klik untuk memindai",
+    "providerNotConfigured": "API belum dikonfigurasi untuk Web",
     "backToHome": "Kembali ke Beranda",
     "playAll": "Putar Semua",
     "loadMore": "Muat Lebih Banyak",
@@ -402,10 +412,16 @@ export default {
     "login": "Login",
     "welcomeBack": "Selamat Datang Kembali",
     "guestTitle": "Coba cari beberapa lagu dulu",
-    "guestPrompt": "Login dengan Netease untuk mengakses playlist, album tersimpan, dan radio Anda.",
+    "guestPrompt": "Login untuk mengakses playlist, album tersimpan, dan radio Anda.",
+    "guestPromptProvider": "Login dengan {{provider}} untuk mengakses perpustakaan musik online Anda.",
+    "multiPlatformLoginTitle": "Coba cari beberapa lagu dulu",
+    "multiPlatformLoginPrompt": "Login untuk mengakses playlist, album tersimpan, dan radio Anda.",
+    "loginProvider": "Hubungkan Akun {{provider}}",
+    "switchToProvider": "Beralih ke {{provider}}",
     "pleaseLogin": "Silakan login untuk mengakses perpustakaan Anda",
     "connectAccount": "Hubungkan Akun Netease",
-    "loadingLibrary": "Memuat Perpustakaan...",
+    "connectProviderAccount": "Hubungkan Akun {{provider}}",
+    "loadingLibrary": "Kosong",
     "resultsFor": "Hasil untuk",
     "noResults": "Tidak ada hasil ditemukan.",
     "playlists": "Playlist",
@@ -478,6 +494,7 @@ export default {
     "lyricMatchPriorityDesc": "Saat beberapa sumber lirik memiliki kecocokan tinggi, utamakan sumber ini terlebih dahulu."
   },
   "options": {
+    "refresh": "Segarkan",
     "cacheDetails": "Detail Cache",
     "generalSettings": "Pengaturan umum",
     "generalSettingsDesc": "Bahasa antarmuka dan preferensi aplikasi lainnya.",
@@ -520,7 +537,7 @@ export default {
     "updateCheck": "Periksa Pembaruan",
     "updateCheckDisabled": "Dimatikan",
     "updateChecking": "Memeriksa",
-    "updateAvailable": "Ditemukan",
+    "updateAvailable": "Ditemukan pembaruan baru",
     "updateLatest": "Terbaru",
     "updateCheckFailed": "Gagal memeriksa",
     "updateUnsupported": "Tidak tersedia",
@@ -528,13 +545,13 @@ export default {
     "enableUpdateCheckDesc": "Periksa rilis GitHub melalui proxy sistem saat aplikasi desktop dimulai.",
     "enableAutoUpdate": "Aktifkan Pembaruan Otomatis",
     "enableAutoUpdateDesc": "Unduh pembaruan otomatis setelah versi baru ditemukan.",
-      "updateChannel": "Saluran Pembaruan",
-      "updateChannelDesc": "Pilih jalur rilis yang diikuti aplikasi desktop ini.",
-      "updateChannelRealeco": "Realeco · Stabil",
-      "updateChannelLimo": "Limo · Nightly",
-      "updateChannelCielo": "Cielo · Canary",
-      "updateChannelInternal": "Internal",
-      "updateUnsupportedSystem": "Pembaruan otomatis tidak tersedia pada sistem saat ini.",
+    "updateChannel": "Saluran Pembaruan",
+    "updateChannelDesc": "Pilih jalur rilis yang diikuti aplikasi desktop ini.",
+    "updateChannelRealeco": "Realeco · Stabil",
+    "updateChannelLimo": "Limo · Nightly",
+    "updateChannelCielo": "Cielo · Canary",
+    "updateChannelInternal": "Internal",
+    "updateUnsupportedSystem": "Pembaruan otomatis tidak tersedia pada sistem saat ini.",
     "updateUnsupportedChannel": "Pembaruan otomatis tidak tersedia untuk build internal ini.",
     "autoUpdateGithubNotice": "Pembaruan otomatis butuh akses ke GitHub; jika jaringan tidak stabil, aktifkan proxy sistem.",
     "openReleasePage": "Buka Halaman Rilis",
@@ -560,8 +577,6 @@ export default {
     "disableHomeDynamicBackground": "Nonaktifkan Latar Belakang Dinamis Beranda",
     "disableHomeDynamicBackgroundDesc": "Saat diaktifkan, halaman beranda menghentikan animasi latar belakang untuk mengurangi penggunaan GPU.",
     "disableHomeDynamicBackgroundWarning": "Secara default mati, jadi latar belakang dinamis tetap aktif kecuali Anda mengaktifkannya.",
-    "enableAlternativeLyricSources": "Lebih Banyak Sumber Lirik",
-    "enableAlternativeLyricSourcesDesc": "Tampilkan sumber lirik alternatif (AMLLDB, QQ Music, Kugou Music) di panel pencocokan lirik, mendukung lirik TTML/QRC/KRC.",
     "autoUseBestLyric": "Otomatis Pakai Lirik Terbaik",
     "autoUseBestLyricDesc": "Otomatis cari lirik NetEase, AMLLDB, QQ, dan Kugou, mengutamakan lirik per-kata dengan kecocokan waktu sempurna.",
     "lyricMatchPriority": "Prioritas pencocokan lirik",
@@ -606,6 +621,18 @@ export default {
     "enableNowPlaying": "Aktifkan Now Playing",
     "enableNowPlayingDesc": "Saat diaktifkan, halaman beranda menampilkan titik masuk Stage dan terhubung melalui localhost ke layanan now-playing.",
     "nowPlayingFixedConnectionDesc": "Terhubung ke ws://localhost:9863/api/ws/lyric. Mulai layanan now-playing di mesin Anda terlebih dahulu.",
+    "enableStageModeDescWeb": "Saat diaktifkan, titik masuk Stage muncul di beranda; pilih sumber lirik untuk terhubung ke layanan lokal.",
+    "playerCapAddress": "Alamat Nexus PlayerCap",
+    "playerCapAddressHint": "Kosongkan untuk default lokal localhost:8765; disimpan dan menyambung ulang saat kehilangan fokus.",
+    "playerCapPlayer": "Pemutar",
+    "playerCapPlayerDefault": "Ikuti default",
+    "playerCapTimeline": "Lini masa",
+    "playerCapBasisPlayTime": "play_time: menampilkan lirik lebih awal sesuai lead time yang disetel per pemutar di Nexus PlayerCap, mempertahankan lead offset.",
+    "playerCapBasisTimestamp": "timestamp: lini masa on-beat asli, mengabaikan lead; sesuaikan manual dengan offset lirik.",
+    "playerCapIgnoreClear": "Abaikan pembersihan pemutar",
+    "playerCapIgnoreClearHint": "Mempertahankan lirik saat jeda, idle, atau jendela ditutup; hanya menyegarkan saat benar-benar berganti pemutar.",
+    "playerCapWaitingLyrics": "Terhubung, menunggu lirik",
+    "playerCapConnecting": "Menghubungkan ke Nexus PlayerCap…",
 
     "stageAddress": "Alamat Stage",
     "stageSession": "Sesi Saat Ini",
@@ -681,9 +708,14 @@ export default {
     "previewSubtitleSettingsDesc": "Sesuaikan lapisan subtitle bawah, teks terjemahan, dan overlay baris berikutnya.",
     "subtitleOverlayOpacity": "Opasitas Subtitle",
     "subtitleOverlayBackground": "Latar Subtitle",
-    "subtitleOverlayBackgroundDesc": "Tambahkan latar transparan yang mengikuti tema agar subtitle lebih mudah dibaca.",
+    "subtitleOverlayBackgroundDesc": "Tambahkan halo lembut yang mengikuti tema agar subtitle lebih mudah dibaca.",
     "showSubtitleTranslation": "Tampilkan Terjemahan",
     "showSubtitleTranslationDesc": "Mengontrol teks terjemahan di Monet dan overlay subtitle bawah.",
+    "subtitleContentMode": "Konten Subtitle",
+    "showHarmonySubtitle": "Tampilkan Subtitle Harmoni",
+    "showHarmonySubtitleDesc": "Tampilkan atau sembunyikan overlay lirik harmoni di bagian atas.",
+    "harmonySubtitleBackground": "Latar Subtitle Harmoni",
+    "harmonySubtitleBackgroundDesc": "Tambahkan halo lembut yang menyebar di belakang subtitle harmoni.",
     "classicSettings": "Penyetelan Classic",
     "classicSettingsDesc": "Kontrol rotasi per-kata dan rentang float breathing seluruh baris.",
     "classicWordRotation": "Rotasi Per-kata",
@@ -796,6 +828,9 @@ export default {
     "subtitlePrimaryFontPlaceholder": "Microsoft YaHei",
     "subtitleFontFallbackFamilies": "Font Cadangan Subtitle",
     "subtitleFontFallbackFamiliesPlaceholder": "PingFang SC, sans-serif",
+    "fontWeight": "Ketebalan Font",
+    "subtitleFontScale": "Skala Subtitle",
+    "subtitleFontWeight": "Ketebalan Font Subtitle",
     "previewCommonSettings": "Umum",
     "previewCommonSettingsDesc": "Sesuaikan font, ukuran, dan opasitas bersama untuk seluruh lapisan animasi lirik.",
     "previewOriginal": "Angin mengingat setiap baris yang kau nyanyikan.",
@@ -923,13 +958,60 @@ export default {
     "importBtn": "Impor Konfigurasi",
     "exportBtn": "Salin Konfigurasi Saat Ini",
     "copyJson": "Salin JSON",
-    "copyObsUrl": "Salin URL OBS Statis",
+    "copyObsUrl": "Salin URL OBS",
     "obsUrlCustomFontHint": "Tersalin (termasuk font kustom); kembali ke bawaan jika tidak terpasang di sistem.",
+    "obsThemeMode": "Tema OBS",
+    "obsThemeModeStatic": "Statis murni",
+    "obsThemeModeBuiltin": "Dinamis · Bawaan",
+    "obsThemeModeAi": "Dinamis · AI",
+    "obsThemeModeStaticHint": "Menyematkan tema saat ini ke tautan; tidak pernah berubah di OBS.",
+    "obsThemeModeBuiltinHint": "Overlay memilih palet bawaan paling cocok dari sampul, per lagu.",
+    "obsThemeModeAiHint": "Bawaan plus tema hasil regenerasi AI per lagu; kembali ke bawaan jika AI tak diatur atau tak terjangkau.",
     "copyStageAddress": "Salin Alamat",
     "stageAddressCopied": "Disalin",
     "importSuccess": "Konfigurasi berhasil diimpor!",
     "importFailed": "Impor gagal, periksa formatnya.",
-    "exportThemeLabel": "Sertakan Tema dalam Ekspor",
+    "importConfirmTitle": "Konfirmasi impor",
+    "importConfirmDesc": "Konfigurasi yang diimpor akan menggantikan pengaturan di bawah.\nItem yang tidak dicentang tetap seperti sekarang.",
+    "importApplySelected": "Impor yang dipilih",
+    "importChangeCount": "{{count}} perubahan",
+    "importNothingToChange": "Konfigurasi yang diimpor sama dengan pengaturan saat ini — tidak ada yang berubah.",
+    "importGroupTheme": "Tema",
+    "importGroupVisualizer": "Visualizer",
+    "importGroupFonts": "Font",
+    "importGroupBackground": "Latar",
+    "importGroupSongTheme": "Otomatisasi tema lagu",
+    "importDerivedUnpin": "Ini juga akan mematikan \"utamakan tema kustom\"",
+    "importDerivedUploadedFont": "Font unggahan Anda akan diganti dan dihapus — Anda perlu mengunggahnya lagi",
+    "importFontUnavailable": "Font ini tidak terpasang di sini, jadi akan kembali ke tumpukan bawaan",
+    "importSkipped": "Biarkan apa adanya",
+    "importUnchanged": "Sudah sama",
+    "importFieldThemeLight": "Warna siang",
+    "importFieldThemeDark": "Warna malam",
+    "importFieldActivateCustomTheme": "Beralih ke tema kustom",
+    "importListMerged": "Latar halaman web digabungkan per entri; yang sudah ada tidak dihapus",
+    "importValueOn": "Aktif",
+    "importValueOff": "Nonaktif",
+    "importValueNone": "Belum diatur",
+    "importValueCount": "{{count}} item",
+    "importValueGrouped": "sekelompok pengaturan",
+    "importValueSame": "tidak berubah",
+    "importChildCount": "{{count}} pengaturan berubah",
+    "importItemCount": "{{count}} item",
+    "importFieldTuningOf": "Pengaturan {{name}}",
+    "importFieldRandomMode": "Visualizer acak per lagu",
+    "importFieldLyricsFontStyle": "Gaya font lirik",
+    "importFieldLyricsFontScale": "Ukuran font lirik",
+    "importFieldLyricsFallback": "Font cadangan lirik",
+    "importFieldSubtitleFontStyle": "Gaya font subtitle",
+    "importFieldSubtitleFallback": "Font cadangan subtitle",
+    "importFieldUrlBackgroundList": "Daftar latar URL",
+    "importFieldUrlBackgroundSelected": "Latar URL terpilih",
+    "importFieldVisualizerTunings": "Pengaturan render visualizer",
+    "importFieldMonetBackgroundTuning": "Pengaturan latar Monet",
+    "importFieldNomandBackgroundTuning": "Pengaturan latar Nomand",
+    "importFieldLatentBackgroundTuning": "Pengaturan latar Latent",
+    "exportThemeLabel": "Tema yang disertakan dalam kode konfigurasi",
     "exportAiTheme": "Tema AI",
     "exportCustomTheme": "Tema Kustom",
     "exportNoTheme": "Tidak Ada Tema",
@@ -971,11 +1053,16 @@ export default {
     "chinaDownload": "Unduh CN",
     "goToGithubRelease": "Buka halaman rilis GitHub",
     "chinaDownloadHint": "Catatan: Unduhan memerlukan koneksi langsung ke GitHub (mungkin lambat). Gunakan unduhan CN sebagai gantinya.",
+    "macManualUpdateNotice": "Catatan: macOS memerlukan pengunduhan paket instalasi penuh secara manual untuk memperbarui.",
+    "linuxManualUpdateNotice": "Catatan: Linux tidak mendukung pembaruan otomatis. Silakan unduh paket (AppImage/deb/rpm) secara manual.",
+    "manualUpdateNotice": "Catatan: Pembaruan otomatis tidak didukung di platform ini. Silakan unduh paket secara manual.",
     "versionCopiedHint": "Klik untuk menyalin info versi",
     "versionCopiedToast": "Disalin",
     "stageConnected": "Stage terhubung",
     "nowPlayingConnectedStatus": "Now Playing terhubung",
     "nowPlayingDisconnectedStatus": "Now Playing tidak terhubung",
+    "playerCapConnectedStatus": "Nexus PlayerCap terhubung",
+    "playerCapDisconnectedStatus": "Nexus PlayerCap tidak terhubung",
     "nowPlayingStatusLabel": "Status koneksi: {{status}}",
     "nowPlayingStatusHint": "Terhubung ke ws://localhost:9863/api/ws/lyric. Mulai layanan now-playing terlebih dahulu.",
     "lyricFilterRegex": "Filter Lirik Regex",
@@ -983,69 +1070,68 @@ export default {
     "noDescription": "Tidak ada deskripsi tersedia",
   },
   "releaseNotes": {
-    "v0_5_27": {
-      "intro": "Berikut adalah fitur dan peningkatan baru di versi 0.5.27.",
-      "diorama": {
-        "title": "Mode Lirik 3D Diorama",
-        "description": "Lirik menjadi teks 3D di dalam ruang saat kamera terbang dari baris ke baris, lengkap dengan cahaya karaoke, partikel, dan visual yang mengikuti tema."
+    "v0_6_9": {
+      "intro": "Berikut fitur dan peningkatan baru pada versi 0.6.10.",
+      "sonnetVisualizer": {
+        "title": "Visualizer Lirik Sonnet",
+        "description": "Mode PV lirik bergaya Jepang baru memadukan tipografi kinetik, gerakan kamera, transisi adegan, dan lapisan visual yang dapat dikonfigurasi."
       },
-      "lyricOffsetMemory": {
-        "title": "Offset Linimasa Tersimpan",
-        "description": "Penyesuaian linimasa lirik disimpan untuk setiap lagu dan dipulihkan otomatis saat lagu diputar kembali."
+      "replayGain": {
+        "title": "Penyeimbangan Loudness ReplayGain",
+        "description": "Terapkan metadata ReplayGain track atau album pada sumber pemutaran yang didukung, dengan kontrol di pemutar, pengaturan, dan palet perintah."
       },
-      "posterWallSearch": {
-        "title": "Pencarian dan Gestur Dinding Poster",
-        "description": "Halaman dinding poster kini mendukung pencarian daftar, pengetikan langsung, dan gestur untuk membuka pencarian dengan cepat."
+      "panelNavigationHint": {
+        "title": "Navigasi Panel yang Lebih Jelas",
+        "description": "Saat panel pemutar diperluas, tombol kembali kini menampilkan petunjuk geser singkat agar kembali ke tampilan sebelumnya lebih mudah."
       }
     },
-    "v0_6_0": {
-      "intro": "Berikut adalah fitur dan peningkatan baru di versi 0.6.0.",
-      "localLibraryV2": {
-        "title": "Perpustakaan Lokal 2.0",
-        "description": "Perpustakaan musik lokal kini menggunakan alur dinding poster progresif untuk folder, album, artis, dan playlist, dengan impor, pemindaian ulang, serta cache sampul yang lebih baik."
+    "v0_6_8": {
+      "intro": "Berikut fitur dan peningkatan baru pada versi 0.6.8.",
+      "navidromeRecent": {
+        "title": "Musik Terbaru di Navidrome",
+        "description": "Halaman Baru Ditambahkan dan Baru Diputar memudahkan Anda melanjutkan musik atau menemukan tambahan terbaru di pustaka."
       },
-      "entityEditing": {
-        "title": "Edit Entitas Artis dan Album",
-        "description": "Ubah nama tampilan, cari dan gabungkan entitas duplikat, atau pindahkan lagu terpilih ke entitas artis dan album baru maupun yang sudah ada."
+      "cappellaSafeArea": {
+        "title": "Tata Letak Lirik Cappella",
+        "description": "Area aman di bawah lirik kini menyesuaikan tinggi baris sebenarnya untuk mengurangi tumpang tindih pada berbagai ukuran font dan tata letak."
       },
-      "unifiedSearch": {
-        "title": "Pencarian dan Navigasi Terpadu",
-        "description": "Ruang kerja pencarian mencakup NetEase, lokal, Navidrome, dan antrean saat ini, sementara riwayat navigasi, tampilan peta, dan tautan detail membuat penelusuran lebih lancar."
-      },
-      "metadataMatching": {
-        "title": "Pencocokan Metadata yang Lebih Cerdas",
-        "description": "Lagu lokal kini mendukung pencocokan berbantuan durasi, pengaturan metadata dan sampul secara massal, pencocokan online manual, serta pemulihan informasi lokal asli."
-      },
-      "dailyRecommendations": {
-        "title": "Rekomendasi Harian dan Edit Playlist",
-        "description": "Rekomendasi harian NetEase dapat dijelajahi, dikelola, dan dimasukkan ke antrean secara langsung, dengan umpan balik yang lebih halus saat mengedit playlist."
-      },
-      "visualizerBackgrounds": {
-        "title": "Sistem Latar Visualizer Baru",
-        "description": "Latar Latent dan Nomand menambahkan mode statis, latar keterbacaan subtitle, sumber warna yang dapat diatur, respons ketukan, serta pengaturan dan perintah latar yang terpadu."
-      },
-      "dioramaRework": {
-        "title": "Pembaruan Partikel Diorama",
-        "description": "Diorama kini memiliki mode awan titik dan koridor berbasis riak, lebih banyak bentuk partikel, pewarnaan kata kunci, serta kontrol kepadatan dan cahaya."
+      "kugouPlayback": {
+        "title": "Kompatibilitas Pemutaran Kugou",
+        "description": "Penanganan URL media Kugou di aplikasi desktop ditingkatkan untuk memperbaiki kegagalan pemutaran pada beberapa lagu."
       }
     },
-    "v0_6_1": {
-      "intro": "Berikut adalah fitur dan peningkatan baru di versi 0.6.1.",
-      "settingsRework": {
-        "title": "Desain Ulang Halaman Pengaturan",
-        "description": "Halaman pengaturan yang dirancang ulang sepenuhnya agar lebih terstruktur dan mudah digunakan."
+    "v0_6_5": {
+      "intro": "Berikut fitur dan peningkatan baru pada versi 0.6.7.",
+      "lyricPreview": {
+        "title": "Pratinjau Animasi Lirik yang Ditingkatkan",
+        "description": "Pengaturan gaya animasi lirik kini memiliki kontrol jeda untuk pratinjau dan satu set lirik placeholder baru."
       },
-      "autoHideChrome": {
-        "title": "Sembunyikan Elemen Otomatis",
-        "description": "Opsi untuk mengatur apakah bilah judul dan tombol kembali halaman pemutar disembunyikan secara otomatis saat tidak aktif."
+      "responseSmoothness": {
+        "title": "Respons yang Lebih Lancar",
+        "description": "Respons beberapa komponen dioptimalkan agar interaksi dan pembaruan dinamis terasa lebih lancar."
       },
-      "voiceInputPause": {
-        "title": "Jeda Otomatis Penginputan Suara",
-        "description": "Menjeda pemutaran secara otomatis saat menggunakan penginputan suara Windows, tersedia di Pengaturan Laboratorium."
+      "commandPaletteV2": {
+        "title": "Palet Perintah v2",
+        "description": "Sematkan fitur yang sering digunakan di pengaturan Tampilan dan gunakan memori perintah yang diperluas."
       },
-      "obsStaticLink": {
-        "title": "Berbagi Tautan Statis OBS",
-        "description": "Versi web kini mendukung pembuatan dan pengiriman tautan statis OBS untuk integrasi streaming."
+      "commandPaletteQueue": {
+        "title": "Antrean Pemutaran di Palet Perintah",
+        "description": "Kelola antrean pemutaran langsung di Palet Perintah dengan perintah Antrean."
+      }
+    },
+    "v0_6_3": {
+      "intro": "Berikut adalah fitur dan peningkatan baru pada versi terbaru.",
+      "pendoloTheme": {
+        "title": "Visual Baru: Tema Jam Pendolo",
+        "description": "Memperkenalkan tema Pendolo baru dengan efek gigi mekanik yang dinamis, tipografi lirik melingkar, dan lirik yang dapat diklik untuk melompat."
+      },
+      "obsDynamicAi": {
+        "title": "Tema AI Dinamis OBS",
+        "description": "Overlay AI Dinamis OBS kini dapat secara otomatis membuat ulang tema berbasis AI yang sesuai dengan lagu saat ini setelah berganti lagu."
+      },
+      "playerCapEnhance": {
+        "title": "Lapisan Data PlayerCap & Sinkronisasi",
+        "description": "Merombak lapisan data PlayerCap untuk mengoptimalkan sinkronisasi tema dan propogasi pengaturan dengan klien Web untuk pengalaman kontrol yang lebih baik."
       }
     }
   },
@@ -1093,6 +1179,9 @@ export default {
     "matching": "Mencocokkan...",
     "searchForSong": "Cari lagu...",
     "search": "Cari",
+    "neteaseSource": "NetEase",
+    "qqSource": "QQ Music",
+    "kugouSource": "KuGou Music",
     "searching": "Mencari...",
     "noResults": "Tidak ada hasil ditemukan. Coba kueri pencarian berbeda.",
     "matchLyrics": "Cocokkan Data",
@@ -1134,6 +1223,7 @@ export default {
     "replayGainTrack": "Trek",
     "replayGainAlbum": "ReplayGain: Mode Album",
     "replayGainUnavailable": "ReplayGain tidak terdeteksi",
+    "replayGainTitle": "Penguatan Audio",
     "lyricsSource": "Lirik",
     "lyricTimelineOffset": "Offset Garis Waktu",
     "lyricTimelineOffsetHint": "Sementara untuk sesi pemutaran ini. Nilai positif membuat lirik lebih lambat.",
@@ -1352,7 +1442,7 @@ export default {
     "back": "Kembali",
     "preparing": "Menyiapkan",
     "noLyrics": "Tidak Ada Lirik"
-,
+    ,
     "previous": "Sebelumnya",
     "next": "Selanjutnya",
     "play": "Putar",

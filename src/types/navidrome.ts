@@ -1,4 +1,4 @@
-import { AmllDbPlatform, LyricData, LyricProviderSource, SongResult } from '../types';
+import { AmllDbPlatform, LyricData, LyricProviderSource, ReplayGainInfo, SongResult } from '../types';
 
 // Navidrome/Subsonic API Configuration
 export interface NavidromeConfig {
@@ -77,6 +77,7 @@ export interface SubsonicSong {
     type: 'music' | 'podcast' | 'audiobook';
     isVideo: boolean;
     starred?: string;
+    replayGain?: ReplayGainInfo;
 }
 
 // Album List Response
@@ -89,6 +90,10 @@ export interface AlbumList2Response {
 // Album Response
 export interface AlbumResponse {
     album: SubsonicAlbum;
+}
+
+export interface SongResponse {
+    song: SubsonicSong;
 }
 
 export interface SubsonicPlaylist {
@@ -330,6 +335,7 @@ export interface NavidromeSong extends SongResult {
         bitRate?: number;
         suffix: string;
         starred?: string;
+        replayGain?: SubsonicSong['replayGain'];
     };
     // For lyrics matching (similar to local songs)
     matchedSongId?: number;
@@ -342,7 +348,7 @@ export interface NavidromeSong extends SongResult {
     noAutoMatch?: boolean;
     matchedLyricsSource?: LyricProviderSource;
     matchedLyricsProviderPlatform?: AmllDbPlatform;
-    cachedStructuredLyrics?: StructuredLyric | StructuredLyricLine[];
+    cachedStructuredLyrics?: StructuredLyric | StructuredLyric[] | StructuredLyricLine[];
     cachedPlainLyrics?: string;
 }
 

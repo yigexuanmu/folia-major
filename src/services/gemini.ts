@@ -1,6 +1,7 @@
 import { DualTheme } from "../types";
 import { applyStoredAnimationIntensityToDualTheme } from "./themePreferences";
 import { sanitizeDualTheme } from "./themeSanitizer";
+import { getWebAiProvider } from "./runtimeConfig";
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -26,7 +27,7 @@ export const generateThemeFromLyrics = async (
       return sanitizeDualTheme(dualTheme);
     }
 
-    const provider = import.meta.env.VITE_AI_PROVIDER;
+    const provider = getWebAiProvider();
     const endpoint = provider === 'openai' ? '/api/generate-theme_openai' : '/api/generate-theme';
 
     const response = await fetch(endpoint, {
@@ -48,4 +49,38 @@ export const generateThemeFromLyrics = async (
     console.error("Failed to generate theme via API:", error);
     throw error;
   }
+};
+
+// The AI connection the web OBS overlay (Dynamic AI mode) generates a theme with. The overlay runs
+// in a separate browser context, so it takes an explicit provider instead of reading anything from
+// the app; the provider is selected by Docker runtime config or the Vite build fallback.
+export interface ObsAiConfig {
+  provider: 'gemini' | 'openai';
+}
+
+// OBS-overlay variant of generateThemeFromLyrics: keyless (the endpoint uses its own server env
+// key), abortable, and with no Electron branch since the overlay is web-only. Used per song by the
+// overlay; the caller falls back to the builtin theme if it rejects.
+export const generateObsThemeFromLyrics = async (
+  lyricsText: string,
+  options: { isPureMusic?: boolean; songTitle?: string } | undefined,
+  aiConfig: ObsAiConfig,
+  signal?: AbortSignal,
+): Promise<DualTheme> => {
+  const endpoint = aiConfig.provider === 'openai' ? '/api/generate-theme_openai' : '/api/generate-theme';
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lyricsText, ...(options ?? {}) }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error((errorData as { error?: string }).error || 'Failed to generate theme');
+  }
+
+  const dualTheme = await response.json();
+  return applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme as DualTheme));
 };

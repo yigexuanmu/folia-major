@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type React from 'react';
-import { DEFAULT_CADENZA_TUNING, DEFAULT_CAPPELLA_TUNING, DEFAULT_CLASSIC_TUNING, DEFAULT_CLADDAGH_TUNING, DEFAULT_DIORAMA_TUNING, DEFAULT_FUME_TUNING, DEFAULT_LATENT_BACKGROUND_TUNING, DEFAULT_MONET_BACKGROUND_TUNING, DEFAULT_MONET_TUNING, DEFAULT_NOMAND_BACKGROUND_TUNING, DEFAULT_PARTITA_TUNING, DEFAULT_TILT_TUNING, DIORAMA_PARTICLE_DENSITY_MAX, DIORAMA_PARTICLE_DENSITY_MIN, DIORAMA_PARTICLE_GLOW_INTENSITY_MAX, DIORAMA_PARTICLE_GLOW_INTENSITY_MIN, DIORAMA_PARTICLE_SIZE_MAX, DIORAMA_PARTICLE_SIZE_MIN, type CadenzaTuning, type CappellaAvatarImage, type CappellaAvatarSource, type CappellaEmojiImage, type CappellaTuning, type ClassicTuning, type CladdaghTuning, type DioramaTuning, type FumeTuning, type LatentBackgroundColorSource, type LatentBackgroundDisplayMode, type LatentBackgroundTuning, type LyricProviderSource, type MonetBackgroundImage, type MonetBackgroundLayout, type MonetBackgroundSource, type MonetBackgroundTuning, type MonetBackgroundWashColorMode, type MonetPortraitImage, type MonetPortraitSource, type MonetTuning, type NomandBackgroundDitheringType, type NomandBackgroundSource, type NomandBackgroundTuning, type PartitaTuning, type QueueAddBehavior, type StatusMessage, type StoredCappellaAvatarImage, type StoredCappellaEmojiImage, type StoredCustomLyricsFont, type StoredMonetBackgroundImage, type StoredMonetPortraitImage, type Theme, type TiltTuning, type UnlockServerConfig, type UrlBackgroundItem, type VisualizerBackgroundMode, type VisualizerFrameRate, type VisualizerMode } from '../types';
+import { DEFAULT_CADENZA_TUNING, DEFAULT_CAPPELLA_TUNING, DEFAULT_CLASSIC_TUNING, DEFAULT_CLADDAGH_TUNING, DEFAULT_DIORAMA_TUNING, DEFAULT_FUME_TUNING, DEFAULT_LATENT_BACKGROUND_TUNING, DEFAULT_MONET_BACKGROUND_TUNING, DEFAULT_MONET_TUNING, DEFAULT_NOMAND_BACKGROUND_TUNING, DEFAULT_PARTITA_TUNING, DEFAULT_PENDOLO_TUNING, DEFAULT_SONNET_TUNING, DEFAULT_TILT_TUNING, DIORAMA_PARTICLE_DENSITY_MAX, DIORAMA_PARTICLE_DENSITY_MIN, DIORAMA_PARTICLE_GLOW_INTENSITY_MAX, DIORAMA_PARTICLE_GLOW_INTENSITY_MIN, DIORAMA_PARTICLE_SIZE_MAX, DIORAMA_PARTICLE_SIZE_MIN, type CadenzaTuning, type CappellaAvatarImage, type CappellaAvatarSource, type CappellaEmojiImage, type CappellaTuning, type ClassicTuning, type CladdaghTuning, type DioramaTuning, type FumeTuning, type LatentBackgroundColorSource, type LatentBackgroundDisplayMode, type LatentBackgroundTuning, type LocalLyricsPriority, type LyricProviderSource, type MonetBackgroundImage, type MonetBackgroundLayout, type MonetBackgroundSource, type MonetBackgroundTuning, type MonetBackgroundWashColorMode, type MonetPortraitImage, type MonetPortraitSource, type MonetTuning, type NomandBackgroundDitheringType, type NomandBackgroundSource, type NomandBackgroundTuning, type PartitaTuning, type PendoloTuning, type QueueAddBehavior, type SonnetTuning, type StatusMessage, type StoredCappellaAvatarImage, type StoredCappellaEmojiImage, type StoredCustomLyricsFont, type StoredMonetBackgroundImage, type StoredMonetPortraitImage, type SubtitleContentMode, type Theme, type TiltTuning, type UnlockServerConfig, type UrlBackgroundItem, type VisualizerBackgroundMode, type VisualizerFrameRate, type VisualizerMode } from '../types';
 import { DEFAULT_VISUALIZER_MODE, getVisualizerModeLabel, getVisualizerRegistryEntry, hasVisualizerMode } from '../components/visualizer/registry';
 import { DEFAULT_VISUALIZER_BACKGROUND_MODE, hasVisualizerBackgroundMode } from '../components/visualizer/backgrounds/registry';
 import { resolveDioramaMoteCircumference, resolveDioramaMoteRadial } from '../components/visualizer/diorama/dioramaMoteField';
@@ -13,9 +13,17 @@ import { buildStoredMonetPortraitImage, clearMonetPortraitImage, isSupportedMone
 import { parseVisualizerFrameRate, setGlobalVisualizerFrameRate, VISUALIZER_FRAME_RATE_STORAGE_KEY } from '../utils/frameRateLimiter';
 import { sanitizeUrlBackgroundItem, sanitizeUrlBackgroundList } from '../utils/urlBackground';
 import { getLyricProviderPreferenceLabel } from '../utils/lyrics/lyricSourceLabels';
+import { migratePreferredLyricSource } from '../utils/lyrics/sourcePriority';
 import { applyAppLanguagePreference, readStoredAppLanguagePreference, type AppLanguagePreference } from '../i18n/config';
 import { normalizeFontFamilyStack, normalizeFontWeight } from '../utils/fontStacks';
 import i18n from '../i18n/config';
+import type { AudioQualityPreference } from '../types/onlineMusic';
+import {
+    normalizePinnedCommandIds,
+    readPinnedCommandIds,
+    writePinnedCommandIds,
+    type PinnedCommandIds,
+} from '../components/command-palette/pinnedCommandPreferences';
 
 // src/stores/useSettingsUiStore.ts
 // Shared settings state and actions used by App, Home, and SettingsModal.
@@ -25,7 +33,7 @@ export const CACHE_SIZE_KEY = 'folia_cache_size';
 const ENABLE_MEDIA_CACHE_KEY = 'folia_enable_media_cache';
 const LAST_SEEN_GUIDE_VERSION_STORAGE_KEY = 'folia_last_seen_guide_version';
 
-export type AudioQuality = 'exhigh' | 'lossless' | 'hires';
+export type AudioQuality = AudioQualityPreference;
 export type SettingsModalInitialTab = 'help' | 'options';
 export type SettingsSubviewId = 'appearance' | 'general' | 'playback' | 'integration' | 'storage' | 'desktop' | 'lab' | 'visualizer' | 'themePark' | 'lyricFilter';
 export type VisualizerSettingsSection = 'common' | 'background' | 'visualizer' | 'subtitle';
@@ -43,15 +51,20 @@ export const REMOTE_CONTROL_SKIP_TASKBAR_STORAGE_KEY = 'remote_control_skip_task
 export const OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY = 'open_player_on_launch';
 export const SUBTITLE_OVERLAY_OPACITY_STORAGE_KEY = 'subtitle_overlay_opacity';
 export const SUBTITLE_OVERLAY_BACKGROUND_STORAGE_KEY = 'subtitle_overlay_background';
+export const SHOW_HARMONY_SUBTITLE_STORAGE_KEY = 'show_harmony_subtitle';
+export const HARMONY_SUBTITLE_BACKGROUND_STORAGE_KEY = 'harmony_subtitle_background';
 export const SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY = 'show_subtitle_translation';
+export const SUBTITLE_CONTENT_MODE_STORAGE_KEY = 'subtitle_content_mode';
 const LYRICS_FONT_FALLBACK_FAMILIES_STORAGE_KEY = 'lyrics_font_fallback_families';
 const LYRICS_FONT_WEIGHT_STORAGE_KEY = 'lyrics_font_weight';
 const SUBTITLE_FONT_INHERITS_LYRICS_STORAGE_KEY = 'subtitle_font_inherits_lyrics';
+const SUBTITLE_FONT_SCALE_STORAGE_KEY = 'subtitle_font_scale';
 const SUBTITLE_FONT_STYLE_STORAGE_KEY = 'subtitle_font_style';
 const SUBTITLE_FONT_FAMILY_STORAGE_KEY = 'subtitle_font_family';
 const SUBTITLE_FONT_FALLBACK_FAMILIES_STORAGE_KEY = 'subtitle_font_fallback_families';
 const SUBTITLE_FONT_WEIGHT_STORAGE_KEY = 'subtitle_font_weight';
 export const VISUALIZER_OPACITY_STORAGE_KEY = 'visualizer_opacity';
+export const SONNET_PERFORMANCE_WARNING_DISMISSED_STORAGE_KEY = 'sonnet_performance_warning_dismissed';
 
 const getStoredBoolean = (key: string, fallback: boolean) => {
     if (typeof window === 'undefined') {
@@ -66,6 +79,35 @@ const setStoredBoolean = (key: string, value: boolean) => {
     if (typeof window !== 'undefined') {
         localStorage.setItem(key, String(value));
     }
+};
+
+export const readStoredSubtitleContentMode = (): SubtitleContentMode => {
+    if (typeof window === 'undefined') {
+        return 'translation';
+    }
+    const saved = localStorage.getItem(SUBTITLE_CONTENT_MODE_STORAGE_KEY);
+    if (saved === 'translation' || saved === 'romanization' || saved === 'none') {
+        return saved;
+    }
+    return getStoredBoolean(SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY, true) ? 'translation' : 'none';
+};
+
+const getStoredString = (key: string, fallback: string) => {
+    if (typeof window === 'undefined') {
+        return fallback;
+    }
+
+    return localStorage.getItem(key) || fallback;
+};
+
+// OBS overlay theme mode for the copied web OBS URL (default 'builtin' — per-song follow):
+//   'static'  – bake the current theme into cfg (the original behavior; frozen in OBS).
+//   'builtin' – bake no theme; the overlay derives a per-song builtin palette from the cover.
+//   'ai'      – like 'builtin', plus the overlay regenerates an AI theme per song (opt-in).
+const readStoredWebObsThemeMode = (): 'static' | 'builtin' | 'ai' => {
+    if (typeof window === 'undefined') return 'builtin';
+    const value = localStorage.getItem('web_obs_theme_mode') || 'builtin';
+    return value === 'static' || value === 'ai' ? value : 'builtin';
 };
 
 const readStoredDisableHomeDynamicBackground = (): boolean => {
@@ -86,13 +128,21 @@ const readStoredDisableHomeDynamicBackground = (): boolean => {
     return false;
 };
 
+export const resolveStoredAudioQuality = (saved: string | null): AudioQuality => (
+    saved === 'standard' || saved === 'lossless' || saved === 'hires' ? saved : 'high'
+);
+
 const readStoredAudioQuality = (): AudioQuality => {
     if (typeof window === 'undefined') {
-        return 'exhigh';
+        return 'high';
     }
 
     const saved = localStorage.getItem('default_audio_quality');
-    return saved === 'lossless' || saved === 'hires' ? saved : 'exhigh';
+    const quality = resolveStoredAudioQuality(saved);
+    if (saved === 'exhigh') {
+        localStorage.setItem('default_audio_quality', 'high');
+    }
+    return quality;
 };
 
 const readStoredBackgroundOpacity = () => {
@@ -137,6 +187,10 @@ const readStoredVisualizerMode = (): VisualizerMode => {
 
     return hasVisualizerMode(saved) ? saved : DEFAULT_VISUALIZER_MODE;
 };
+
+const readStoredSonnetPerformanceWarningDismissed = () => (
+    getStoredBoolean(SONNET_PERFORMANCE_WARNING_DISMISSED_STORAGE_KEY, false)
+);
 
 const readStoredVisualizerFrameRate = (): VisualizerFrameRate => {
     if (typeof window === 'undefined') {
@@ -357,6 +411,88 @@ const readStoredCladdaghTuning = (): CladdaghTuning => {
         };
     } catch {
         return DEFAULT_CLADDAGH_TUNING;
+    }
+};
+
+const resolvePendoloNumber = (value: unknown, fallback: number, min: number, max: number) => (
+    typeof value === 'number' && Number.isFinite(value)
+        ? Math.min(max, Math.max(min, value))
+        : fallback
+);
+
+const readStoredPendoloTuning = (): PendoloTuning => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_PENDOLO_TUNING;
+    }
+
+    const saved = localStorage.getItem('pendolo_tuning');
+    if (!saved) return DEFAULT_PENDOLO_TUNING;
+
+    try {
+        const parsed = JSON.parse(saved) as Partial<PendoloTuning>;
+        return {
+            arcRadius: resolvePendoloNumber(parsed.arcRadius, DEFAULT_PENDOLO_TUNING.arcRadius, 0.25, 0.80),
+            arcAngleDeg: resolvePendoloNumber(parsed.arcAngleDeg, DEFAULT_PENDOLO_TUNING.arcAngleDeg, 40, 160),
+            wheelCenterX: resolvePendoloNumber(parsed.wheelCenterX, DEFAULT_PENDOLO_TUNING.wheelCenterX, -0.30, 0.50),
+            wheelCenterY: resolvePendoloNumber(parsed.wheelCenterY, DEFAULT_PENDOLO_TUNING.wheelCenterY, 0.20, 0.80),
+            tickSnappiness: resolvePendoloNumber(parsed.tickSnappiness, DEFAULT_PENDOLO_TUNING.tickSnappiness, 0.5, 2.0),
+            activeScale: resolvePendoloNumber(parsed.activeScale, DEFAULT_PENDOLO_TUNING.activeScale, 1.00, 1.60),
+            showGearDecor: parsed.showGearDecor === 'none' || parsed.showGearDecor === 'full' ? parsed.showGearDecor : 'subtle',
+            showCenterGradient: typeof parsed.showCenterGradient === 'boolean'
+                ? parsed.showCenterGradient
+                : DEFAULT_PENDOLO_TUNING.showCenterGradient,
+            showCoverOnWatchFace: typeof parsed.showCoverOnWatchFace === 'boolean'
+                ? parsed.showCoverOnWatchFace
+                : DEFAULT_PENDOLO_TUNING.showCoverOnWatchFace,
+            enableLineGlow: typeof parsed.enableLineGlow === 'boolean'
+                ? parsed.enableLineGlow
+                : DEFAULT_PENDOLO_TUNING.enableLineGlow,
+        };
+    } catch {
+        return DEFAULT_PENDOLO_TUNING;
+    }
+};
+
+const readStoredSonnetTuning = (): SonnetTuning => {
+    if (typeof window === 'undefined') return DEFAULT_SONNET_TUNING;
+    const saved = localStorage.getItem('sonnet_tuning');
+    if (!saved) return DEFAULT_SONNET_TUNING;
+    try {
+        const parsed = JSON.parse(saved) as Partial<SonnetTuning>;
+        return {
+            cameraIntensity: resolvePendoloNumber(parsed.cameraIntensity, DEFAULT_SONNET_TUNING.cameraIntensity, 0, 2),
+            typographyMotion: resolvePendoloNumber(parsed.typographyMotion, DEFAULT_SONNET_TUNING.typographyMotion, 0, 2),
+            mgDensity: resolvePendoloNumber(parsed.mgDensity, DEFAULT_SONNET_TUNING.mgDensity, 0, 2),
+            showOnlyText: typeof parsed.showOnlyText === 'boolean'
+                ? parsed.showOnlyText
+                : DEFAULT_SONNET_TUNING.showOnlyText,
+            showGuide: typeof parsed.showGuide === 'boolean'
+                ? parsed.showGuide
+                : DEFAULT_SONNET_TUNING.showGuide,
+            showBackgroundMg: typeof parsed.showBackgroundMg === 'boolean'
+                ? parsed.showBackgroundMg
+                : DEFAULT_SONNET_TUNING.showBackgroundMg,
+            showFixedGeo: typeof parsed.showFixedGeo === 'boolean'
+                ? parsed.showFixedGeo
+                : DEFAULT_SONNET_TUNING.showFixedGeo,
+            showGiantDecorativeText: typeof parsed.showGiantDecorativeText === 'boolean'
+                ? parsed.showGiantDecorativeText
+                : DEFAULT_SONNET_TUNING.showGiantDecorativeText,
+            showBackgroundDecor: typeof parsed.showBackgroundDecor === 'boolean'
+                ? parsed.showBackgroundDecor
+                : DEFAULT_SONNET_TUNING.showBackgroundDecor,
+            enableTransitions: typeof parsed.enableTransitions === 'boolean'
+                ? parsed.enableTransitions
+                : DEFAULT_SONNET_TUNING.enableTransitions,
+            outerFrameMode: parsed.outerFrameMode === 'none'
+                || parsed.outerFrameMode === 'frame'
+                || parsed.outerFrameMode === 'full'
+                ? parsed.outerFrameMode
+                : DEFAULT_SONNET_TUNING.outerFrameMode,
+            textureResolution: resolvePendoloNumber(parsed.textureResolution, DEFAULT_SONNET_TUNING.textureResolution, 0.5, 4),
+        };
+    } catch {
+        return DEFAULT_SONNET_TUNING;
     }
 };
 
@@ -776,12 +912,12 @@ const readStoredLyricsFontStyle = (): Theme['fontStyle'] => {
     return saved === 'serif' || saved === 'mono' ? saved : 'sans';
 };
 
-const readStoredLyricsFontScale = (): number => {
+const readStoredFontScale = (key: string): number => {
     if (typeof window === 'undefined') {
         return 1;
     }
 
-    const saved = localStorage.getItem('lyrics_font_scale');
+    const saved = localStorage.getItem(key);
     if (!saved) return 1;
 
     const parsed = parseFloat(saved);
@@ -934,10 +1070,23 @@ const readStoredHomeLayoutStyle = (): 'carousel' | 'grid' => {
     return 'grid';
 };
 
+const PREFERRED_LYRIC_SOURCE_STORAGE_KEY_V2 = 'preferred_alternative_lyric_source_v2';
+export const LOCAL_LYRICS_PRIORITY_STORAGE_KEY = 'local_lyrics_priority';
+
+export const readStoredLocalLyricsPriority = (): LocalLyricsPriority => {
+    if (typeof window === 'undefined') return 'local';
+    return localStorage.getItem(LOCAL_LYRICS_PRIORITY_STORAGE_KEY) === 'online' ? 'online' : 'local';
+};
+
 const readStoredPreferredAlternativeLyricSource = (): LyricProviderSource => {
-    if (typeof window === 'undefined') return 'netease';
-    const saved = localStorage.getItem('preferred_alternative_lyric_source');
-    return saved === 'qq' || saved === 'kugou' || saved === 'amll' ? saved : 'netease';
+    if (typeof window === 'undefined') return 'qq';
+    const versioned = localStorage.getItem(PREFERRED_LYRIC_SOURCE_STORAGE_KEY_V2);
+    const legacy = localStorage.getItem('preferred_alternative_lyric_source');
+    const migrated = migratePreferredLyricSource(versioned, legacy);
+    if (versioned !== migrated) {
+        localStorage.setItem(PREFERRED_LYRIC_SOURCE_STORAGE_KEY_V2, migrated);
+    }
+    return migrated;
 };
 
 /**
@@ -969,14 +1118,15 @@ export type SettingsUiState = {
     useCoverColorBg: boolean;
     staticMode: boolean;
     disableHomeDynamicBackground: boolean;
-    enableAlternativeLyricSources: boolean;
     autoUseBestLyric: boolean;
     preferredAlternativeLyricSource: LyricProviderSource;
     useSongUnlock: boolean;
     songUnlockServers: UnlockServerConfig[];
+    localLyricsPriority: LocalLyricsPriority;
     hidePlayerProgressBar: boolean;
     hidePlayerTranslationSubtitle: boolean;
     showSubtitleTranslation: boolean;
+    subtitleContentMode: SubtitleContentMode;
     hidePlayerRightPanelButton: boolean;
     alwaysShowPlayerBackButton: boolean;
     alwaysShowMainWindowTitlebar: boolean;
@@ -994,6 +1144,8 @@ export type SettingsUiState = {
     backgroundOpacity: number;
     subtitleOverlayOpacity: number;
     subtitleOverlayBackground: boolean;
+    showHarmonySubtitle: boolean;
+    harmonySubtitleBackground: boolean;
     visualizerOpacity: number;
     visualizerBackgroundMode: VisualizerBackgroundMode | null;
     urlBackgroundList: UrlBackgroundItem[];
@@ -1002,6 +1154,10 @@ export type SettingsUiState = {
     isDaylight: boolean;
     visualizerMode: VisualizerMode;
     randomVisualizerModePerSong: boolean;
+    sonnetPerformanceWarningOpen: boolean;
+    sonnetPerformanceWarningDontShowAgain: boolean;
+    sonnetPerformanceWarningDismissed: boolean;
+    pendingVisualizerMode: VisualizerMode | null;
     classicTuning: ClassicTuning;
     cadenzaTuning: CadenzaTuning;
     partitaTuning: PartitaTuning;
@@ -1014,6 +1170,8 @@ export type SettingsUiState = {
     nomandBackgroundTuning: NomandBackgroundTuning;
     latentBackgroundTuning: LatentBackgroundTuning;
     monetTuning: MonetTuning;
+    pendoloTuning: PendoloTuning;
+    sonnetTuning: SonnetTuning;
     storedCappellaEmojiPack: StoredCappellaEmojiImage[];
     cappellaCustomEmojiImages: CappellaEmojiImage[];
     isLoadingCappellaCustomEmojiPack: boolean;
@@ -1033,6 +1191,7 @@ export type SettingsUiState = {
     lyricsCustomFont: StoredCustomLyricsFont | null;
     lyricsFontFallbackFamilies: string[];
     subtitleFontInheritsLyrics: boolean;
+    subtitleFontScale: number;
     subtitleFontStyle: Theme['fontStyle'];
     subtitleFontWeight: number | null;
     subtitleFontFamily: string | null;
@@ -1040,6 +1199,14 @@ export type SettingsUiState = {
     lyricFilterPattern: string;
     showOpenPanelCloseButton: boolean;
     enableNowPlayingStage: boolean;
+    // PlayerCap lyrics source (third stage source) config. enablePlayerCapStage is Web-only (Electron uses stageStatus.source).
+    enablePlayerCapStage: boolean;
+    playerCapHost: string;
+    playerCapPlayer: string;
+    playerCapTimeBasis: 'timestamp' | 'play_time';
+    playerCapSticky: boolean;
+    // Theme mode baked into the copied web OBS URL (static burn-in vs per-song dynamic; see readStoredWebObsThemeMode).
+    webObsThemeMode: 'static' | 'builtin' | 'ai';
     queueAddBehavior: QueueAddBehavior;
     audioOutputDeviceId: string;
     volume: number;
@@ -1047,6 +1214,11 @@ export type SettingsUiState = {
     loopMode: 'off' | 'all' | 'one';
     homeLayoutStyle: 'carousel' | 'grid';
     grid3dCardStyle: 'image' | 'card';
+    showHomeTabPlaylist: boolean;
+    showHomeTabRadio: boolean;
+    showHomeTabAlbums: boolean;
+    showHomeTabLocal: boolean;
+    pinnedCommandIds: PinnedCommandIds;
     isSubSettingsViewOpen: boolean;
     settingsModalState: SettingsModalState;
     lastSeenGuideVersion: string | null;
@@ -1077,14 +1249,15 @@ export type SettingsUiState = {
     handleToggleCoverColorBg: (enable: boolean) => void;
     handleToggleStaticMode: (enable: boolean) => void;
     handleToggleDisableHomeDynamicBackground: (disable: boolean) => void;
-    handleToggleAlternativeLyricSources: (enable: boolean) => void;
     handleToggleAutoUseBestLyric: (enable: boolean) => void;
     handleSetPreferredAlternativeLyricSource: (source: LyricProviderSource) => void;
     handleToggleSongUnlock: (enable: boolean) => void;
     handleToggleSongUnlockServer: (key: string, enabled: boolean) => void;
+    handleSetLocalLyricsPriority: (priority: LocalLyricsPriority) => void;
     handleToggleHidePlayerProgressBar: (enable: boolean) => void;
     handleToggleHidePlayerTranslationSubtitle: (enable: boolean) => void;
     handleToggleShowSubtitleTranslation: (enable: boolean) => void;
+    handleSetSubtitleContentMode: (mode: SubtitleContentMode) => void;
     handleToggleHidePlayerRightPanelButton: (enable: boolean) => void;
     handleToggleAlwaysShowPlayerBackButton: (enable: boolean) => void;
     handleToggleAlwaysShowMainWindowTitlebar: (enable: boolean) => void;
@@ -1101,6 +1274,8 @@ export type SettingsUiState = {
     handleSetBackgroundOpacity: (opacity: number) => void;
     handleSetSubtitleOverlayOpacity: (opacity: number) => void;
     handleToggleSubtitleOverlayBackground: (enabled: boolean) => void;
+    handleToggleShowHarmonySubtitle: (enabled: boolean) => void;
+    handleToggleHarmonySubtitleBackground: (enabled: boolean) => void;
     handleSetVisualizerOpacity: (opacity: number) => void;
     handleSetVisualizerBackgroundMode: (mode: VisualizerBackgroundMode) => void;
     handleResetVisualizerBackgroundMode: () => void;
@@ -1111,7 +1286,10 @@ export type SettingsUiState = {
     handleSetUrlBackgroundList: (items: UrlBackgroundItem[]) => void;
     handleSetVisualizerFrameRate: (frameRate: VisualizerFrameRate) => void;
     setDaylightPreference: (isDaylight: boolean) => void;
-    handleSetVisualizerMode: (mode: VisualizerMode, options?: { notify?: boolean }) => void;
+    handleSetVisualizerMode: (mode: VisualizerMode, options?: { notify?: boolean; skipSonnetWarning?: boolean }) => void;
+    handleSetSonnetPerformanceWarningDontShowAgain: (enabled: boolean) => void;
+    handleConfirmSonnetPerformanceWarning: () => void;
+    handleCancelSonnetPerformanceWarning: () => void;
     handleToggleRandomVisualizerModePerSong: (enable: boolean) => void;
     handleSetClassicTuning: (patch: Partial<ClassicTuning>) => void;
     handleResetClassicTuning: () => void;
@@ -1137,6 +1315,10 @@ export type SettingsUiState = {
     handleResetLatentBackgroundTuning: () => void;
     handleSetMonetTuning: (patch: Partial<MonetTuning>) => void;
     handleResetMonetTuning: () => void;
+    handleSetPendoloTuning: (patch: Partial<PendoloTuning>) => void;
+    handleResetPendoloTuning: () => void;
+    handleSetSonnetTuning: (patch: Partial<SonnetTuning>) => void;
+    handleResetSonnetTuning: () => void;
     handleUploadMonetBackgroundImage: (files: File[]) => Promise<{ ok: boolean; error?: string; }>;
     handleClearMonetBackgroundImage: () => Promise<void>;
     handleUploadMonetPortraitImage: (files: File[]) => Promise<{ ok: boolean; error?: string; }>;
@@ -1152,6 +1334,7 @@ export type SettingsUiState = {
     handleUploadLyricsCustomFont: (file: File) => Promise<{ ok: boolean; error?: string; }>;
     handleSetLyricsFontFallbackFamilies: (families: string[]) => void;
     handleSetSubtitleFontInheritsLyrics: (inheritsLyrics: boolean) => void;
+    handleSetSubtitleFontScale: (fontScale: number) => void;
     handleSetSubtitleFontStyle: (fontStyle: Theme['fontStyle']) => void;
     handleSetSubtitleFontWeight: (fontWeight: number | null) => void;
     handleSetSubtitleFontFamily: (fontFamily: string | null) => void;
@@ -1160,6 +1343,13 @@ export type SettingsUiState = {
     handleSetLyricFilterPattern: (pattern: string) => void;
     handleToggleOpenPanelCloseButton: (enable: boolean) => void;
     handleToggleNowPlayingStage: (enable: boolean) => void;
+    // Web stage-source tri-state mutually-exclusive selection: null disables, else one of 'now-playing' or 'playercap'. Electron uses stageStatus.source.
+    setWebStageSource: (source: 'now-playing' | 'playercap' | null) => void;
+    setPlayerCapHost: (host: string) => void;
+    setPlayerCapPlayer: (player: string) => void;
+    setPlayerCapTimeBasis: (basis: 'timestamp' | 'play_time') => void;
+    setPlayerCapSticky: (sticky: boolean) => void;
+    setWebObsThemeMode: (mode: 'static' | 'builtin' | 'ai') => void;
     handleSetQueueAddBehavior: (behavior: QueueAddBehavior) => void;
     handleSetAudioOutputDeviceId: (deviceId: string) => void;
     handleSetVolume: (val: number) => void;
@@ -1167,6 +1357,11 @@ export type SettingsUiState = {
     handleToggleLoopMode: () => void;
     handleSetHomeLayoutStyle: (style: 'carousel' | 'grid') => void;
     handleSetGrid3dCardStyle: (style: 'image' | 'card') => void;
+    handleToggleHomeTabPlaylist: (show: boolean) => void;
+    handleToggleHomeTabRadio: (show: boolean) => void;
+    handleToggleHomeTabAlbums: (show: boolean) => void;
+    handleToggleHomeTabLocal: (show: boolean) => void;
+    setPinnedCommandId: (slotIndex: number, commandId: string | null) => void;
 };
 
 const notify = (get: () => SettingsUiState, message: StatusMessage) => {
@@ -1179,24 +1374,25 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     useCoverColorBg: getStoredBoolean('use_cover_color_bg', false),
     staticMode: getStoredBoolean('static_mode', false),
     disableHomeDynamicBackground: readStoredDisableHomeDynamicBackground(),
-    enableAlternativeLyricSources: getStoredBoolean('enable_alternative_lyric_sources', true),
     autoUseBestLyric: getStoredBoolean('auto_use_best_lyric', true),
     preferredAlternativeLyricSource: readStoredPreferredAlternativeLyricSource(),
     useSongUnlock: getStoredBoolean('use_song_unlock', true),
     songUnlockServers: (() => {
-      try {
-        const stored = typeof window !== 'undefined' ? localStorage.getItem('song_unlock_servers') : null;
-        if (stored) return JSON.parse(stored) as UnlockServerConfig[];
-      } catch {}
-      return [
-        { key: 'netease', enabled: true },
-        { key: 'bodian', enabled: true },
-        { key: 'kuwo', enabled: false },
-      ];
+        try {
+            const stored = typeof window !== 'undefined' ? localStorage.getItem('song_unlock_servers') : null;
+            if (stored) return JSON.parse(stored) as UnlockServerConfig[];
+        } catch {}
+        return [
+            { key: 'netease', enabled: true },
+            { key: 'bodian', enabled: true },
+            { key: 'kuwo', enabled: false },
+        ];
     })(),
+    localLyricsPriority: readStoredLocalLyricsPriority(),
     hidePlayerProgressBar: getStoredBoolean('hide_player_progress_bar', false),
     hidePlayerTranslationSubtitle: getStoredBoolean('hide_player_translation_subtitle', false),
-    showSubtitleTranslation: getStoredBoolean(SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY, true),
+    showSubtitleTranslation: readStoredSubtitleContentMode() !== 'none',
+    subtitleContentMode: readStoredSubtitleContentMode(),
     hidePlayerRightPanelButton: getStoredBoolean('hide_player_right_panel_button', false),
     alwaysShowPlayerBackButton: getStoredBoolean('always_show_player_back_button', false),
     alwaysShowMainWindowTitlebar: getStoredBoolean('always_show_main_window_titlebar', false),
@@ -1213,7 +1409,9 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     enableMediaCache: getStoredBoolean(ENABLE_MEDIA_CACHE_KEY, false),
     backgroundOpacity: readStoredBackgroundOpacity(),
     subtitleOverlayOpacity: readStoredSubtitleOverlayOpacity(),
-    subtitleOverlayBackground: getStoredBoolean(SUBTITLE_OVERLAY_BACKGROUND_STORAGE_KEY, false),
+    subtitleOverlayBackground: getStoredBoolean(SUBTITLE_OVERLAY_BACKGROUND_STORAGE_KEY, true),
+    showHarmonySubtitle: getStoredBoolean(SHOW_HARMONY_SUBTITLE_STORAGE_KEY, true),
+    harmonySubtitleBackground: getStoredBoolean(HARMONY_SUBTITLE_BACKGROUND_STORAGE_KEY, true),
     visualizerOpacity: readStoredVisualizerOpacity(),
     visualizerBackgroundMode: readStoredVisualizerBackgroundMode(),
     urlBackgroundList: readStoredUrlBackgroundList(),
@@ -1222,6 +1420,10 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     isDaylight: getStoredBoolean('default_theme_daylight', false),
     visualizerMode: readStoredVisualizerMode(),
     randomVisualizerModePerSong: getStoredBoolean('random_visualizer_mode_per_song', false),
+    sonnetPerformanceWarningOpen: false,
+    sonnetPerformanceWarningDontShowAgain: false,
+    sonnetPerformanceWarningDismissed: readStoredSonnetPerformanceWarningDismissed(),
+    pendingVisualizerMode: null,
     classicTuning: readStoredClassicTuning(),
     cadenzaTuning: readStoredCadenzaTuning(),
     partitaTuning: readStoredPartitaTuning(),
@@ -1234,6 +1436,8 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     nomandBackgroundTuning: readStoredNomandBackgroundTuning(),
     latentBackgroundTuning: readStoredLatentBackgroundTuning(),
     monetTuning: readStoredMonetTuning(),
+    pendoloTuning: readStoredPendoloTuning(),
+    sonnetTuning: readStoredSonnetTuning(),
     storedCappellaEmojiPack: [],
     cappellaCustomEmojiImages: [],
     isLoadingCappellaCustomEmojiPack: true,
@@ -1248,11 +1452,12 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     isLoadingMonetPortraitImage: true,
     appLanguagePreference: readStoredAppLanguagePreference(),
     lyricsFontStyle: readStoredLyricsFontStyle(),
-    lyricsFontScale: readStoredLyricsFontScale(),
+    lyricsFontScale: readStoredFontScale('lyrics_font_scale'),
     lyricsFontWeight: readStoredFontWeight(LYRICS_FONT_WEIGHT_STORAGE_KEY),
     lyricsCustomFont: readStoredCustomLyricsFont(),
     lyricsFontFallbackFamilies: readStoredFontFamilyStack(LYRICS_FONT_FALLBACK_FAMILIES_STORAGE_KEY),
     subtitleFontInheritsLyrics: getStoredBoolean(SUBTITLE_FONT_INHERITS_LYRICS_STORAGE_KEY, true),
+    subtitleFontScale: readStoredFontScale(SUBTITLE_FONT_SCALE_STORAGE_KEY),
     subtitleFontStyle: readStoredSubtitleFontStyle(),
     subtitleFontWeight: readStoredFontWeight(SUBTITLE_FONT_WEIGHT_STORAGE_KEY),
     subtitleFontFamily: readStoredSubtitleFontFamily(),
@@ -1260,6 +1465,12 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     lyricFilterPattern: readStoredLyricFilterPattern(),
     showOpenPanelCloseButton: getStoredBoolean('show_open_panel_close_button', true),
     enableNowPlayingStage: getStoredBoolean('enable_now_playing_stage', false),
+    enablePlayerCapStage: getStoredBoolean('enable_playercap_stage', false),
+    playerCapHost: getStoredString('playercap_host', 'localhost:8765'),
+    playerCapPlayer: getStoredString('playercap_player', ''),
+    playerCapTimeBasis: getStoredString('playercap_time_basis', 'play_time') === 'timestamp' ? 'timestamp' : 'play_time',
+    playerCapSticky: getStoredBoolean('playercap_sticky', true),
+    webObsThemeMode: readStoredWebObsThemeMode(),
     queueAddBehavior: readStoredQueueAddBehavior(),
     audioOutputDeviceId: readStoredAudioOutputDeviceId(),
     volume: readStoredVolume(),
@@ -1267,6 +1478,11 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     loopMode: readStoredLoopMode(),
     homeLayoutStyle: readStoredHomeLayoutStyle(),
     grid3dCardStyle: readStoredGrid3dCardStyle(),
+    showHomeTabPlaylist: getStoredBoolean('show_home_tab_playlist', true),
+    showHomeTabRadio: getStoredBoolean('show_home_tab_radio', true),
+    showHomeTabAlbums: getStoredBoolean('show_home_tab_albums', true),
+    showHomeTabLocal: getStoredBoolean('show_home_tab_local', true),
+    pinnedCommandIds: readPinnedCommandIds(),
     isSubSettingsViewOpen: false,
     settingsModalState: {
         isOpen: false,
@@ -1383,14 +1599,6 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             text: i18n.t('notifications.' + (disable ? 'homeBgDisabled' : 'homeBgEnabled')),
         });
     },
-    handleToggleAlternativeLyricSources: (enable) => {
-        setStoredBoolean('enable_alternative_lyric_sources', enable);
-        set({ enableAlternativeLyricSources: enable });
-        notify(get, {
-            type: 'info',
-            text: i18n.t('notifications.' + (enable ? 'altLyricsOn' : 'altLyricsOff')),
-        });
-    },
     handleToggleAutoUseBestLyric: (enable) => {
         setStoredBoolean('auto_use_best_lyric', enable);
         set({ autoUseBestLyric: enable });
@@ -1401,7 +1609,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     },
     handleSetPreferredAlternativeLyricSource: (source) => {
         if (typeof window !== 'undefined') {
-            localStorage.setItem('preferred_alternative_lyric_source', source);
+            localStorage.setItem(PREFERRED_LYRIC_SOURCE_STORAGE_KEY_V2, source);
         }
         set({ preferredAlternativeLyricSource: source });
         notify(get, {
@@ -1412,8 +1620,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     handleToggleSongUnlock: (enable) => {
         setStoredBoolean('use_song_unlock', enable);
         set({ useSongUnlock: enable });
-        const text = enable ? 'Song unlock enabled' : 'Song unlock disabled';
-        notify(get, { type: 'info', text });
+        notify(get, { type: 'info', text: enable ? 'Song unlock enabled' : 'Song unlock disabled' });
     },
     handleToggleSongUnlockServer: (key, enabled) => {
         const servers = get().songUnlockServers.map(s =>
@@ -1424,6 +1631,12 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         }
         set({ songUnlockServers: servers });
         notify(get, { type: 'info', text: `${key} unlock ${enabled ? 'enabled' : 'disabled'}` });
+    },
+    handleSetLocalLyricsPriority: (priority) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(LOCAL_LYRICS_PRIORITY_STORAGE_KEY, priority);
+        }
+        set({ localLyricsPriority: priority });
     },
     handleToggleHidePlayerProgressBar: (enable) => {
         setStoredBoolean('hide_player_progress_bar', enable);
@@ -1459,10 +1672,26 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     },
     handleToggleShowSubtitleTranslation: (enable) => {
         setStoredBoolean(SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY, enable);
-        set({ showSubtitleTranslation: enable });
+        const subtitleContentMode: SubtitleContentMode = enable ? 'translation' : 'none';
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(SUBTITLE_CONTENT_MODE_STORAGE_KEY, subtitleContentMode);
+        }
+        set({ showSubtitleTranslation: enable, subtitleContentMode });
         notify(get, {
             type: 'info',
             text: i18n.t('notifications.' + (enable ? 'translationShown' : 'translationHidden')),
+        });
+    },
+    handleSetSubtitleContentMode: (subtitleContentMode) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(SUBTITLE_CONTENT_MODE_STORAGE_KEY, subtitleContentMode);
+        }
+        const showSubtitleTranslation = subtitleContentMode !== 'none';
+        setStoredBoolean(SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY, showSubtitleTranslation);
+        set({ subtitleContentMode, showSubtitleTranslation });
+        notify(get, {
+            type: 'info',
+            text: i18n.t(`notifications.subtitleMode.${subtitleContentMode}`),
         });
     },
     handleToggleHidePlayerRightPanelButton: (enable) => {
@@ -1566,6 +1795,14 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         setStoredBoolean(SUBTITLE_OVERLAY_BACKGROUND_STORAGE_KEY, enabled);
         set({ subtitleOverlayBackground: enabled });
     },
+    handleToggleShowHarmonySubtitle: (enabled) => {
+        setStoredBoolean(SHOW_HARMONY_SUBTITLE_STORAGE_KEY, enabled);
+        set({ showHarmonySubtitle: enabled });
+    },
+    handleToggleHarmonySubtitleBackground: (enabled) => {
+        setStoredBoolean(HARMONY_SUBTITLE_BACKGROUND_STORAGE_KEY, enabled);
+        set({ harmonySubtitleBackground: enabled });
+    },
     handleSetVisualizerOpacity: (opacity) => {
         const next = Math.min(1, Math.max(0.2, opacity));
         if (typeof window !== 'undefined') {
@@ -1661,7 +1898,22 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             void window.electron.setNativeTheme(enabled ? 'light' : 'dark');
         }
     },
+    // Gate first-time Sonnet entry behind an explicit performance acknowledgement.
     handleSetVisualizerMode: (mode, options) => {
+        if (
+            mode === 'sonnet'
+            && get().visualizerMode !== 'sonnet'
+            && !get().sonnetPerformanceWarningDismissed
+            && !options?.skipSonnetWarning
+        ) {
+            set({
+                sonnetPerformanceWarningOpen: true,
+                sonnetPerformanceWarningDontShowAgain: false,
+                pendingVisualizerMode: mode,
+            });
+            return;
+        }
+
         if (typeof window !== 'undefined') {
             localStorage.setItem('visualizer_mode', mode);
         }
@@ -1674,6 +1926,32 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
                 }),
             });
         }
+    },
+    handleSetSonnetPerformanceWarningDontShowAgain: (enabled) => {
+        set({ sonnetPerformanceWarningDontShowAgain: enabled });
+    },
+    handleConfirmSonnetPerformanceWarning: () => {
+        const pendingMode = get().pendingVisualizerMode;
+        const dismissWarning = get().sonnetPerformanceWarningDontShowAgain;
+        if (dismissWarning) {
+            setStoredBoolean(SONNET_PERFORMANCE_WARNING_DISMISSED_STORAGE_KEY, true);
+        }
+        set({
+            sonnetPerformanceWarningOpen: false,
+            sonnetPerformanceWarningDontShowAgain: false,
+            sonnetPerformanceWarningDismissed: get().sonnetPerformanceWarningDismissed || dismissWarning,
+            pendingVisualizerMode: null,
+        });
+        if (pendingMode) {
+            get().handleSetVisualizerMode(pendingMode, { skipSonnetWarning: true });
+        }
+    },
+    handleCancelSonnetPerformanceWarning: () => {
+        set({
+            sonnetPerformanceWarningOpen: false,
+            sonnetPerformanceWarningDontShowAgain: false,
+            pendingVisualizerMode: null,
+        });
     },
     handleToggleRandomVisualizerModePerSong: (enable) => {
         setStoredBoolean('random_visualizer_mode_per_song', enable);
@@ -1792,6 +2070,76 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         }
         set({ claddaghTuning: DEFAULT_CLADDAGH_TUNING });
         notify(get, { type: 'info', text: i18n.t('notifications.claddaghReset') });
+    },
+    handleSetPendoloTuning: (patch: Partial<PendoloTuning>) => {
+        const prev = get().pendoloTuning;
+        const next: PendoloTuning = {
+            arcRadius: resolvePendoloNumber(patch.arcRadius, prev.arcRadius, 0.25, 0.80),
+            arcAngleDeg: resolvePendoloNumber(patch.arcAngleDeg, prev.arcAngleDeg, 40, 160),
+            wheelCenterX: resolvePendoloNumber(patch.wheelCenterX, prev.wheelCenterX, -0.30, 0.50),
+            wheelCenterY: resolvePendoloNumber(patch.wheelCenterY, prev.wheelCenterY, 0.20, 0.80),
+            tickSnappiness: resolvePendoloNumber(patch.tickSnappiness, prev.tickSnappiness, 0.5, 2.0),
+            activeScale: resolvePendoloNumber(patch.activeScale, prev.activeScale, 1.00, 1.60),
+            showGearDecor: patch.showGearDecor === 'none' || patch.showGearDecor === 'subtle' || patch.showGearDecor === 'full'
+                ? patch.showGearDecor
+                : prev.showGearDecor,
+            showCenterGradient: typeof patch.showCenterGradient === 'boolean'
+                ? patch.showCenterGradient
+                : prev.showCenterGradient ?? DEFAULT_PENDOLO_TUNING.showCenterGradient,
+            showCoverOnWatchFace: typeof patch.showCoverOnWatchFace === 'boolean'
+                ? patch.showCoverOnWatchFace
+                : prev.showCoverOnWatchFace ?? DEFAULT_PENDOLO_TUNING.showCoverOnWatchFace,
+            enableLineGlow: typeof patch.enableLineGlow === 'boolean'
+                ? patch.enableLineGlow
+                : prev.enableLineGlow ?? DEFAULT_PENDOLO_TUNING.enableLineGlow,
+        };
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('pendolo_tuning', JSON.stringify(next));
+        }
+        set({ pendoloTuning: next });
+    },
+    handleResetPendoloTuning: () => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('pendolo_tuning', JSON.stringify(DEFAULT_PENDOLO_TUNING));
+        }
+        set({ pendoloTuning: DEFAULT_PENDOLO_TUNING });
+        notify(get, { type: 'info', text: i18n.t('notifications.pendoloReset') });
+    },
+    handleSetSonnetTuning: (patch: Partial<SonnetTuning>) => {
+        const prev = get().sonnetTuning;
+        const next: SonnetTuning = {
+            cameraIntensity: resolvePendoloNumber(patch.cameraIntensity, prev.cameraIntensity, 0, 2),
+            typographyMotion: resolvePendoloNumber(patch.typographyMotion, prev.typographyMotion, 0, 2),
+            mgDensity: resolvePendoloNumber(patch.mgDensity, prev.mgDensity, 0, 2),
+            showOnlyText: typeof patch.showOnlyText === 'boolean' ? patch.showOnlyText : prev.showOnlyText,
+            showGuide: typeof patch.showGuide === 'boolean' ? patch.showGuide : prev.showGuide,
+            showBackgroundMg: typeof patch.showBackgroundMg === 'boolean' ? patch.showBackgroundMg : prev.showBackgroundMg,
+            showFixedGeo: typeof patch.showFixedGeo === 'boolean' ? patch.showFixedGeo : prev.showFixedGeo,
+            showGiantDecorativeText: typeof patch.showGiantDecorativeText === 'boolean'
+                ? patch.showGiantDecorativeText
+                : prev.showGiantDecorativeText,
+            showBackgroundDecor: typeof patch.showBackgroundDecor === 'boolean'
+                ? patch.showBackgroundDecor
+                : prev.showBackgroundDecor,
+            enableTransitions: typeof patch.enableTransitions === 'boolean'
+                ? patch.enableTransitions
+                : prev.enableTransitions,
+            outerFrameMode: patch.outerFrameMode === 'none'
+                || patch.outerFrameMode === 'frame'
+                || patch.outerFrameMode === 'full'
+                ? patch.outerFrameMode
+                : prev.outerFrameMode,
+            textureResolution: resolvePendoloNumber(patch.textureResolution, prev.textureResolution, 0.5, 4),
+        };
+        if (typeof window !== 'undefined') localStorage.setItem('sonnet_tuning', JSON.stringify(next));
+        set({ sonnetTuning: next });
+    },
+    handleResetSonnetTuning: () => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('sonnet_tuning', JSON.stringify(DEFAULT_SONNET_TUNING));
+        }
+        set({ sonnetTuning: DEFAULT_SONNET_TUNING });
+        notify(get, { type: 'info', text: i18n.t('notifications.sonnetReset') });
     },
     handleSetCappellaTuning: (patch) => {
         const requestedCustomWithoutPack = patch.emojiPackSource === 'custom' && get().storedCappellaEmojiPack.length === 0;
@@ -2090,9 +2438,10 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     },
     handleSetLyricsCustomFont: (font) => {
         if (!font?.family?.trim()) {
-            set({ lyricsCustomFont: null });
+            set({ lyricsCustomFont: null, lyricsFontFallbackFamilies: [] });
             if (typeof window !== 'undefined') {
                 localStorage.removeItem('lyrics_custom_font');
+                localStorage.removeItem(LYRICS_FONT_FALLBACK_FAMILIES_STORAGE_KEY);
             }
             void clearUploadedLyricsFont();
             return;
@@ -2100,9 +2449,10 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
 
         const next = resolveStoredCustomLyricsFont(font);
         if (!next) {
-            set({ lyricsCustomFont: null });
+            set({ lyricsCustomFont: null, lyricsFontFallbackFamilies: [] });
             if (typeof window !== 'undefined') {
                 localStorage.removeItem('lyrics_custom_font');
+                localStorage.removeItem(LYRICS_FONT_FALLBACK_FAMILIES_STORAGE_KEY);
             }
             void clearUploadedLyricsFont();
             return;
@@ -2147,6 +2497,13 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     handleSetSubtitleFontInheritsLyrics: (inheritsLyrics) => {
         setStoredBoolean(SUBTITLE_FONT_INHERITS_LYRICS_STORAGE_KEY, inheritsLyrics);
         set({ subtitleFontInheritsLyrics: inheritsLyrics });
+    },
+    handleSetSubtitleFontScale: (fontScale) => {
+        const next = Math.min(1.4, Math.max(0.85, fontScale));
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(SUBTITLE_FONT_SCALE_STORAGE_KEY, String(next));
+        }
+        set({ subtitleFontScale: next });
     },
     handleSetSubtitleFontStyle: (fontStyle) => {
         if (typeof window !== 'undefined') {
@@ -2219,6 +2576,38 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             text: i18n.t('notifications.' + (enable ? 'panelCloseBtnShown' : 'panelCloseBtnHidden')),
         });
     },
+    setWebStageSource: (source) => {
+        const wasEnabled = get().enableNowPlayingStage || get().enablePlayerCapStage;
+        const enableNowPlaying = source === 'now-playing';
+        const enablePlayerCap = source === 'playercap';
+        setStoredBoolean('enable_now_playing_stage', enableNowPlaying);
+        setStoredBoolean('enable_playercap_stage', enablePlayerCap);
+        set({ enableNowPlayingStage: enableNowPlaying, enablePlayerCapStage: enablePlayerCap });
+        const nowEnabled = enableNowPlaying || enablePlayerCap;
+        // Only notify on the enable/disable transition; switching between the two sources is silent. On disable, the controller's stageSource→null reactive effect handles teardown automatically.
+        if (wasEnabled !== nowEnabled) {
+            notify(get, {
+                type: 'info',
+                text: i18n.t('notifications.' + (nowEnabled ? 'stageModeOn' : 'stageModeOff')),
+            });
+        }
+    },
+    setPlayerCapHost: (host) => {
+        localStorage.setItem('playercap_host', host);
+        set({ playerCapHost: host });
+    },
+    setPlayerCapPlayer: (player) => {
+        localStorage.setItem('playercap_player', player);
+        set({ playerCapPlayer: player });
+    },
+    setPlayerCapTimeBasis: (basis) => {
+        localStorage.setItem('playercap_time_basis', basis);
+        set({ playerCapTimeBasis: basis });
+    },
+    setPlayerCapSticky: (sticky) => {
+        setStoredBoolean('playercap_sticky', sticky);
+        set({ playerCapSticky: sticky });
+    },
     handleToggleNowPlayingStage: (enable) => {
         setStoredBoolean('enable_now_playing_stage', enable);
         set({ enableNowPlayingStage: enable });
@@ -2226,6 +2615,10 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             type: 'info',
             text: i18n.t('notifications.' + (enable ? 'stageModeOn' : 'stageModeOff')),
         });
+    },
+    setWebObsThemeMode: (mode) => {
+        if (typeof window !== 'undefined') localStorage.setItem('web_obs_theme_mode', mode);
+        set({ webObsThemeMode: mode });
     },
     handleSetQueueAddBehavior: (behavior) => {
         if (typeof window !== 'undefined') {
@@ -2283,14 +2676,41 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         });
     },
     handleSetGrid3dCardStyle: (style) => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('grid3d_card_style', style);
-        }
         set({ grid3dCardStyle: style });
+        if (typeof window !== 'undefined') localStorage.setItem('grid3d_card_style', style);
         notify(get, {
             type: 'info',
             text: i18n.t('notifications.' + (style === 'image' ? 'cardStyleImage' : 'cardStyleCard')),
         });
+    },
+    handleToggleHomeTabPlaylist: (show) => {
+        set({ showHomeTabPlaylist: show });
+        if (typeof window !== 'undefined') localStorage.setItem('show_home_tab_playlist', show.toString());
+    },
+    handleToggleHomeTabRadio: (show) => {
+        set({ showHomeTabRadio: show });
+        if (typeof window !== 'undefined') localStorage.setItem('show_home_tab_radio', show.toString());
+    },
+    handleToggleHomeTabAlbums: (show) => {
+        set({ showHomeTabAlbums: show });
+        if (typeof window !== 'undefined') localStorage.setItem('show_home_tab_albums', show.toString());
+    },
+    handleToggleHomeTabLocal: (show) => {
+        set({ showHomeTabLocal: show });
+        if (typeof window !== 'undefined') localStorage.setItem('show_home_tab_local', show.toString());
+    },
+    setPinnedCommandId: (slotIndex, commandId) => {
+        if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= 3) {
+            return;
+        }
+        const current = get().pinnedCommandIds;
+        const next = normalizePinnedCommandIds(
+            current.map((currentCommandId, index) => (
+                index === slotIndex ? commandId : currentCommandId
+            )),
+        );
+        writePinnedCommandIds(next);
+        set({ pinnedCommandIds: next });
     },
 }));
 
@@ -2303,6 +2723,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     hidePlayerProgressBar: state.hidePlayerProgressBar,
     hidePlayerTranslationSubtitle: state.hidePlayerTranslationSubtitle,
     showSubtitleTranslation: state.showSubtitleTranslation,
+    subtitleContentMode: state.subtitleContentMode,
     hidePlayerRightPanelButton: state.hidePlayerRightPanelButton,
     alwaysShowPlayerBackButton: state.alwaysShowPlayerBackButton,
     alwaysShowMainWindowTitlebar: state.alwaysShowMainWindowTitlebar,
@@ -2319,6 +2740,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     backgroundOpacity: state.backgroundOpacity,
     subtitleOverlayOpacity: state.subtitleOverlayOpacity,
     subtitleOverlayBackground: state.subtitleOverlayBackground,
+    showHarmonySubtitle: state.showHarmonySubtitle,
+    harmonySubtitleBackground: state.harmonySubtitleBackground,
     visualizerOpacity: state.visualizerOpacity,
     visualizerBackgroundMode: state.visualizerBackgroundMode,
     urlBackgroundList: state.urlBackgroundList,
@@ -2329,6 +2752,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     isUserGuideModalOpen: state.isUserGuideModalOpen,
     visualizerMode: state.visualizerMode,
     randomVisualizerModePerSong: state.randomVisualizerModePerSong,
+    sonnetPerformanceWarningOpen: state.sonnetPerformanceWarningOpen,
+    sonnetPerformanceWarningDontShowAgain: state.sonnetPerformanceWarningDontShowAgain,
     homeLayoutStyle: state.homeLayoutStyle,
     handleSetHomeLayoutStyle: state.handleSetHomeLayoutStyle,
     grid3dCardStyle: state.grid3dCardStyle,
@@ -2345,6 +2770,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     nomandBackgroundTuning: state.nomandBackgroundTuning,
     latentBackgroundTuning: state.latentBackgroundTuning,
     monetTuning: state.monetTuning,
+    pendoloTuning: state.pendoloTuning,
+    sonnetTuning: state.sonnetTuning,
     cappellaCustomEmojiImages: state.cappellaCustomEmojiImages,
     isLoadingCappellaCustomEmojiPack: state.isLoadingCappellaCustomEmojiPack,
     cappellaCustomAvatarImages: state.cappellaCustomAvatarImages,
@@ -2361,6 +2788,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     lyricsCustomFontLabel: state.lyricsCustomFont?.label ?? null,
     lyricsFontFallbackFamilies: state.lyricsFontFallbackFamilies,
     subtitleFontInheritsLyrics: state.subtitleFontInheritsLyrics,
+    subtitleFontScale: state.subtitleFontScale,
     subtitleFontStyle: state.subtitleFontStyle,
     subtitleFontWeight: state.subtitleFontWeight,
     subtitleFontFamily: state.subtitleFontFamily,
@@ -2369,6 +2797,12 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     lyricFilterPatternError: getLyricFilterError(state.lyricFilterPattern),
     showOpenPanelCloseButton: state.showOpenPanelCloseButton,
     enableNowPlayingStage: state.enableNowPlayingStage,
+    enablePlayerCapStage: state.enablePlayerCapStage,
+    playerCapHost: state.playerCapHost,
+    playerCapPlayer: state.playerCapPlayer,
+    playerCapTimeBasis: state.playerCapTimeBasis,
+    playerCapSticky: state.playerCapSticky,
+    webObsThemeMode: state.webObsThemeMode,
     queueAddBehavior: state.queueAddBehavior,
     audioOutputDeviceId: state.audioOutputDeviceId,
     loopMode: state.loopMode,
@@ -2378,6 +2812,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleToggleHidePlayerProgressBar: state.handleToggleHidePlayerProgressBar,
     handleToggleHidePlayerTranslationSubtitle: state.handleToggleHidePlayerTranslationSubtitle,
     handleToggleShowSubtitleTranslation: state.handleToggleShowSubtitleTranslation,
+    handleSetSubtitleContentMode: state.handleSetSubtitleContentMode,
     handleToggleHidePlayerRightPanelButton: state.handleToggleHidePlayerRightPanelButton,
     handleToggleAlwaysShowPlayerBackButton: state.handleToggleAlwaysShowPlayerBackButton,
     handleToggleAlwaysShowMainWindowTitlebar: state.handleToggleAlwaysShowMainWindowTitlebar,
@@ -2396,6 +2831,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleSetBackgroundOpacity: state.handleSetBackgroundOpacity,
     handleSetSubtitleOverlayOpacity: state.handleSetSubtitleOverlayOpacity,
     handleToggleSubtitleOverlayBackground: state.handleToggleSubtitleOverlayBackground,
+    handleToggleShowHarmonySubtitle: state.handleToggleShowHarmonySubtitle,
+    handleToggleHarmonySubtitleBackground: state.handleToggleHarmonySubtitleBackground,
     handleSetVisualizerOpacity: state.handleSetVisualizerOpacity,
     handleSetVisualizerBackgroundMode: state.handleSetVisualizerBackgroundMode,
     handleResetVisualizerBackgroundMode: state.handleResetVisualizerBackgroundMode,
@@ -2409,6 +2846,9 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     setLastSeenGuideVersion: state.setLastSeenGuideVersion,
     setIsUserGuideModalOpen: state.setIsUserGuideModalOpen,
     handleSetVisualizerMode: state.handleSetVisualizerMode,
+    handleSetSonnetPerformanceWarningDontShowAgain: state.handleSetSonnetPerformanceWarningDontShowAgain,
+    handleConfirmSonnetPerformanceWarning: state.handleConfirmSonnetPerformanceWarning,
+    handleCancelSonnetPerformanceWarning: state.handleCancelSonnetPerformanceWarning,
     handleToggleRandomVisualizerModePerSong: state.handleToggleRandomVisualizerModePerSong,
     handleSetClassicTuning: state.handleSetClassicTuning,
     handleResetClassicTuning: state.handleResetClassicTuning,
@@ -2434,6 +2874,10 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleResetLatentBackgroundTuning: state.handleResetLatentBackgroundTuning,
     handleSetMonetTuning: state.handleSetMonetTuning,
     handleResetMonetTuning: state.handleResetMonetTuning,
+    handleSetPendoloTuning: state.handleSetPendoloTuning,
+    handleResetPendoloTuning: state.handleResetPendoloTuning,
+    handleSetSonnetTuning: state.handleSetSonnetTuning,
+    handleResetSonnetTuning: state.handleResetSonnetTuning,
     handleUploadMonetBackgroundImage: state.handleUploadMonetBackgroundImage,
     handleClearMonetBackgroundImage: state.handleClearMonetBackgroundImage,
     handleUploadMonetPortraitImage: state.handleUploadMonetPortraitImage,
@@ -2449,6 +2893,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleUploadLyricsCustomFont: state.handleUploadLyricsCustomFont,
     handleSetLyricsFontFallbackFamilies: state.handleSetLyricsFontFallbackFamilies,
     handleSetSubtitleFontInheritsLyrics: state.handleSetSubtitleFontInheritsLyrics,
+    handleSetSubtitleFontScale: state.handleSetSubtitleFontScale,
     handleSetSubtitleFontStyle: state.handleSetSubtitleFontStyle,
     handleSetSubtitleFontWeight: state.handleSetSubtitleFontWeight,
     handleSetSubtitleFontFamily: state.handleSetSubtitleFontFamily,

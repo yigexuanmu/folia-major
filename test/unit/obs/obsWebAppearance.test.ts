@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { compressConfig } from '@/components/modal/settings/AppearanceSettingsSubview';
-import { buildObsAppearanceFromShortcode, parseObsWebParams } from '@/utils/obsWebAppearance';
+import { compressConfig } from '@/utils/appearanceCodec';
+import { buildObsAppearanceFromShortcode, parseObsAiParams, parseObsWebParams } from '@/utils/obsWebAppearance';
 import { buildObsSourceUrl, extractCfgFromInput } from '@/utils/obsUrl';
 
 // test/unit/obs/obsWebAppearance.test.ts
@@ -40,6 +40,7 @@ const sampleConfig = {
     visualizerOpacity: 0.95,
     hidePlayerTranslationSubtitle: true,
     showSubtitleTranslation: false,
+    subtitleContentMode: 'romanization' as const,
     subtitleOverlayBackground: true,
     lyricsFontScale: 1.25,
     lyricsFontWeight: 650,
@@ -58,6 +59,7 @@ describe('buildObsAppearanceFromShortcode', () => {
         expect(a.subtitleFontWeight).toBe(350);
         expect(a.hideTranslationSubtitle).toBe(true); // hidePlayerTranslationSubtitle → hideTranslationSubtitle
         expect(a.showSubtitleTranslation).toBe(false);
+        expect(a.subtitleContentMode).toBe('romanization');
         expect(a.subtitleOverlayBackground).toBe(true);
         expect(a.background.mode).toBe('monet');
         expect(a.background.common?.opacity).toBe(0.85);
@@ -67,6 +69,26 @@ describe('buildObsAppearanceFromShortcode', () => {
     it('selects the theme side by daylight', () => {
         expect(buildObsAppearanceFromShortcode(shortcode, { isDaylight: false, transparent: true }).theme?.name).toBe('Dark X');
         expect(buildObsAppearanceFromShortcode(shortcode, { isDaylight: true, transparent: true }).theme?.name).toBe('Light X');
+    });
+
+    // obsTheme is authoritative: the dynamic modes resolve per song in the shell, so they must drop
+    // a baked theme rather than freeze on it. A missing marker means a link that predates it, and
+    // has to keep inferring the mode from the payload.
+    it('drops a baked theme under the dynamic modes', () => {
+        for (const themeMode of ['builtin', 'ai'] as const) {
+            expect(buildObsAppearanceFromShortcode(shortcode, { isDaylight: false, transparent: true, themeMode }).theme).toBeNull();
+        }
+    });
+
+    it('keeps a baked theme under static, and infers the mode when unstated', () => {
+        expect(buildObsAppearanceFromShortcode(shortcode, { isDaylight: false, transparent: true, themeMode: 'static' }).theme?.name).toBe('Dark X');
+        expect(buildObsAppearanceFromShortcode(shortcode, { isDaylight: false, transparent: true, themeMode: null }).theme?.name).toBe('Dark X');
+        expect(buildObsAppearanceFromShortcode(shortcode, { isDaylight: false, transparent: true }).theme?.name).toBe('Dark X');
+    });
+
+    it('resolves dynamically when static states itself but carries no theme', () => {
+        const cfg = JSON.stringify({ visualizerMode: 'monet' });
+        expect(buildObsAppearanceFromShortcode(cfg, { isDaylight: false, transparent: false, themeMode: 'static' }).theme).toBeNull();
     });
 
     it('lets an explicit visualizer override win, ignoring an invalid one', () => {
@@ -117,6 +139,31 @@ describe('parseObsWebParams', () => {
         expect(parseObsWebParams('?host=localhost%3A9863%23').host).toBe('localhost:9863'); // trailing '#'
         expect(parseObsWebParams('?host=local%20host%3A9863').host).toBe('localhost:9863'); // internal space
     });
+
+    it('reads the obsTheme mode, treating absent and unknown values alike', () => {
+        expect(parseObsWebParams('?obsTheme=static').themeMode).toBe('static');
+        expect(parseObsWebParams('?obsTheme=builtin').themeMode).toBe('builtin');
+        expect(parseObsWebParams('?obsTheme=ai').themeMode).toBe('ai');
+        expect(parseObsWebParams('').themeMode).toBeNull();
+        expect(parseObsWebParams('?obsTheme=nonsense').themeMode).toBeNull();
+    });
+});
+
+describe('parseObsAiParams', () => {
+    it('returns the connection only under obsTheme=ai', () => {
+        expect(parseObsAiParams('?obsTheme=ai')).toEqual({ provider: 'gemini' });
+        expect(parseObsAiParams('?obsTheme=builtin')).toBeNull();
+        expect(parseObsAiParams('?obsTheme=static')).toBeNull();
+        expect(parseObsAiParams('')).toBeNull();
+    });
+
+    // The overlay is keyless: the provider is fixed at build time (VITE_AI_PROVIDER) and no AI secret
+    // is read from the URL, so stray ai* params (including the old aiFollow gate) are ignored.
+    it('ignores ai* params carried in the URL', () => {
+        expect(parseObsAiParams('?obsTheme=ai&aiKey=k&aiProvider=openai&aiUrl=https%3A%2F%2Fx.test&aiModel=m'))
+            .toEqual({ provider: 'gemini' });
+        expect(parseObsAiParams('?aiFollow=1&aiKey=k')).toBeNull();
+    });
 });
 
 describe('extractCfgFromInput', () => {
@@ -148,5 +195,17 @@ describe('buildObsSourceUrl', () => {
         expect(url).toContain('transparent=0');
         // cfg stays last so trailing technical params never wrap the copied link.
         expect(url.indexOf('cfg=')).toBeGreaterThan(url.indexOf('transparent=0'));
+    });
+
+    it('keeps the long cfg blob last, after source-specific extra params', () => {
+        const url = buildObsSourceUrl('playercap', 'folia-theme://abc', 'lan:8765', { nxpcPlayer: 'cloudmusicv3', nxpcBasis: 'timestamp' });
+        // cfg always comes last; technical params (host/nxpcPlayer/nxpcBasis) go up front for readability.
+        expect(url.indexOf('cfg=')).toBeGreaterThan(url.indexOf('nxpcPlayer='));
+        expect(url.indexOf('cfg=')).toBeGreaterThan(url.indexOf('nxpcBasis='));
+        expect(url.indexOf('cfg=')).toBeGreaterThan(url.indexOf('host='));
+        // cfg is the final segment: no &param follows it (guaranteed structurally, not by convention).
+        expect(url.slice(url.indexOf('cfg=')).includes('&')).toBe(false);
+        // order-independent parsing can still unwrap cfg.
+        expect(extractCfgFromInput(`https://x.test${url}`)).toBe('folia-theme://abc');
     });
 });

@@ -7,24 +7,28 @@ import type { HomeViewModel } from './home/buildHomeModel';
 type AppHomeProps = {
     model: HomeViewModel;
     isHomeFullyHidden?: boolean;
+    isInteractive?: boolean;
 };
 
-const Home: React.FC<AppHomeProps> = ({ model, isHomeFullyHidden }) => {
+const Home: React.FC<AppHomeProps> = ({ model, isHomeFullyHidden, isInteractive = true }) => {
     if (isHomeFullyHidden) {
         return null;
     }
 
     return (
         <GridViewOverlayHost
-            legacyProps={model.legacyProps}
+            surfaceProps={model.surfaceProps}
             onOpenCollection={model.onOpenCollection}
             onPushCollection={model.onPushCollection}
             onBackCollection={model.onBackCollection}
+            isInteractive={isInteractive}
         >
-            {(openGridView) => (
+            {(openGridView, isHomeGridInteractive) => (
                 <Grid3D
-                    {...model.legacyProps}
+                    {...model.surfaceProps}
+                    onlineProviderPlatform={model.onlineProviderPlatform}
                     onOpenGridView={openGridView}
+                    isInteractive={isHomeGridInteractive}
                 />
             )}
         </GridViewOverlayHost>

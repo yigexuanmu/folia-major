@@ -1,7 +1,8 @@
 import type React from 'react';
+import type { LucideIcon } from 'lucide-react';
 import type { SearchReturnView, SearchSource } from '../../stores/useSearchNavigationStore';
 import type { LocalLibraryDisplayCatalog } from '../../services/playbackAdapters';
-import type { HomeViewTab, LatentBackgroundTuning, LocalSong, PlayerState, SongResult, StatusMessage, VisualizerMode, VisualizerBackgroundMode, MonetBackgroundTuning } from '../../types';
+import type { HomeViewTab, LatentBackgroundTuning, LocalSong, PlayerState, ReplayGainMode, SongResult, StatusMessage, SubtitleContentMode, VisualizerMode, VisualizerBackgroundMode, MonetBackgroundTuning } from '../../types';
 import type { AppLanguagePreference } from '../../i18n/config';
 import type { PanelTab } from '../UnifiedPanel';
 import type { SettingsModalInitialTab, SettingsSubviewId } from '../../stores/useSettingsUiStore';
@@ -19,10 +20,13 @@ export type CommandPaletteCommand = {
     title: string;
     description: string;
     textSource?: 'i18n' | 'runtime';
+    icon?: LucideIcon;
     keywords: string[];
     placeholder?: string;
     requiresInput?: boolean;
     getPreview?: (input: string, context: CommandPaletteContext) => string | null;
+    queueIndex?: number;
+    queueSong?: SongResult;
     execute: (input: string, context: CommandPaletteContext) => Promise<boolean> | boolean;
 };
 
@@ -62,6 +66,7 @@ export type CommandPaletteContext = {
     }) => Promise<boolean>;
     togglePlay: () => void;
     toggleLoop: () => void;
+    onReplayGainModeChange: (mode: ReplayGainMode) => void;
     handleNextTrack: () => void;
     handlePrevTrack: () => void;
     shuffleQueue: () => void;
@@ -79,8 +84,8 @@ export type CommandPaletteContext = {
     toggleTransparentBackground: () => void;
     hideBottomSubtitleOverlay: boolean;
     toggleBottomSubtitleOverlay: () => void;
-    showSubtitleTranslation: boolean;
-    toggleSubtitleTranslation: () => void;
+    subtitleContentMode: SubtitleContentMode;
+    cycleSubtitleContentMode: () => void;
     subtitleOverlayBackground: boolean;
     toggleSubtitleOverlayBackground: () => void;
     alwaysShowPlayerBackButton: boolean;
@@ -92,7 +97,6 @@ export type CommandPaletteContext = {
     voiceInputPauseSupported: boolean;
     toggleVoiceInputPause: () => void;
     setAppLanguagePreference: (preference: AppLanguagePreference) => Promise<void> | void;
-    enableAlternativeLyricSources: boolean;
     runAutoMatchBestLyric: () => Promise<boolean>;
     setIsUserGuideModalOpen: (isOpen: boolean) => void;
     openThemeQuickEditor: () => void;

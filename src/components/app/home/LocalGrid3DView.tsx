@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FolderOpen, Loader2, Music, ListMusic, User, Disc3 } from 'lucide-react';
+import { FolderOpen, Loader2, Music, ListMusic, User, Disc3, RefreshCw } from 'lucide-react';
 import DesktopGrid3DSurface, { DesktopGrid3DAction } from '../../folia-grid/DesktopGrid3DSurface';
 import { LocalLibraryGroup, LocalPlaylist, LocalSong, Theme } from '../../../types';
 import { GridViewCollectionDescriptor, createLocalGridViewCollection } from './gridViewCollectionAdapters';
@@ -28,13 +28,16 @@ interface LocalGrid3DViewProps {
     focusedPlaylistIndex: number;
     setFocusedPlaylistIndex: (index: number) => void;
     onImportFolder: () => void;
+    onRefreshFolders?: () => void;
     importButtonDisabled?: boolean;
     isImporting?: boolean;
+    isRefreshing?: boolean;
     isScanInProgress?: boolean;
     onOpenGridView?: (collection: GridViewCollectionDescriptor) => void;
     theme: Theme;
     isDaylight: boolean;
     hasFloatingPlayer?: boolean;
+    isInteractive?: boolean;
 }
 
 export const LocalGrid3DView: React.FC<LocalGrid3DViewProps> = ({
@@ -51,13 +54,16 @@ export const LocalGrid3DView: React.FC<LocalGrid3DViewProps> = ({
     focusedPlaylistIndex,
     setFocusedPlaylistIndex,
     onImportFolder,
+    onRefreshFolders,
     importButtonDisabled = false,
     isImporting = false,
+    isRefreshing = false,
     isScanInProgress = false,
     onOpenGridView,
     theme,
     isDaylight,
     hasFloatingPlayer = false,
+    isInteractive = true,
 }) => {
     const { t } = useTranslation();
     const catalog = useLocalLibraryCatalog(localSongs);
@@ -210,11 +216,19 @@ export const LocalGrid3DView: React.FC<LocalGrid3DViewProps> = ({
     const actions: DesktopGrid3DAction[] = [
         {
             id: 'import-folder',
-            label: isScanInProgress ? t('options.scanning') : isImporting ? t('localMusic.importing') : t('localMusic.importFolder'),
-            icon: importButtonDisabled ? <Loader2 size={13} className="animate-spin" /> : <FolderOpen size={13} />,
+            label: isImporting ? t('localMusic.importing') : t('localMusic.importFolder'),
+            icon: isImporting ? <Loader2 size={13} className="animate-spin" /> : <FolderOpen size={13} />,
             disabled: importButtonDisabled,
             onClick: onImportFolder,
-            title: isScanInProgress ? t('options.scanningMediaLib') : t('localMusic.importFolder'),
+            title: t('localMusic.importFolder'),
+        },
+        {
+            id: 'refresh-folders',
+            label: (isScanInProgress || isRefreshing) ? t('options.scanning') : t('options.refresh'),
+            icon: (isScanInProgress || isRefreshing) ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />,
+            disabled: importButtonDisabled,
+            onClick: onRefreshFolders || (() => {}),
+            title: t('options.refresh'),
         },
     ];
 
@@ -260,7 +274,9 @@ export const LocalGrid3DView: React.FC<LocalGrid3DViewProps> = ({
             emptyMessage={activeSection.emptyMessage}
             theme={theme}
             isDaylight={isDaylight}
+            isInteractive={isInteractive}
             hasFloatingPlayer={hasFloatingPlayer}
+            playlistVisibilityScope="local"
         />
     );
 };

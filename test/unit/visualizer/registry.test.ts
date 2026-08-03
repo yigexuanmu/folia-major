@@ -19,8 +19,10 @@ describe('visualizer registry', () => {
             'tilt',
             'claddagh',
             'monet',
+            'pendolo',
             'cappella',
             'diorama',
+            'sonnet',
         ]);
     });
 

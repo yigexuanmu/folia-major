@@ -14,6 +14,7 @@ export const buildSyncedVisualSettings = (state: SettingsUiState): SyncedVisualS
     visualizerOpacity: state.visualizerOpacity,
     hidePlayerTranslationSubtitle: state.hidePlayerTranslationSubtitle,
     showSubtitleTranslation: state.showSubtitleTranslation,
+    subtitleContentMode: state.subtitleContentMode,
     subtitleOverlayBackground: state.subtitleOverlayBackground,
     lyricsFontStyle: state.lyricsFontStyle,
     lyricsFontScale: state.lyricsFontScale,
@@ -37,6 +38,8 @@ export const buildSyncedVisualSettings = (state: SettingsUiState): SyncedVisualS
     nomandBackgroundTuning: state.nomandBackgroundTuning,
     latentBackgroundTuning: state.latentBackgroundTuning,
     monetTuning: state.monetTuning,
+    pendoloTuning: state.pendoloTuning,
+    sonnetTuning: state.sonnetTuning,
     urlBackgroundList: state.urlBackgroundList,
     urlBackgroundSelectedId: state.urlBackgroundSelectedId,
     homeLayoutStyle: state.homeLayoutStyle,
@@ -71,6 +74,7 @@ export const applySyncedVisualSettings = (
     if (settings.visualizerOpacity !== undefined) state.handleSetVisualizerOpacity(settings.visualizerOpacity);
     if (settings.hidePlayerTranslationSubtitle !== undefined) state.handleToggleHidePlayerTranslationSubtitle(Boolean(settings.hidePlayerTranslationSubtitle));
     if (settings.showSubtitleTranslation !== undefined) state.handleToggleShowSubtitleTranslation(Boolean(settings.showSubtitleTranslation));
+    if (settings.subtitleContentMode !== undefined) state.handleSetSubtitleContentMode(settings.subtitleContentMode);
     if (settings.subtitleOverlayBackground !== undefined) state.handleToggleSubtitleOverlayBackground(Boolean(settings.subtitleOverlayBackground));
     if (settings.lyricsFontStyle !== undefined) state.handleSetLyricsFontStyle(settings.lyricsFontStyle);
     if (settings.lyricsFontScale !== undefined) state.handleSetLyricsFontScale(settings.lyricsFontScale);
@@ -96,6 +100,8 @@ export const applySyncedVisualSettings = (
     if (settings.nomandBackgroundTuning !== undefined) state.handleSetNomandBackgroundTuning(settings.nomandBackgroundTuning as Parameters<SettingsUiState['handleSetNomandBackgroundTuning']>[0]);
     if (settings.latentBackgroundTuning !== undefined) state.handleSetLatentBackgroundTuning(settings.latentBackgroundTuning as Parameters<SettingsUiState['handleSetLatentBackgroundTuning']>[0]);
     if (settings.visualizerTunings === undefined && settings.monetTuning !== undefined) state.handleSetMonetTuning(settings.monetTuning as Parameters<SettingsUiState['handleSetMonetTuning']>[0]);
+    if (settings.visualizerTunings === undefined && settings.pendoloTuning !== undefined) state.handleSetPendoloTuning(settings.pendoloTuning as Parameters<SettingsUiState['handleSetPendoloTuning']>[0]);
+    if (settings.visualizerTunings === undefined && settings.sonnetTuning !== undefined) state.handleSetSonnetTuning(settings.sonnetTuning as Parameters<SettingsUiState['handleSetSonnetTuning']>[0]);
     if (settings.urlBackgroundList !== undefined) state.handleSetUrlBackgroundList(settings.urlBackgroundList as Parameters<SettingsUiState['handleSetUrlBackgroundList']>[0]);
     if (settings.urlBackgroundSelectedId !== undefined) state.handleSetUrlBackgroundSelectedId(settings.urlBackgroundSelectedId);
     if (settings.homeLayoutStyle !== undefined) state.handleSetHomeLayoutStyle(settings.homeLayoutStyle);

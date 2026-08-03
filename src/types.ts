@@ -1,4 +1,5 @@
 import type { LineRenderHints } from './utils/lyrics/renderHints';
+import type { MediaId, PlaybackSourceRef, ProviderCatalogRef } from './types/onlineMusic';
 
 export interface LyricRuby {
   text: string;
@@ -35,10 +36,13 @@ export interface LyricBackgroundVocal {
   startTime: number; // Seconds
   endTime: number; // Seconds
   words: Word[];
+  agentId?: string;
   translation?: string;
   romanization?: string;
   alternateTexts?: LyricAlternateText[];
 }
+
+export type SubtitleContentMode = 'translation' | 'romanization' | 'none';
 
 export interface LyricAgent {
   id: string;
@@ -59,6 +63,7 @@ export interface Line {
   romanization?: string;
   alternateTexts?: LyricAlternateText[];
   backgroundVocal?: LyricBackgroundVocal;
+  backgroundVocals?: LyricBackgroundVocal[];
   renderHints?: LineRenderHints;
   isChorus?: boolean;
   chorusEffect?: 'bars' | 'circles' | 'beams';
@@ -115,7 +120,7 @@ export type VisualizerFrameRate = 'off' | 120 | 90 | 60;
 export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'radio';
 
 export type PlaybackContext = 'main' | 'stage';
-export type StageSource = 'stage-api' | 'now-playing';
+export type StageSource = 'stage-api' | 'now-playing' | 'playercap';
 export type StageLoopMode = 'off' | 'all' | 'one';
 export type QueueAddBehavior = 'append' | 'next';
 export type StageActiveEntryKind = 'lyrics' | 'media';
@@ -488,6 +493,64 @@ export const DEFAULT_TILT_TUNING: TiltTuning = {
   colorScheme: 'default',
 };
 
+export interface PendoloTuning {
+  arcRadius: number;
+  arcAngleDeg: number;
+  wheelCenterX: number;
+  wheelCenterY: number;
+  tickSnappiness: number;
+  activeScale: number;
+  showGearDecor: 'none' | 'subtle' | 'full';
+  showCenterGradient?: boolean;
+  showCoverOnWatchFace?: boolean;
+  enableLineGlow?: boolean;
+}
+
+export const DEFAULT_PENDOLO_TUNING: PendoloTuning = {
+  arcRadius: 0.42,
+  arcAngleDeg: 100,
+  wheelCenterX: 0.0,
+  wheelCenterY: 0.50,
+  tickSnappiness: 2.0,
+  activeScale: 1.25,
+  showGearDecor: 'subtle',
+  showCenterGradient: true,
+  showCoverOnWatchFace: false,
+  enableLineGlow: false,
+};
+
+export type SonnetOuterFrameMode = 'none' | 'frame' | 'full';
+
+export interface SonnetTuning {
+  cameraIntensity: number;
+  typographyMotion: number;
+  mgDensity: number;
+  showOnlyText: boolean;
+  showGuide: boolean;
+  showBackgroundMg: boolean;
+  showFixedGeo: boolean;
+  showGiantDecorativeText: boolean;
+  showBackgroundDecor: boolean;
+  enableTransitions: boolean;
+  outerFrameMode: SonnetOuterFrameMode;
+  textureResolution: number;
+}
+
+export const DEFAULT_SONNET_TUNING: SonnetTuning = {
+  cameraIntensity: 1,
+  typographyMotion: 1,
+  mgDensity: 1,
+  showOnlyText: false,
+  showGuide: true,
+  showBackgroundMg: true,
+  showFixedGeo: true,
+  showGiantDecorativeText: true,
+  showBackgroundDecor: true,
+  enableTransitions: true,
+  outerFrameMode: 'full',
+  textureResolution: 1.5,
+};
+
 // Diorama's camera STYLE (calm/standard/chaotic) is not part of its tuning: like every other
 // visualizer it follows theme.animationIntensity (the player-panel intensity chip / AI themes), so
 // the theme system stays the single source of truth. The tuning only carries diorama-specific knobs.
@@ -692,8 +755,8 @@ export const DEFAULT_MONET_BACKGROUND_TUNING: MonetBackgroundTuning = {
 export const DEFAULT_NOMAND_BACKGROUND_TUNING: NomandBackgroundTuning = {
   imageSource: 'cover-derived',
   ditheringType: '8x8',
-  size: 2,
-  colorSteps: 2,
+  size: 3,
+  colorSteps: 4,
   originalColors: false,
   inverted: false,
   overlayEnabled: true,
@@ -822,16 +885,18 @@ export interface NeteasePlaylist {
 }
 
 export interface Artist {
-  id: number;
+  id: MediaId;
   name: string;
   entityId?: string;
+  catalogRef?: ProviderCatalogRef;
 }
 
 export interface Album {
-  id: number;
+  id: MediaId;
   name: string;
-  picUrl?: string;
+  coverUrl?: string;
   entityId?: string;
+  catalogRef?: ProviderCatalogRef;
 }
 
 export interface SongPrivilege {
@@ -866,27 +931,27 @@ export interface UnlockSongUrlResult {
   url: string | null;
   source?: SongUnlockServer;
 }
+export interface ReplayGainInfo {
+  /** ReplayGain gain values in decibels. */
+  trackGain?: number;
+  albumGain?: number;
+  /** ReplayGain peak values as positive linear ratios. */
+  trackPeak?: number;
+  albumPeak?: number;
+}
 
 export interface SongResult {
-  id: number;
+  id: MediaId;
   name: string;
   artists: Artist[];
   album: Album;
-  duration: number; // milliseconds usually from API
+  durationMs: number;
   isPureMusic?: boolean;
+  aliases?: string[];
+  translatedNames?: string[];
   t?: 0 | 1 | 2;
   sourceType?: 'netease' | 'cloud';
-  // Netease API raw fields
-  al?: {
-    id: number;
-    name: string;
-    picUrl?: string;
-    entityId?: string;
-  };
-  ar?: Artist[];
-  dt?: number; // duration in ms
-  alia?: string[]; // 别名
-  tns?: string[]; // 翻译名
+  sourceRef?: PlaybackSourceRef;
   fee?: number;
   noCopyrightRcmd?: NoCopyrightRecommendation | null;
   resourceState?: boolean;
@@ -894,6 +959,7 @@ export interface SongResult {
   onlineLyricsState?: OnlineLyricsState;
   matchedLyricsSource?: LyricProviderSource;
   matchedLyricsProviderPlatform?: AmllDbPlatform;
+  replayGain?: ReplayGainInfo;
   qqMid?: string;
   kgHash?: string;
   amllDbPlatform?: AmllDbPlatform;
@@ -905,7 +971,7 @@ export interface OnlineLyricsState {
   importedLyricsName?: string | null;
   hasOnlineOverride?: boolean;
   onlineOverrideLyrics?: LyricData | null;
-  matchedSongId?: number;
+  matchedSongId?: MediaId;
   matchedIsPureMusic?: boolean;
   matchedLyricsSource?: LyricProviderSource;
   matchedLyricsProviderPlatform?: AmllDbPlatform;
@@ -920,6 +986,8 @@ export interface SearchResponse {
 }
 
 // Local Music Types
+
+export type LocalLyricsPriority = 'local' | 'online';
 
 export interface LocalSong {
   id: string; // UUID for local file
@@ -961,7 +1029,7 @@ export interface LocalSong {
   matchedLyricsProviderPlatform?: AmllDbPlatform;
 
   // User preferences for online data override (set via LyricMatchModal)
-  lyricsSource?: 'local' | 'embedded' | 'online';  // Explicit lyrics source selection; undefined = default priority (local > embedded > online)
+  lyricsSource?: 'local' | 'embedded' | 'online';  // Explicit lyrics source selection; undefined = the configured automatic priority
   useOnlineCover?: boolean;     // Prefer online cover over embedded cover
 
   // Local Lyrics (.lrc / .vtt / .ttml / .qrc / .yrc / .krc files)
@@ -1040,6 +1108,7 @@ export type {
 
 // Extend SongResult to support local files and Navidrome files
 export interface UnifiedSong extends SongResult {
+  sourceRef: PlaybackSourceRef;
   isLocal?: boolean;
   localRef?: import('./types/localLibrary').LocalSongReference;
   isNavidrome?: boolean;

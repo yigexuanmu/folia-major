@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Monitor, PlayCircle, RefreshCw, Settings2 } from 'lucide-react';
+import { AudioLines, Monitor, PlayCircle, RefreshCw, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
-import type { QueueAddBehavior, Theme } from '../../../types';
+import type { LocalLyricsPriority, QueueAddBehavior, ReplayGainMode, Theme } from '../../../types';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { LYRIC_MATCH_SOURCES } from '../../../utils/lyrics/lyricMatchSources';
@@ -24,6 +24,8 @@ type PlaybackSettingsSubviewProps = {
     isOpen: boolean;
     isDaylight: boolean;
     onAudioOutputDeviceChange: (deviceId: string) => Promise<boolean> | boolean;
+    replayGainMode: ReplayGainMode;
+    onReplayGainModeChange: (mode: ReplayGainMode) => void;
     settingsCardClass: string;
     theme?: Theme;
     utilityGhostButtonClass: string;
@@ -37,6 +39,8 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
     isOpen,
     isDaylight,
     onAudioOutputDeviceChange,
+    replayGainMode,
+    onReplayGainModeChange,
     settingsCardClass,
     theme,
     utilityGhostButtonClass,
@@ -45,28 +49,28 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
     const {
         audioOutputDeviceId,
         autoUseBestLyric,
-        enableAlternativeLyricSources,
         preferredAlternativeLyricSource,
+        localLyricsPriority,
         queueAddBehavior,
-        useSongUnlock,
-        songUnlockServers,
-        onToggleAlternativeLyricSources,
         onToggleAutoUseBestLyric,
         onPreferredAlternativeLyricSourceChange,
+        onLocalLyricsPriorityChange,
         onQueueAddBehaviorChange,
+        useSongUnlock,
+        songUnlockServers,
         onToggleSongUnlock,
         onToggleSongUnlockServer,
     } = useSettingsUiStore(useShallow(state => ({
         audioOutputDeviceId: state.audioOutputDeviceId,
         autoUseBestLyric: state.autoUseBestLyric,
-        enableAlternativeLyricSources: state.enableAlternativeLyricSources,
         preferredAlternativeLyricSource: state.preferredAlternativeLyricSource,
+        localLyricsPriority: state.localLyricsPriority,
         queueAddBehavior: state.queueAddBehavior,
         useSongUnlock: state.useSongUnlock,
         songUnlockServers: state.songUnlockServers,
-        onToggleAlternativeLyricSources: state.handleToggleAlternativeLyricSources,
         onToggleAutoUseBestLyric: state.handleToggleAutoUseBestLyric,
         onPreferredAlternativeLyricSourceChange: state.handleSetPreferredAlternativeLyricSource,
+        onLocalLyricsPriorityChange: state.handleSetLocalLyricsPriority,
         onQueueAddBehaviorChange: state.handleSetQueueAddBehavior,
         onToggleSongUnlock: state.handleToggleSongUnlock,
         onToggleSongUnlockServer: state.handleToggleSongUnlockServer,
@@ -233,6 +237,39 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
 
             <section>
                 <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                    <AudioLines size={14} /> {t('options.replayGainSettings')}
+                </h3>
+                <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+                    <div className="space-y-1">
+                        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {t('options.replayGainMode')}
+                        </div>
+                        <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                            {t('options.replayGainModeDesc')}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                        {([
+                            { value: 'off', label: t('localMusic.replayGainOff') },
+                            { value: 'track', label: t('localMusic.replayGainTrack') },
+                            { value: 'album', label: t('localMusic.replayGainAlbum') },
+                        ] as Array<{ value: ReplayGainMode; label: string }>).map((option) => (
+                            <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => onReplayGainModeChange(option.value)}
+                                className="rounded-xl border px-3 py-2.5 text-center text-sm font-medium transition-colors"
+                                style={getAccentOptionStyle(replayGainMode === option.value)}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
                     <Settings2 size={14} /> {t('options.lyrics')}
                 </h3>
                 <div className={`rounded-xl border overflow-hidden ${settingsCardClass}`}>
@@ -240,30 +277,49 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                         <div className="space-y-1">
                             <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                                 <Settings2 size={14} />
-                                {t('options.enableAlternativeLyricSources')}
+                                {t('options.autoUseBestLyric')}
                             </div>
                             <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                                {t('options.enableAlternativeLyricSourcesDesc')}
+                                {t('options.autoUseBestLyricDesc')}
                             </div>
                         </div>
-                        {renderToggle(enableAlternativeLyricSources, () => onToggleAlternativeLyricSources(!enableAlternativeLyricSources))}
+                        {renderToggle(autoUseBestLyric, () => onToggleAutoUseBestLyric(!autoUseBestLyric))}
                     </div>
-                    {enableAlternativeLyricSources && (
-                        <div className="p-4 flex items-center justify-between gap-4 border-t" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
-                            <div className="space-y-1">
-                                <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                                    <Settings2 size={14} />
-                                    {t('options.autoUseBestLyric')}
-                                </div>
-                                <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                                    {t('options.autoUseBestLyricDesc')}
-                                </div>
+                    <div className="p-4 space-y-3 border-t" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
+                        <div className="space-y-1">
+                            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                {t('options.localLyricsPriority')}
                             </div>
-                            {renderToggle(autoUseBestLyric, () => onToggleAutoUseBestLyric(!autoUseBestLyric))}
+                            <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                                {t('options.localLyricsPriorityDesc')}
+                            </div>
                         </div>
-                    )}
-                    {enableAlternativeLyricSources && (
-                        <div className="p-4 space-y-3 border-t" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
+                        <div className="grid grid-cols-2 gap-2">
+                            {([
+                                { value: 'local', label: t('options.localLyricsPriorityLocal'), desc: t('options.localLyricsPriorityLocalDesc') },
+                                { value: 'online', label: t('options.localLyricsPriorityOnline'), desc: t('options.localLyricsPriorityOnlineDesc') },
+                            ] as Array<{ value: LocalLyricsPriority; label: string; desc: string }>).map((option) => {
+                                const selected = localLyricsPriority === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => onLocalLyricsPriorityChange(option.value)}
+                                        className="rounded-xl border px-3 py-3 text-left transition-colors"
+                                        style={getAccentOptionStyle(selected)}
+                                    >
+                                        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                            {option.label}
+                                        </div>
+                                        <div className="mt-1 text-[11px] opacity-50" style={{ color: 'var(--text-secondary)' }}>
+                                            {option.desc}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    <div className="p-4 space-y-3 border-t" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
                             <div className="space-y-1">
                                 <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                                     {t('settings.lyricMatchPriority')}
@@ -291,8 +347,7 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                                     );
                                 })}
                             </div>
-                        </div>
-                    )}
+                    </div>
                 </div>
             </section>
 

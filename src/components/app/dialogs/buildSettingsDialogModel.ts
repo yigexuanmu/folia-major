@@ -4,12 +4,14 @@ import type {
     DualTheme,
     LyricData,
     NowPlayingConnectionStatus,
+    ReplayGainMode,
     StageSource,
     StageStatus,
 } from '../../../types';
 import type { useThemeController } from '../../../hooks/useThemeController';
 import { type SettingsModalState, useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import type { ObsBrowserSourceStatus } from '../../../types/obsBrowserSource';
+import type { PlayerCapConnectionStatus } from '../../../types/playerCap';
 
 // src/components/app/dialogs/buildSettingsDialogModel.ts
 
@@ -34,7 +36,11 @@ type BuildSettingsDialogModelParams = {
     clearPersistedStagePlaybackCache: () => Promise<void>;
     loadStageSessionIntoPlayback: (session: any) => Promise<void>;
     nowPlayingConnectionStatus?: NowPlayingConnectionStatus;
+    playerCapConnectionStatus?: PlayerCapConnectionStatus;
+    playerCapPlayers?: string[];
     onAudioOutputDeviceChange: (deviceId: string) => Promise<boolean> | boolean;
+    replayGainMode: ReplayGainMode;
+    onReplayGainModeChange: (mode: ReplayGainMode) => void;
     onToggleTransparentPlayerBackground: (enabled: boolean) => Promise<void> | void;
     obsBrowserSourceStatus?: ObsBrowserSourceStatus | null;
     refreshObsBrowserSourceStatus?: () => Promise<ObsBrowserSourceStatus>;
@@ -59,7 +65,11 @@ export const buildSettingsDialogModel = ({
     clearPersistedStagePlaybackCache,
     loadStageSessionIntoPlayback,
     nowPlayingConnectionStatus,
+    playerCapConnectionStatus,
+    playerCapPlayers,
     onAudioOutputDeviceChange,
+    replayGainMode,
+    onReplayGainModeChange,
     onToggleTransparentPlayerBackground,
     obsBrowserSourceStatus,
     refreshObsBrowserSourceStatus,
@@ -89,6 +99,8 @@ export const buildSettingsDialogModel = ({
         stageStatus,
         stageSource,
         nowPlayingConnectionStatus,
+        playerCapConnectionStatus,
+        playerCapPlayers,
         obsBrowserSourceStatus,
         onToggleObsBrowserSource: async (enabled) => {
             const nextStatus = await window.electron?.setObsBrowserSourceEnabled?.(enabled);
@@ -103,6 +115,8 @@ export const buildSettingsDialogModel = ({
             }
         },
         onAudioOutputDeviceChange,
+        replayGainMode,
+        onReplayGainModeChange,
         onToggleTransparentPlayerBackground,
         initialTab: state.initialTab,
         initialSubview: state.initialSubview ?? null,

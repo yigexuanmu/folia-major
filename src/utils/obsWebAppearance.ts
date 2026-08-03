@@ -1,8 +1,10 @@
-import type { Theme, VisualizerMode } from '../types';
+import type { SubtitleContentMode, Theme, VisualizerMode } from '../types';
 import type { VisualizerTuningBundle } from '../components/visualizer/tuningRegistry';
 import type { VisualizerBackgroundConfig } from '../components/visualizer/backgrounds/definition';
 import { DEFAULT_VISUALIZER_MODE, hasVisualizerMode } from '../components/visualizer/registry';
-import { decompressConfig } from '../components/modal/settings/AppearanceSettingsSubview';
+import { decompressConfig } from './appearanceCodec';
+import type { ObsAiConfig } from '../services/gemini';
+import { getWebAiProvider } from '../services/runtimeConfig';
 
 // src/utils/obsWebAppearance.ts
 // Parse the OBS URL params (including the appearance cfg shortcode) into the appearance
@@ -11,12 +13,23 @@ import { decompressConfig } from '../components/modal/settings/AppearanceSetting
 // cover-color theme. Note decompressConfig emits store field names, so this maps them to
 // VisualizerRenderer prop names (e.g. visualizerMode -> mode).
 
+// How the copied link asks the overlay to resolve its theme: burn in the cfg theme, derive a
+// builtin palette per song, or regenerate one per song with AI.
+export type ObsThemeMode = 'static' | 'builtin' | 'ai';
+
+// Whitelist read: an absent or hand-mangled value is null, i.e. "no mode stated", never an error.
+const readObsThemeMode = (params: URLSearchParams): ObsThemeMode | null => {
+  const value = params.get('obsTheme');
+  return value === 'static' || value === 'builtin' || value === 'ai' ? value : null;
+};
+
 export interface ObsWebParams {
   host: string;
   cfg: string | null;
   isDaylight: boolean;
   transparent: boolean;
   visualizer: string; // single-mode override (empty = use the cfg's mode)
+  themeMode: ObsThemeMode | null; // null = link predates the marker; infer from cfg instead
 }
 
 export interface ObsWebAppearance {
@@ -27,9 +40,11 @@ export interface ObsWebAppearance {
   visualizerTunings?: VisualizerTuningBundle;
   visualizerOpacity?: number;
   lyricsFontScale?: number;
+  subtitleFontScale?: number;
   lyricsFontWeight?: number | null;
   hideTranslationSubtitle?: boolean;
   showSubtitleTranslation?: boolean;
+  subtitleContentMode?: SubtitleContentMode;
   subtitleOverlayBackground?: boolean;
   // Font stack (raw store fields; overlaid onto the theme in ObsWebSourceApp so fonts match the
   // main window). Only a system custom font's family transfers (uploaded fonts do not).
@@ -57,18 +72,30 @@ export function parseObsWebParams(search: string): ObsWebParams {
     // transparent-player-background toggle's default (off); only transparent=1 makes it transparent.
     transparent: params.get('transparent') === '1',
     visualizer: params.get('visualizer')?.trim() || '',
+    themeMode: readObsThemeMode(params),
   };
+}
+
+// Dynamic AI overlay params: returns the AI connection under obsTheme=ai, else null. The overlay is
+// keyless — the provider comes from Docker runtime config or the Vite build fallback
+// key — so the URL carries only the mode marker, no AI secrets.
+export function parseObsAiParams(search: string): ObsAiConfig | null {
+  const params = new URLSearchParams(search);
+  if (readObsThemeMode(params) !== 'ai') return null;
+  const provider = getWebAiProvider();
+  return { provider };
 }
 
 interface BuildAppearanceOptions {
   isDaylight: boolean;
   transparent: boolean;
   visualizerOverride?: string;
+  themeMode?: ObsThemeMode | null;
 }
 
 export function buildObsAppearanceFromShortcode(
   cfg: string | null,
-  { isDaylight, transparent, visualizerOverride }: BuildAppearanceOptions,
+  { isDaylight, transparent, visualizerOverride, themeMode }: BuildAppearanceOptions,
 ): ObsWebAppearance {
   let decoded: any = null;
   if (cfg) {
@@ -85,7 +112,12 @@ export function buildObsAppearanceFromShortcode(
     ? visualizerOverride
     : (decoded?.visualizerMode && hasVisualizerMode(decoded.visualizerMode) ? decoded.visualizerMode : DEFAULT_VISUALIZER_MODE);
 
-  const theme: Theme | null = decoded?.theme
+  // The stated mode wins over the payload: the dynamic modes resolve a theme per song in the shell,
+  // so a cfg theme (a hand-edited link, or one whose mode was switched in place) must not freeze
+  // them. With no mode stated the link predates the marker, so fall back to inferring it from the
+  // payload — a baked theme meant static, none meant dynamic.
+  const isDynamicMode = themeMode === 'builtin' || themeMode === 'ai';
+  const theme: Theme | null = decoded?.theme && !isDynamicMode
     ? (isDaylight ? decoded.theme.light : decoded.theme.dark)
     : null;
 
@@ -113,9 +145,11 @@ export function buildObsAppearanceFromShortcode(
     visualizerTunings: decoded?.visualizerTunings,
     visualizerOpacity: decoded?.visualizerOpacity,
     lyricsFontScale: decoded?.lyricsFontScale,
+    subtitleFontScale: decoded?.subtitleFontScale,
     lyricsFontWeight: decoded?.lyricsFontWeight,
     hideTranslationSubtitle: decoded?.hidePlayerTranslationSubtitle,
     showSubtitleTranslation: decoded?.showSubtitleTranslation,
+    subtitleContentMode: decoded?.subtitleContentMode,
     subtitleOverlayBackground: decoded?.subtitleOverlayBackground,
     lyricsFontStyle: decoded?.lyricsFontStyle,
     lyricsCustomFontFamily: decoded?.lyricsCustomFontFamily,

@@ -1,4 +1,4 @@
-import { PlayerState, type HomeViewTab, type SongResult, type VisualizerMode, type VisualizerBackgroundMode, type MonetBackgroundTuning } from '../../types';
+import { PlayerState, type HomeViewTab, type ReplayGainMode, type SongResult, type VisualizerMode, type VisualizerBackgroundMode, type MonetBackgroundTuning } from '../../types';
 import type { AppLanguagePreference } from '../../i18n/config';
 import type { PanelTab } from '../UnifiedPanel';
 import { syncNow } from '../../services/sync/syncCoordinator';
@@ -10,6 +10,8 @@ import type {
     CommandPaletteSearchSource,
 } from './types';
 import type { SearchSource } from '../../stores/useSearchNavigationStore';
+import { getProviderSongMetadata } from '../../services/onlineMusic/songMetadata';
+import { ListMusic, Pause, Play, Repeat, Search, Shuffle, SkipBack, SkipForward } from 'lucide-react';
 
 // src/components/command-palette/commandRegistry.ts
 // Defines command palette entries and the lightweight matching used for autocomplete.
@@ -19,19 +21,18 @@ const MAX_COMMAND_MATCHES = 10;
 const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 
 const getSongArtistLabel = (song: SongResult) => {
-    const artists = song.ar?.length ? song.ar : song.artists;
-    return artists?.map(artist => artist.name).filter(Boolean).join(', ') || '';
+    return getProviderSongMetadata(song).artists.map(artist => artist.name).filter(Boolean).join(', ');
 };
 
-const getSongAlbumLabel = (song: SongResult) => song.al?.name || song.album?.name || '';
+const getSongAlbumLabel = (song: SongResult) => getProviderSongMetadata(song).album?.name || '';
 
 const buildQueueSearchText = (song: SongResult, index: number) => [
     String(index + 1),
     song.name,
     getSongArtistLabel(song),
     getSongAlbumLabel(song),
-    ...(song.alia ?? []),
-    ...(song.tns ?? []),
+    ...getProviderSongMetadata(song).aliases,
+    ...getProviderSongMetadata(song).translatedNames,
 ].filter(Boolean).join(' ');
 
 const buildQueueSongDescription = (song: SongResult, index: number, context: CommandPaletteContext) => {
@@ -114,6 +115,7 @@ const createSearchCommand = (
     title,
     description,
     keywords,
+    icon: Search,
     placeholder: `${keywords[0]} ${description}`,
     requiresInput: true,
     getPreview: (input, context) => buildSearchPreview(
@@ -131,7 +133,8 @@ const createQueueSearchCommand = (): CommandPaletteCommand => ({
     title: 'Queue',
     description: 'Search the current play queue',
     keywords: ['queue', '播放队列', '队列搜索', 'duilie', 'duiliesousuo', 'dl', 'dlss'],
-    placeholder: 'queue song name / artist / index',
+    icon: ListMusic,
+    placeholder: '输入歌曲名 / 艺术家 / 索引',
     requiresInput: true,
     getPreview: (input, context) => {
         const trimmedInput = input.trim();
@@ -181,6 +184,23 @@ const createAppLanguageCommand = (
     },
 });
 
+const createReplayGainCommand = (
+    mode: ReplayGainMode,
+    title: string,
+    description: string,
+    keywords: string[],
+): CommandPaletteCommand => ({
+    id: `playback-replaygain-${mode}`,
+    group: 'playback',
+    title,
+    description,
+    keywords,
+    execute: (_input, context) => {
+        context.onReplayGainModeChange(mode);
+        return true;
+    },
+});
+
 const createHomeTabCommand = (
     tab: HomeViewTab,
     title: string,
@@ -203,13 +223,15 @@ const createPanelCommand = (
     tab: PanelTab,
     title: string,
     description: string,
-    keywords: string[]
+    keywords: string[],
+    icon?: CommandPaletteCommand['icon'],
 ): CommandPaletteCommand => ({
     id: `panel-${tab}`,
     group: 'panel',
     title,
     description,
     keywords,
+    icon,
     execute: (_input, context) => {
         context.setPanelTab(tab);
         context.setIsPanelOpen(true);
@@ -257,6 +279,10 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSettingsCommand('settings-appearance', 'Appearance settings', 'Open visual and appearance settings', ['appearance', 'visual settings', '外观', '视觉', 'waiguan', 'shijue', 'wg', 'sj'], 'options', 'appearance'),
     createSettingsCommand('settings-general', 'General settings', 'Open general app preferences', ['general', 'language settings', 'locale', '通用', '语言', 'tongyong', 'yuyan', 'ty', 'yy'], 'options', 'general'),
     createSettingsCommand('settings-playback', 'Playback settings', 'Open playback behavior settings', ['playback settings', 'playback', '播放', '播放设置', 'bofang', 'bofangshezhi', 'bf', 'bfsz'], 'options', 'playback'),
+    createReplayGainCommand('off', 'Disable ReplayGain', 'Play audio without ReplayGain adjustment', ['replaygain off', 'disable replaygain', 'audio gain off', '关闭音频增益', '关闭 replaygain', 'guanbiyinpinzengyi', 'gbyyzy']),
+    createReplayGainCommand('track', 'ReplayGain: Track mode', 'Apply per-track ReplayGain adjustment', ['replaygain track', 'track gain', 'single track gain', '单曲增益', '单曲 replaygain', 'danquzengyi', 'dqzy']),
+    createReplayGainCommand('album', 'ReplayGain: Album mode', 'Apply album ReplayGain adjustment', ['replaygain album', 'album gain', '专辑增益', '专辑 replaygain', 'zhuanjizengyi', 'zjzy']),
+    createSettingsCommand('settings-local-lyrics-priority', 'Local song lyrics priority', 'Choose whether local songs prefer local or online lyrics', ['local lyrics priority', 'online lyrics first', 'local song lyrics', '本地歌曲歌词优先级', '在线优先', '本地歌词', 'bendigeciyouxianji', 'zaixianyouxian', 'bdgcyxj', 'zxyx'], 'options', 'playback'),
     createSettingsCommand('settings-integration', 'Integration settings', 'Open Stage, Now Playing, and Navidrome settings', ['integration', 'stage', 'now playing', 'navidrome settings', '集成', '连接', 'jicheng', 'lianjie', 'jc', 'lj'], 'options', 'integration'),
     createSettingsCommand('settings-discord-presence', 'Discord playback status', 'Open Discord Rich Presence settings', ['discord', 'rich presence', 'discord presence', 'playing status', '播放状态', 'discord状态', 'discordzhuangtai', 'bofangzhuangtai', 'dc', 'zt'], 'options', 'integration'),
     createSettingsCommand('settings-obs-browser-source', 'OBS browser source', 'Open OBS browser source settings', ['obs', 'browser source', 'live source', '直播源', '浏览器源', 'zhiboyuan', 'liulanqiyuan', 'zby', 'llqy'], 'options', 'integration'),
@@ -336,7 +362,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
 
     createPanelCommand('cover', 'Panel: cover', 'Open the cover panel tab', ['panel cover', 'cover panel', '封面', 'fengmian', 'fm']),
     createPanelCommand('controls', 'Panel: controls', 'Open the controls panel tab', ['panel controls', 'controls panel', '控制', 'kongzhi', 'kz']),
-    createPanelCommand('queue', 'Panel: queue', 'Open the queue panel tab', ['panel queue', 'queue panel', '队列', 'duilie', 'dl']),
+    createPanelCommand('queue', 'Panel: queue', 'Open the queue panel tab', ['panel queue', 'queue panel', '队列', 'duilie', 'dl'], ListMusic),
     createPanelCommand('account', 'Panel: account', 'Open the account panel tab', ['panel account', 'account panel', '账号', '账户', 'zhanghao', 'zhanghu', 'zh']),
     createPanelCommand('local', 'Panel: local', 'Open the local panel tab', ['panel local', 'local panel', '本地面板', 'bendimianban', 'bdmb']),
     createPanelCommand('navi', 'Panel: Navidrome', 'Open the Navidrome panel tab', ['panel navi', 'panel navidrome', 'navi panel', 'navidrome 面板', '服务器面板', 'fuwuqimianban', 'fwqmb']),
@@ -348,6 +374,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         title: 'Play',
         description: 'Start playback when paused',
         keywords: ['play', '播放', 'bofang', 'bf'],
+        icon: Play,
         execute: (_input, context) => {
             if (context.playerState !== PlayerState.PLAYING) {
                 context.togglePlay();
@@ -361,6 +388,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         title: 'Pause',
         description: 'Pause current playback',
         keywords: ['pause', '暂停', 'zanting', 'zt'],
+        icon: Pause,
         execute: (_input, context) => {
             if (context.playerState === PlayerState.PLAYING) {
                 context.togglePlay();
@@ -374,6 +402,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         title: 'Next track',
         description: 'Play the next track',
         keywords: ['next', '下一首', 'xiayishou', 'xys'],
+        icon: SkipForward,
         execute: (_input, context) => {
             context.handleNextTrack();
             return true;
@@ -385,6 +414,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         title: 'Previous track',
         description: 'Play the previous track',
         keywords: ['prev', 'previous', '上一首', 'shangyishou', 'sys'],
+        icon: SkipBack,
         execute: (_input, context) => {
             context.handlePrevTrack();
             return true;
@@ -396,6 +426,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         title: 'Toggle loop',
         description: 'Change loop mode',
         keywords: ['loop', '循环', 'xunhuan', 'xh'],
+        icon: Repeat,
         execute: (_input, context) => {
             context.toggleLoop();
             return true;
@@ -407,6 +438,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         title: 'Shuffle queue',
         description: 'Shuffle current play queue',
         keywords: ['shuffle queue', 'shuffle', '打乱', '打乱队列', 'daluan', 'daluanduilie', 'dl'],
+        icon: Shuffle,
         execute: (_input, context) => {
             context.shuffleQueue();
             return true;
@@ -458,6 +490,8 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createVisualizerCommand('claddagh', 'Visualizer: Claddagh', 'Switch to Claddagh visualizer', ['visualizer claddagh', 'claddagh', '回环', 'huihuan', 'hh']),
     createVisualizerCommand('monet', 'Visualizer: Monet', 'Switch to Monet visualizer', ['visualizer monet', 'monet', '莫奈', 'monai', 'mn', '切换到可视化：莫奈', '切换到可视化莫奈']),
     createVisualizerCommand('diorama', 'Visualizer: Diorama', 'Switch to Diorama visualizer', ['visualizer diorama', 'diorama', '镜台', 'jingtai', 'jt', '切换到可视化：镜台', '切换到可视化镜台']),
+    createVisualizerCommand('pendolo', 'Visualizer: Pendolo', 'Switch to Pendolo visualizer', ['visualizer pendolo', 'pendolo', '擒纵', '摆轮', 'qinzong', 'bailun', 'pd', '切换到可视化：擒纵', '切换到可视化擒纵']),
+    createVisualizerCommand('sonnet', 'Visualizer: Sonnet', 'Switch to Sonnet visualizer', ['visualizer sonnet', 'sonnet', '商籁', 'shanglai', 'sl', '文字 pv', 'mg pv', 'vocaloid']),
     {
         id: 'desktop-toggle-remote-control',
         group: 'navigation',
@@ -679,34 +713,41 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         },
     },
     {
-        id: 'settings-toggle-subtitle-translation',
+        id: 'settings-cycle-subtitle-content-mode',
         group: 'settings',
-        title: 'Toggle subtitle translation',
-        description: 'Show or hide translation text in visualizer subtitles',
+        title: 'Cycle subtitle content mode',
+        description: 'Switch between translation and romanization subtitle modes',
         keywords: [
             'subtitle translation',
             'translation subtitle',
             'show subtitle translation',
-            'hide subtitle translation',
             'lyrics translation',
             'caption translation',
+            'subtitle romanization',
+            'romanized lyrics',
+            'romaji',
             '字幕翻译',
             '显示翻译',
-            '隐藏翻译',
             '翻译字幕',
             '歌词翻译',
+            '切换翻译字幕',
+            '罗马音',
+            '罗马字',
+            '副字幕',
             'zimu fanyi',
             'xianshi fanyi',
-            'yincang fanyi',
             'fanyi zimu',
             'geci fanyi',
+            'luomayin',
             'zmfy',
             'xsfy',
-            'ycfy',
             'gc fy',
+            'lmy',
+            'fzm',
+            'qhfyzm',
         ],
         execute: (_input, context) => {
-            context.toggleSubtitleTranslation();
+            context.cycleSubtitleContentMode();
             return true;
         },
     },
@@ -764,10 +805,6 @@ export const getAvailableCommandPaletteCommands = (context?: CommandPaletteConte
         }
     }
 
-    if (command.id === 'playback-auto-match-best-lyric') {
-        return Boolean(context?.enableAlternativeLyricSources);
-    }
-
     if (command.id === 'theme-generate-current') {
         return context ? context.canGenerateAITheme && !context.isGeneratingTheme : true;
     }
@@ -787,7 +824,7 @@ export const getQueueSongMatches = (query: string, context: CommandPaletteContex
     const normalizedQuery = normalize(query);
 
     if (!normalizedQuery) {
-        return context.playQueue.slice(0, MAX_COMMAND_MATCHES).map((song, index) => ({
+        return context.playQueue.map((song, index) => ({
             command: createQueueSongCommand(song, index, context),
             score: 100 - index,
             input: '',
@@ -812,8 +849,7 @@ export const getQueueSongMatches = (query: string, context: CommandPaletteContex
             };
         })
         .filter((match): match is CommandPaletteMatch => Boolean(match))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, MAX_COMMAND_MATCHES);
+        .sort((a, b) => b.score - a.score);
 };
 
 const createQueueSongCommand = (
@@ -827,6 +863,8 @@ const createQueueSongCommand = (
     description: buildQueueSongDescription(song, index, context),
     textSource: 'runtime',
     keywords: [`#${index + 1}`],
+    queueIndex: index,
+    queueSong: song,
     execute: async (_input, commandContext) => {
         await commandContext.playSong(song, commandContext.playQueue);
         return true;
@@ -845,7 +883,7 @@ export const getCommandPaletteMatches = (
     if (!normalizedQuery) {
         const recentCommands = recentCommandIds
             .map(commandId => filteredCommands.find(command => command.id === commandId))
-            .filter((command): command is CommandPaletteCommand => command !== undefined && !command.requiresInput);
+            .filter((command): command is CommandPaletteCommand => command !== undefined);
         const recentCommandIdSet = new Set(recentCommands.map(command => command.id));
         const defaultCommands = filteredCommands.filter(command => !recentCommandIdSet.has(command.id));
 

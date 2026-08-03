@@ -50,6 +50,9 @@ const parseSyncedVisualSettings = (value: Record<string, unknown>): SyncedVisual
     if (isFiniteNumber(value.visualizerOpacity)) settings.visualizerOpacity = value.visualizerOpacity;
     if (typeof value.hidePlayerTranslationSubtitle === 'boolean') settings.hidePlayerTranslationSubtitle = value.hidePlayerTranslationSubtitle;
     if (typeof value.showSubtitleTranslation === 'boolean') settings.showSubtitleTranslation = value.showSubtitleTranslation;
+    if (value.subtitleContentMode === 'translation' || value.subtitleContentMode === 'romanization' || value.subtitleContentMode === 'none') {
+        settings.subtitleContentMode = value.subtitleContentMode;
+    }
     if (typeof value.subtitleOverlayBackground === 'boolean') settings.subtitleOverlayBackground = value.subtitleOverlayBackground;
     if (isFontStyle(value.lyricsFontStyle)) settings.lyricsFontStyle = value.lyricsFontStyle;
     if (isFiniteNumber(value.lyricsFontScale)) settings.lyricsFontScale = value.lyricsFontScale;
@@ -76,6 +79,8 @@ const parseSyncedVisualSettings = (value: Record<string, unknown>): SyncedVisual
     if (value.nomandBackgroundTuning !== undefined) settings.nomandBackgroundTuning = value.nomandBackgroundTuning;
     if (value.latentBackgroundTuning !== undefined) settings.latentBackgroundTuning = value.latentBackgroundTuning;
     if (value.monetTuning !== undefined) settings.monetTuning = value.monetTuning;
+    if (value.pendoloTuning !== undefined) settings.pendoloTuning = value.pendoloTuning;
+    if (value.sonnetTuning !== undefined) settings.sonnetTuning = value.sonnetTuning;
     if (Array.isArray(value.urlBackgroundList)) settings.urlBackgroundList = value.urlBackgroundList;
     if (value.urlBackgroundSelectedId === null) settings.urlBackgroundSelectedId = null;
     else if (typeof value.urlBackgroundSelectedId === 'string') settings.urlBackgroundSelectedId = value.urlBackgroundSelectedId;

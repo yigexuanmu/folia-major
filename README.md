@@ -13,6 +13,7 @@ Lyrics Reimagined // 辞曲新境
 [![License](https://img.shields.io/github/license/yigexuanmu/folia-major)](https://github.com/yigexuanmu/folia-major/blob/main/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/yigexuanmu/folia-major?style=social)](https://github.com/yigexuanmu/folia-major/stargazers)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/chthollyphile/folia-major)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-35-orange.svg?style=flat-square)](CONTRIBUTORS.md)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
@@ -29,7 +30,7 @@ Lyrics Reimagined // 辞曲新境
 
 ## 项目简介
 
-Folia是一个以全屏沉浸式歌词播放为核心的在线音乐播放器，支持网易云，navidrome和本地音乐库，通过智能歌词匹配，AI生成配色主题，以及多种全屏歌词动画为用户提供独特的听歌体验。
+Folia是一个以全屏沉浸式歌词播放为核心的在线音乐播放器，支持网易云、酷狗、Navidrome 和本地音乐库，通过智能歌词匹配，AI生成配色主题，以及多种全屏歌词动画为用户提供独特的听歌体验。
 
 提供基于Electron的 windows/ macOS/ Linux 桌面端版本与基于 Node.js 的 Web 版本，支持多平台部署。
 
@@ -37,13 +38,15 @@ Folia是一个以全屏沉浸式歌词播放为核心的在线音乐播放器，
 
 ## 展示
 
+![visualizer](./img/visualizer.png)
+
 ### 演示视频
 
 https://github.com/user-attachments/assets/fd27f4f0-64b9-4c57-8c3b-10df767f934b
 
 https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 
-### 主题预览
+### 部分主题预览
 
 <table>
   <tr>
@@ -82,6 +85,18 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
     <td align="center"><strong>群唱</strong></td>
     <td align="center"><strong>倾诉</strong></td>
   </tr>
+    <tr>
+    <td width="50%">
+      <img src="./img/preview-diorama.png" alt="镜台 主题预览" />
+    </td>
+    <td width="50%">
+      <img src="./img/preview-pendolo.png" alt="时计 主题预览" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>镜台</strong></td>
+    <td align="center"><strong>时计</strong></td>
+  </tr>
 </table>
 
 不同的歌词动画具有不同的排版氛围和可调参数，让全屏歌词拥有如同文字PV般的丰富视觉效果，同时又能兼顾响应式布局，自动适配不同窗口尺寸。
@@ -102,7 +117,27 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 
 桌面版内置前后端运行环境，适合希望即装即用的用户。
 
-- **Windows / macOS / Linux**: 最新版本的安装包请前往 [Releases 页面](https://github.com/chthollyphile/folia-major/releases) 下载。
+### 一键部署
+
+如果你希望快速上线 Web 版本，请阅读 [Vercel 一键部署指南](https://folia-site.cielaniska.top/guide/deploy-vercel) 来创建项目
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/chthollyphile/folia-major) 
+
+项目也支持一键部署到 Cloudflare，请参考 Vercel 的部署教程进行相应调整。
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/chthollyphile/folia-major)
+
+自托管用户可以使用 [Docker Compose 全栈部署](deploy/docker/README.md)。本地音乐目录访问依赖可信 HTTPS 安全上下文，部署文档包含 NAS 反向代理和证书要求。
+
+关于移动端：
+
+目前推荐移动端用户部署 Web 版本/自托管版本之后，通过chrome for android / iOS Safari 创建 PWA应用（也就是将网页应用添加到桌面，Folia web版本支持安装为PWA应用）来使用。
+
+有一定技术的用户可以使用 capacitor 将本项目的web版本打包成为可安装的安卓apk，具体方法可参考示范仓库：[chthollyphile/folia-sonnet](https://github.com/chthollyphile/folia-sonnet)
+
+### 直接下载
+
+- **Windows / macOS / Linux**: 最新版本的安装包请前往 [Releases 页面](https://github.com/chthollyphile/folia-major/releases/latest) 下载。
 - **Arch Linux**: 可通过 AUR 获取 [folia-major-bin](https://aur.archlinux.org/packages/folia-major-bin)。
 - **Flatpak**: 社区提供的第三方 flatpak，详情见 [Flatpark](https://flatpark.org/apps/top.izuna.foliamajor/)。
 - **NixOS / Nix with flakes**:
@@ -131,6 +166,9 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
   # home.packages = [ inputs.folia-major.packages.${system}.default ];
   ```
 
+> [!IMPORTANT]
+> 如果国内网络从 GitHub Releases 下载较慢，可以使用 [网盘链接](https://pan.quark.cn/s/6e4c6fa3bc6f) 下载。网盘链接仅提供 Windows 与 Apple silicon 的正式版安装包.
+
 Linux 包、Wayland / Hyprland 遥控窗和桌面端细节见 [技术与开发说明](docs/technical.md)。
 
 ## 文档与开发
@@ -139,10 +177,6 @@ Linux 包、Wayland / Hyprland 遥控窗和桌面端细节见 [技术与开发�
 
 部署、环境变量、本地开发、Stage API、常用脚本和技术栈见 [技术与开发说明](docs/technical.md)。
 
-如果你希望快速上线 Web 版本，请阅读 [Vercel 一键部署指南](https://folia-site.cielaniska.top/guide/deploy-vercel) 来创建项目
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/chthollyphile/folia-major)
-
 ## Sync Server
 
 Folia 提供了可选的官方同步服务端 `sync-server`，用于在多个设备之间同步外观设置与 AI 主题库。服务端由用户自行托管，适合希望跨设备同步配色主题的用户。
@@ -150,14 +184,15 @@ Folia 提供了可选的官方同步服务端 `sync-server`，用于在多个设
 支持以下部署方式：
 
 - **Cloudflare Workers / D1**：免服务器运维的 Serverless 部署，推荐使用。
-- **Docker**：适合已有服务器或 VPS 的用户。
+  [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/chthollyphile/folia-major/tree/main/sync-server)
+- **Docker**：镜像与 Compose 入口见 [Docker 部署目录](deploy/docker/README.md)。
 - **Node.js 自托管**：使用 SQLite，适合本地或不方便使用 Docker 的环境。
 
-详细的环境变量、Token 配置与部署步骤请参阅 [`sync-server/README.md`](sync-server/README.md)。部署完成后，在 Folia 的“存储设置”中填写服务端地址和 `SYNC_TOKEN` 即可启用同步。
+详细的环境变量、Token 配置与部署步骤请参阅 [Sync-Server 部署指南](https://folia-site.cielaniska.top/guide/deploy-sync)。部署完成后，在 Folia 的“存储设置”中填写服务端地址和 `SYNC_TOKEN` 即可启用同步。
 
 ## 本地音乐与匹配说明
 
-Folia 会读取音频文件元数据、同目录歌词和封面，并可通过网易云或 QQ 音乐补全歌曲信息。自动匹配不准确时，可以手动选择候选、恢复首次导入的本地信息，或进一步合并、拆分艺术家与专辑实体。
+Folia 会读取音频文件元数据、同目录歌词和封面，并可通过网易云、QQ 音乐或酷狗音乐补全歌曲信息。自动匹配按网易云、QQ、酷狗依次回退；匹配不准确时，可以手动选择候选、恢复首次导入的本地信息，或进一步合并、拆分艺术家与专辑实体。
 
 完整的导入、重扫、匹配、实体编辑、歌单、缓存和故障排查说明见 [本地音乐库管理](docs/local-library-management.md)。
 
@@ -184,6 +219,8 @@ Folia 会读取音频文件元数据、同目录歌词和封面，并可通过�
 - [chenmozhijin/LDDC](https://github.com/chenmozhijin/LDDC)
 - [NeteaseCloudMusicApiEnhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced)
 - [chenglou/pretext](https://github.com/chenglou/pretext)
+- [MakcRe/KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi)
+- [paper-design/shaders](https://github.com/paper-design/shaders)
 
 本项目接入了 [Apple Music-like Lyrics TTML 逐词歌词库](https://github.com/amll-dev/amll-ttml-db) 以提供高质量的歌词文件，感谢此歌词库的作者和贡献者们。
 

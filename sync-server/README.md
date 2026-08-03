@@ -51,6 +51,11 @@ openssl rand -hex 16
 
 零成本、免服务器的 Serverless 部署。当前仓库已经提供安装脚本，可以自动完成 D1 创建、`wrangler.local.toml` 生成、Secret 注入和最终部署，推荐优先使用脚本。
 
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/chthollyphile/folia-major/tree/main/sync-server)
+
+> [!WARNING]
+> 一键部署按钮可能无法自动完成 D1 数据库的绑定与 Token 注入。如果使用一键部署按钮，你需要**在部署后**前往 Cloudflare 控制台手动创建 D1 数据库、重新配置绑定变量，并设置 `SYNC_TOKEN` 环境变量。因此，**更推荐使用下方的安装脚本**。
+
 ### 前置要求
 - 注册 Cloudflare 账号
 - 本机可用 Node.js 24 或更高版本以及 `npm`
@@ -210,11 +215,11 @@ npm run deploy:cf -- --config wrangler.local.toml
 
 ## 方案二：Docker 部署
 
-仓库已提供 `Dockerfile` 和 `docker-compose.yml`，当前推荐从仓库内的 `sync-server` 目录直接构建镜像；数据库会持久化到 `./data`。
+Docker 资产已统一迁移到仓库的 `deploy/docker` 目录。完整 Web 堆栈与 HTTPS 说明见 [`deploy/docker/README.md`](../deploy/docker/README.md)；这里只保留 Sync Server 单独构建方式。
 
 ### 1. 准备配置
 
-进入仓库目录并创建 `.env`：
+进入 Sync Server 目录并创建 `.env`：
 
 ```bash
 cd sync-server
@@ -231,12 +236,13 @@ SYNC_TOKEN="你的_SYNC_TOKEN"
 DASHBOARD_TOKEN="你的_DASHBOARD_TOKEN"
 ```
 
-### 2. 启动服务
+### 2. 从仓库根目录启动服务
 
 ```bash
-docker compose up -d --build
+cd ..
+docker compose -f deploy/docker/compose.sync.yaml up -d --build
 ```
-启动后，服务监听容器内的 `3000` 端口，并映射到宿主机的 `13000` 端口；数据库文件会持久化保存在 `sync-server/data/folia-sync.db`。
+启动后，服务监听容器内的 `3000` 端口，并映射到宿主机的 `13000` 端口；数据库文件持久化在 `sync-server/data/folia-sync.db`。
 
 ---
 

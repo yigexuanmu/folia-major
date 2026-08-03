@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Command, MousePointer2, Keyboard, Settings2, Trash2, Database, Monitor, PlayCircle, Loader2, Server, Check, AlertCircle, FlaskConical, ChevronLeft, ChevronRight, RefreshCw, Download, ExternalLink, Sparkles, Palette, CircleHelp, Languages } from 'lucide-react';
+import { X, Command, MousePointer2, Keyboard, Settings2, Trash2, Database, Monitor, PlayCircle, Loader2, Server, Check, AlertCircle, FlaskConical, ChevronLeft, ChevronRight, RefreshCw, Download, ExternalLink, Sparkles, Palette, CircleHelp, Languages, Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getCacheUsageByCategory, clearCacheByCategory, clearAllData } from '../../services/db';
-import { DualTheme, StageStatus, StageSource, Theme, ThemeMode, type CadenzaTuning, type CappellaEmojiImage, type CappellaTuning, type FumeTuning, type NowPlayingConnectionStatus, type PartitaTuning, type TiltTuning, type StoredCustomLyricsFont, type VisualizerMode } from '../../types';
+import { DualTheme, StageStatus, StageSource, Theme, ThemeMode, type CadenzaTuning, type CappellaEmojiImage, type CappellaTuning, type FumeTuning, type NowPlayingConnectionStatus, type PartitaTuning, type ReplayGainMode, type TiltTuning, type StoredCustomLyricsFont, type VisualizerMode } from '../../types';
 import { getNavidromeConfig, saveNavidromeConfig, clearNavidromeConfig, hashPassword, navidromeApi, isNavidromeEnabled, setNavidromeEnabled, getCachedNavidromeServerProfile, refreshNavidromeServerProfile } from '../../services/navidromeService';
 import { NavidromeConfig, NavidromeServerProfile } from '../../types/navidrome';
 import VisPlayground from '../visualizer/VisPlayground';
@@ -14,6 +14,7 @@ import AppearanceSettingsSubview from './settings/AppearanceSettingsSubview';
 import DesktopSettingsSubview from './settings/DesktopSettingsSubview';
 import GeneralSettingsSubview from './settings/GeneralSettingsSubview';
 import IntegrationSettingsSubview from './settings/IntegrationSettingsSubview';
+import type { PlayerCapConnectionStatus } from '../../types/playerCap';
 import LabSettingsModal from './settings/LabSettingsModal';
 import PlaybackSettingsSubview from './settings/PlaybackSettingsSubview';
 import StorageSettingsSection from './settings/StorageSettingsSection';
@@ -23,8 +24,12 @@ import type { LyricData } from '../../types';
 import { selectSettingsUiSnapshot, type SettingsSubviewId, type VisualizerSettingsSection, useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { ObsBrowserSourceStatus } from '../../types/obsBrowserSource';
+import { getWebAiProvider } from '../../services/runtimeConfig';
 
 const DEFAULT_OPENAI_TEMPERATURE = '0.7';
+const VERSION_INFO = __DOCKER_STACK_VERSION__
+    ? `${__APP_VERSION_LABEL__} v${__APP_VERSION__} · Stack ${__DOCKER_STACK_VERSION__} · ${__COMMIT_HASH__}`
+    : `${__APP_VERSION_LABEL__} v${__APP_VERSION__} - ${__GIT_BRANCH__} - ${__COMMIT_HASH__}`;
 
 interface SettingsModalProps {
     onClose: () => void;
@@ -56,10 +61,14 @@ interface SettingsModalProps {
     onClearStageState?: () => Promise<void> | void;
     onToggleNowPlayingStage?: (enabled: boolean) => Promise<void> | void;
     nowPlayingConnectionStatus?: NowPlayingConnectionStatus;
+    playerCapConnectionStatus?: PlayerCapConnectionStatus;
+    playerCapPlayers?: string[];
     obsBrowserSourceStatus?: ObsBrowserSourceStatus | null;
     onToggleObsBrowserSource?: (enabled: boolean) => Promise<void> | void;
     onRegenerateObsBrowserSourceToken?: () => Promise<void> | void;
     onAudioOutputDeviceChange: (deviceId: string) => Promise<boolean> | boolean;
+    replayGainMode: ReplayGainMode;
+    onReplayGainModeChange: (mode: ReplayGainMode) => void;
     onToggleTransparentPlayerBackground?: (enabled: boolean) => Promise<void> | void;
     aiTheme?: DualTheme | null;
     customTheme?: DualTheme | null;
@@ -104,10 +113,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     onClearStageState,
     onToggleNowPlayingStage,
     nowPlayingConnectionStatus = 'disabled',
+    playerCapConnectionStatus = 'idle',
+    playerCapPlayers = [],
     obsBrowserSourceStatus = null,
     onToggleObsBrowserSource,
     onRegenerateObsBrowserSourceToken,
     onAudioOutputDeviceChange,
+    replayGainMode,
+    onReplayGainModeChange,
     onToggleTransparentPlayerBackground,
     aiTheme,
     customTheme,
@@ -122,6 +135,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         hidePlayerProgressBar,
         hidePlayerTranslationSubtitle,
         showSubtitleTranslation,
+        subtitleContentMode,
         hidePlayerRightPanelButton,
         transparentPlayerBackground,
         autoHidePlayerChrome,
@@ -136,9 +150,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         backgroundOpacity,
         subtitleOverlayOpacity,
         subtitleOverlayBackground,
+        showHarmonySubtitle,
+        harmonySubtitleBackground,
         visualizerOpacity,
         visualizerBackgroundMode,
         isDaylight,
+        setDaylightPreference: onSetDaylightPreference,
         visualizerMode,
         grid3dCardStyle,
         classicTuning,
@@ -153,6 +170,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         nomandBackgroundTuning,
         latentBackgroundTuning,
         monetTuning,
+        pendoloTuning,
+        sonnetTuning,
         cappellaCustomEmojiImages,
         isLoadingCappellaCustomEmojiPack,
         cappellaCustomAvatarImages,
@@ -165,6 +184,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         urlBackgroundSelectedId,
         lyricsFontStyle,
         lyricsFontScale,
+        subtitleFontScale,
         lyricsFontWeight,
         lyricsCustomFontFamily,
         lyricsCustomFontLabel,
@@ -176,13 +196,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         subtitleFontFallbackFamilies,
         lyricFilterPattern,
         showOpenPanelCloseButton,
-        enableNowPlayingStage,
         handleToggleCoverColorBg: onToggleCoverColorBg,
         handleToggleStaticMode: onToggleStaticMode,
         handleToggleDisableHomeDynamicBackground: onToggleDisableHomeDynamicBackground,
         handleToggleHidePlayerProgressBar: onToggleHidePlayerProgressBar,
         handleToggleHidePlayerTranslationSubtitle: onToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation: onToggleShowSubtitleTranslation,
+        handleSetSubtitleContentMode: onSubtitleContentModeChange,
         handleToggleHidePlayerRightPanelButton: onToggleHidePlayerRightPanelButton,
         handleToggleTransparentPlayerBackground: onToggleTransparentPlayerBackgroundFromStore,
         handleToggleAutoHidePlayerChrome: onToggleAutoHidePlayerChrome,
@@ -197,6 +217,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         handleSetBackgroundOpacity: setBackgroundOpacity,
         handleSetSubtitleOverlayOpacity: setSubtitleOverlayOpacity,
         handleToggleSubtitleOverlayBackground: onToggleSubtitleOverlayBackground,
+        handleToggleShowHarmonySubtitle: onToggleShowHarmonySubtitle,
+        handleToggleHarmonySubtitleBackground: onToggleHarmonySubtitleBackground,
         handleSetVisualizerOpacity: setVisualizerOpacity,
         handleSetVisualizerBackgroundMode: onVisualizerBackgroundModeChange,
         handleSetVisualizerMode: onVisualizerModeChange,
@@ -222,6 +244,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         handleResetLatentBackgroundTuning: onResetLatentBackgroundTuning,
         handleSetMonetTuning: onMonetTuningChange,
         handleResetMonetTuning: onResetMonetTuning,
+        handleSetPendoloTuning: onPendoloTuningChange,
+        handleResetPendoloTuning: onResetPendoloTuning,
+        handleSetSonnetTuning: onSonnetTuningChange,
+        handleResetSonnetTuning: onResetSonnetTuning,
         handleUploadMonetBackgroundImage: onUploadMonetBackgroundImage,
         handleClearMonetBackgroundImage: onClearMonetBackgroundImage,
         handleUploadMonetPortraitImage: onUploadMonetPortraitImage,
@@ -236,6 +262,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         handleClearCustomCappellaAvatar: onClearCappellaCustomAvatar,
         handleSetLyricsFontStyle: onLyricsFontStyleChange,
         handleSetLyricsFontScale: onLyricsFontScaleChange,
+        handleSetSubtitleFontScale: onSubtitleFontScaleChange,
         handleSetLyricsFontWeight: onLyricsFontWeightChange,
         handleSetLyricsCustomFont: onLyricsCustomFontChange,
         handleUploadLyricsCustomFont: onLyricsCustomFontUpload,
@@ -360,7 +387,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     const [cacheDirectoryIsDefault, setCacheDirectoryIsDefault] = useState(true);
     const [cacheDirectoryStatus, setCacheDirectoryStatus] = useState<'idle' | 'choosing'>('idle');
     const [stageActionStatus, setStageActionStatus] = useState<'idle' | 'regenerating'>('idle');
-    const configuredAiProvider = isElectron ? electronSettings.AI_PROVIDER : import.meta.env.VITE_AI_PROVIDER;
+    const configuredAiProvider = isElectron ? electronSettings.AI_PROVIDER : getWebAiProvider();
     const aiServiceLabel = configuredAiProvider === 'openai' ? 'OpenAI Compatible' : 'Google Gemini';
     const showQuarkDownload = electronSettings.UPDATE_CHANNEL === 'realeco';
     useEffect(() => {
@@ -443,10 +470,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     };
 
     const handleCopyVersionInfo = async () => {
-        const versionInfo = `${__APP_VERSION_LABEL__} v${__APP_VERSION__} - ${__GIT_BRANCH__} - ${__COMMIT_HASH__}`;
-
         try {
-            await copyText(versionInfo);
+            await copyText(VERSION_INFO);
             setVersionCopied(true);
             window.setTimeout(() => setVersionCopied(false), 1800);
         } catch (error) {
@@ -757,13 +782,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     const stageEnabled = Boolean(stageStatus?.modeEnabled);
     const activeStageSource = stageStatus?.source ?? stageSource;
     const stageHasActiveSession = Boolean(stageStatus?.lyricsSession || stageStatus?.mediaSession);
+    // now-playing 与 playercap 是互斥的舞台源：两颗状态指示都只认当前选中源 activeStageSource，
+    // 保证同一时刻至多显示一个（web 端即便两个 enable 标志同时为真，也以派生出的选中源为准）。
     const nowPlayingEnabled = Boolean(
         isElectron
             ? (stageStatus?.modeEnabled && activeStageSource === 'now-playing')
-            : enableNowPlayingStage
+            : activeStageSource === 'now-playing'
     );
     const nowPlayingConnected = nowPlayingEnabled && nowPlayingConnectionStatus === 'connected';
     const stageConnected = stageEnabled && activeStageSource === 'stage-api';
+    const playerCapEnabled = Boolean(
+        isElectron
+            ? (stageStatus?.modeEnabled && activeStageSource === 'playercap')
+            : activeStageSource === 'playercap'
+    );
+    const playerCapConnected = playerCapEnabled && playerCapConnectionStatus === 'connected';
     const integrationStatusItems = [
         ...(stageConnected
             ? [{
@@ -777,6 +810,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 key: 'now-playing',
                 label: nowPlayingConnected ? t('options.nowPlayingConnectedStatus') : t('options.nowPlayingDisconnectedStatus'),
                 tone: nowPlayingConnected ? 'success' as const : 'error' as const,
+            }]
+            : []),
+        ...(playerCapEnabled
+            ? [{
+                key: 'playercap',
+                label: playerCapConnected ? t('options.playerCapConnectedStatus') : t('options.playerCapDisconnectedStatus'),
+                tone: playerCapConnected ? 'success' as const : 'error' as const,
             }]
             : []),
     ];
@@ -1284,7 +1324,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                         >
                                             {versionCopied
                                                 ? t('status.copied')
-                                                : `${__APP_VERSION_LABEL__} v${__APP_VERSION__} - ${__GIT_BRANCH__} - ${__COMMIT_HASH__}`}
+                                                : VERSION_INFO}
                                         </button>
 
                                         {/* 第二行：发现新版本与操作按钮 */}
@@ -1321,7 +1361,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                                     )
                                                 )}
 
-                                                {showQuarkDownload && (
+                                                {showQuarkDownload && updateStatus.platform !== 'linux' && (
                                                     <>
                                                         <span className="opacity-25 select-none" style={{ color: 'var(--text-secondary)' }}>|</span>
 
@@ -1349,10 +1389,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                             </div>
                                         )}
 
-                                        {/* 第三行：国内网络提醒小字 */}
-                                        {showQuarkDownload && updateStatus?.availableVersion && (
-                                            <div className="text-xs opacity-45 mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                                                {t('options.chinaDownloadHint')}
+                                        {/* 第三行：多平台网络与手动下载提醒小字 */}
+                                        {updateStatus?.availableVersion && (
+                                            <div className="text-xs opacity-60 mt-0.5 space-y-0.5" style={{ color: 'var(--text-secondary)' }}>
+                                                {(updateStatus.platform === 'darwin' || updateStatus.platform === 'linux' || !updateStatus.supported) && (
+                                                    <div>
+                                                        {updateStatus.platform === 'darwin'
+                                                            ? t('options.macManualUpdateNotice')
+                                                            : updateStatus.platform === 'linux'
+                                                            ? t('options.linuxManualUpdateNotice')
+                                                            : t('options.manualUpdateNotice')}
+                                                    </div>
+                                                )}
+                                                {showQuarkDownload && updateStatus.platform !== 'linux' && (
+                                                    <div>{t('options.chinaDownloadHint')}</div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -1404,24 +1455,40 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                 </div>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar pl-1 md:pl-2 pr-2 md:pr-4 relative pb-4">
                                     <div className="mb-4 md:mb-6 border-b border-white/10 pb-3 md:pb-4">
-                                        <h2 className="text-lg md:text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-                                            {activeSettingsSection === 'appearance' && (t('options.visualSettings') || "Visual Settings")}
-                                            {activeSettingsSection === 'general' && (t('options.generalSettings') || "General Settings")}
-                                            {activeSettingsSection === 'playback' && (t('options.playbackSettings') || "Playback Settings")}
-                                            {activeSettingsSection === 'integration' && (t('options.integrationSettings') || "Integration Settings")}
-                                            {activeSettingsSection === 'storage' && (t('options.storageSettings') || "Storage Settings")}
-                                            {activeSettingsSection === 'desktop' && (t('options.desktopSettings') || "Desktop Settings")}
-                                            {activeSettingsSection === 'lab' && (t('options.labSettings') || "Lab Settings")}
-                                        </h2>
-                                        <p className="text-xs opacity-50 mt-1" style={{ color: 'var(--text-secondary)' }}>
-                                            {activeSettingsSection === 'appearance' && (t('options.visualSettingsPanelDesc') || "Customize the look and feel of Folia.")}
-                                            {activeSettingsSection === 'general' && (t('options.generalSettingsDesc') || "Basic application preferences.")}
-                                            {activeSettingsSection === 'playback' && (t('options.playbackSettingsPanelDesc') || "Audio output and playback behavior.")}
-                                            {activeSettingsSection === 'integration' && (t('options.integrationSettingsDesc') || "Connect with external services.")}
-                                            {activeSettingsSection === 'storage' && (t('options.storageSettingsPanelDesc') || "Manage cache and local data.")}
-                                            {activeSettingsSection === 'desktop' && (t('options.desktopSettingsPanelDesc') || "System integration and updates.")}
-                                            {activeSettingsSection === 'lab' && (t('options.labSettingsDesc') || "Experimental features.")}
-                                        </p>
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <h2 className="text-lg md:text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                                    {activeSettingsSection === 'appearance' && (t('options.visualSettings') || "Visual Settings")}
+                                                    {activeSettingsSection === 'general' && (t('options.generalSettings') || "General Settings")}
+                                                    {activeSettingsSection === 'playback' && (t('options.playbackSettings') || "Playback Settings")}
+                                                    {activeSettingsSection === 'integration' && (t('options.integrationSettings') || "Integration Settings")}
+                                                    {activeSettingsSection === 'storage' && (t('options.storageSettings') || "Storage Settings")}
+                                                    {activeSettingsSection === 'desktop' && (t('options.desktopSettings') || "Desktop Settings")}
+                                                    {activeSettingsSection === 'lab' && (t('options.labSettings') || "Lab Settings")}
+                                                </h2>
+                                                <p className="text-xs opacity-50 mt-1" style={{ color: 'var(--text-secondary)' }}>
+                                                    {activeSettingsSection === 'appearance' && (t('options.visualSettingsPanelDesc') || "Customize the look and feel of Folia.")}
+                                                    {activeSettingsSection === 'general' && (t('options.generalSettingsDesc') || "Basic application preferences.")}
+                                                    {activeSettingsSection === 'playback' && (t('options.playbackSettingsPanelDesc') || "Audio output and playback behavior.")}
+                                                    {activeSettingsSection === 'integration' && (t('options.integrationSettingsDesc') || "Connect with external services.")}
+                                                    {activeSettingsSection === 'storage' && (t('options.storageSettingsPanelDesc') || "Manage cache and local data.")}
+                                                    {activeSettingsSection === 'desktop' && (t('options.desktopSettingsPanelDesc') || "System integration and updates.")}
+                                                    {activeSettingsSection === 'lab' && (t('options.labSettingsDesc') || "Experimental features.")}
+                                                </p>
+                                            </div>
+                                            {activeSettingsSection === 'appearance' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onSetDaylightPreference(!isDaylight)}
+                                                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${utilityGhostButtonClass} ${isDaylight ? 'text-amber-500' : 'text-blue-300'}`}
+                                                    title={t('options.daylightMode')}
+                                                    aria-label={t('options.daylightMode')}
+                                                    aria-pressed={isDaylight}
+                                                >
+                                                    {isDaylight ? <Sun size={17} /> : <Moon size={17} />}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="space-y-8">
                                         {activeSettingsSection === 'appearance' && (
@@ -1468,6 +1535,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                                 isOpen={true}
                                                 isDaylight={isDaylight}
                                                 onAudioOutputDeviceChange={onAudioOutputDeviceChange}
+                                                replayGainMode={replayGainMode}
+                                                onReplayGainModeChange={onReplayGainModeChange}
                                                 settingsCardClass={settingsCardClass}
                                                 theme={theme}
                                                 utilityGhostButtonClass={utilityGhostButtonClass}
@@ -1507,15 +1576,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                                     status: discordPresenceStatus,
                                                 }}
                                                 stage={{
-                                                    enableNowPlayingStage,
                                                     nowPlayingConnectionStatus,
+                                                    playerCapConnectionStatus,
+                                                    playerCapPlayers,
                                                     obsBrowserSourceStatus,
                                                     onCopyText: copyText,
                                                     onRegenerateObsBrowserSourceToken,
                                                     onRegenerateStageToken,
                                                     onStageSourceChange,
                                                     onToggleObsBrowserSource,
-                                                    onToggleNowPlayingStage,
                                                     onToggleStageMode,
                                                     setStageActionStatus,
                                                     setStageAddressCopied,
@@ -1694,8 +1763,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         }}
                         hideTranslationSubtitle={hidePlayerTranslationSubtitle}
                         showSubtitleTranslation={showSubtitleTranslation}
+                        subtitleContentMode={subtitleContentMode}
                         subtitleOverlayOpacity={subtitleOverlayOpacity}
                         subtitleOverlayBackground={subtitleOverlayBackground}
+                        showHarmonySubtitle={showHarmonySubtitle}
+                        harmonySubtitleBackground={harmonySubtitleBackground}
                         classicTuning={classicTuning}
                         cadenzaTuning={cadenzaTuning}
                         partitaTuning={partitaTuning}
@@ -1705,11 +1777,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         tiltTuning={tiltTuning}
                         dioramaTuning={dioramaTuning}
                         monetTuning={monetTuning}
+                        pendoloTuning={pendoloTuning}
+                        sonnetTuning={sonnetTuning}
                         cappellaCustomEmojiImages={cappellaCustomEmojiImages}
                         cappellaCustomAvatarImages={cappellaCustomAvatarImages}
                         monetPortraitImage={monetPortraitImage}
                         fontStyle={lyricsFontStyle}
                         fontScale={lyricsFontScale}
+                        subtitleFontScale={subtitleFontScale}
                         fontWeight={lyricsFontWeight}
                         customFontFamily={lyricsCustomFontFamily}
                         customFontLabel={lyricsCustomFontLabel}
@@ -1721,6 +1796,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         subtitleFontFallbackFamilies={subtitleFontFallbackFamilies}
                         onFontStyleChange={onLyricsFontStyleChange}
                         onFontScaleChange={onLyricsFontScaleChange}
+                        onSubtitleFontScaleChange={onSubtitleFontScaleChange}
                         onFontWeightChange={onLyricsFontWeightChange}
                         onCustomFontChange={onLyricsCustomFontChange}
                         onUploadCustomFont={onLyricsCustomFontUpload}
@@ -1734,8 +1810,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         onVisualizerOpacityChange={setVisualizerOpacity}
                         onToggleHideTranslationSubtitle={onToggleHidePlayerTranslationSubtitle}
                         onToggleShowSubtitleTranslation={onToggleShowSubtitleTranslation}
+                        onSubtitleContentModeChange={onSubtitleContentModeChange}
                         onSubtitleOverlayOpacityChange={setSubtitleOverlayOpacity}
                         onToggleSubtitleOverlayBackground={onToggleSubtitleOverlayBackground}
+                        onToggleShowHarmonySubtitle={onToggleShowHarmonySubtitle}
+                        onToggleHarmonySubtitleBackground={onToggleHarmonySubtitleBackground}
                         onClassicTuningChange={onClassicTuningChange}
                         onResetClassicTuning={onResetClassicTuning}
                         onPartitaTuningChange={onPartitaTuningChange}
@@ -1752,6 +1831,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         onResetDioramaTuning={onResetDioramaTuning}
                         onMonetTuningChange={onMonetTuningChange}
                         onResetMonetTuning={onResetMonetTuning}
+                        onPendoloTuningChange={onPendoloTuningChange}
+                        onResetPendoloTuning={onResetPendoloTuning}
+                        onSonnetTuningChange={onSonnetTuningChange}
+                        onResetSonnetTuning={onResetSonnetTuning}
                         onUploadMonetPortraitImage={onUploadMonetPortraitImage}
                         onClearMonetPortraitImage={onClearMonetPortraitImage}
                         isLoadingMonetPortraitImage={isLoadingMonetPortraitImage}
@@ -1781,6 +1864,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             tilt: tiltTuning,
                             diorama: dioramaTuning,
                             monet: monetTuning,
+                            pendolo: pendoloTuning,
+                            sonnet: sonnetTuning,
                         }}
                         staticMode={staticMode}
                         visualizerOpacity={visualizerOpacity}
@@ -1805,6 +1890,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         cappellaCustomAvatarImages={cappellaCustomAvatarImages}
                         monetPortraitImage={monetPortraitImage}
                         showSubtitleTranslation={showSubtitleTranslation}
+                        subtitleContentMode={subtitleContentMode}
                         lyricsFontStyle={lyricsFontStyle}
                         lyricsFontScale={lyricsFontScale}
                         lyricsFontWeight={lyricsFontWeight}

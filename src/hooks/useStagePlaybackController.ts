@@ -4,9 +4,10 @@ import type { MotionValue } from 'framer-motion';
 import { LyricParserFactory } from '../utils/lyrics/LyricParserFactory';
 import { getFromCache, removeFromCache, saveToCache } from '../services/db';
 import { NowPlayingProvider } from '../services/nowPlayingProvider';
+import { usePlayerCapSource } from './usePlayerCapSource';
 import { findLatestActiveLineIndex, hasRenderableLyrics } from '../utils/appPlaybackHelpers';
 import { buildStageEntryKey, getStageLyricsTimelineBounds } from '../utils/appStageHelpers';
-import { isStagePlaybackSong } from '../utils/appPlaybackGuards';
+import { getPlaybackSongKey, isStagePlaybackSong } from '../utils/appPlaybackGuards';
 import {
     buildNowPlayingContentLoadKey,
     clampNowPlayingTimeSec,
@@ -46,6 +47,11 @@ type UseStagePlaybackControllerParams = {
     isDev: boolean;
     isElectronWindow: boolean;
     enableNowPlayingStage: boolean;
+    enablePlayerCapStage: boolean;
+    playerCapHost: string;
+    playerCapPlayer: string;
+    playerCapTimeBasis: 'timestamp' | 'play_time';
+    playerCapSticky: boolean;
     activePlaybackContext: 'main' | 'stage';
     setActivePlaybackContext: SetState<'main' | 'stage'>;
     currentSong: SongResult | null;
@@ -103,6 +109,11 @@ export function useStagePlaybackController({
     isDev,
     isElectronWindow,
     enableNowPlayingStage,
+    enablePlayerCapStage,
+    playerCapHost,
+    playerCapPlayer,
+    playerCapTimeBasis,
+    playerCapSticky,
     activePlaybackContext,
     setActivePlaybackContext,
     currentSong,
@@ -194,10 +205,24 @@ export function useStagePlaybackController({
     const stageMediaSession = stageStatus?.mediaSession ?? null;
     const stageSource: StageSource | null = isElectronWindow
         ? (stageStatus?.modeEnabled ? (stageStatus?.source ?? 'stage-api') : null)
-        : (enableNowPlayingStage ? 'now-playing' : null);
+        : (enablePlayerCapStage ? 'playercap' : (enableNowPlayingStage ? 'now-playing' : null));
     const isNowPlayingStageActive = activePlaybackContext === 'stage' && stageSource === 'now-playing';
     const shouldPublishNowPlayingState = isDev || isNowPlayingStageActive;
     shouldPublishNowPlayingStateRef.current = shouldPublishNowPlayingState;
+
+    // === PlayerCap stage source (third source): reuses usePlayerCapSource, passively mirrored to the main playback pane; the OBS SSE source inherits it automatically, source-agnostic ===
+    const isPlayerCapStageActive = activePlaybackContext === 'stage' && stageSource === 'playercap';
+    const { state: playerCapState, players: playerCapPlayers, getCurrentTimeSec: getPlayerCapTimeSec } = usePlayerCapSource({
+        enabled: stageSource === 'playercap',
+        host: playerCapHost,
+        player: playerCapPlayer,
+        timeBasis: playerCapTimeBasis,
+        sticky: playerCapSticky,
+    });
+    const getPlayerCapDisplayTime = useCallback((nowMs = Date.now()) => getPlayerCapTimeSec(nowMs), [getPlayerCapTimeSec]);
+    const playerCapConnectionStatus = playerCapState.connectionStatus;
+    const playerCapSongIdRef = useRef(-1);
+    const playerCapSongKeyRef = useRef('');
 
     const buildPlaybackSnapshot = useCallback((): PlaybackSnapshot => ({
         currentSong,
@@ -297,13 +322,11 @@ export function useStagePlaybackController({
         id: -Math.max(1, Math.floor(session.updatedAt || Date.now())),
         name: session.title || 'Stage Session',
         artists: [{ id: 0, name: session.artist || 'Stage' }],
-        album: { id: 0, name: session.album || 'Stage', picUrl: session.coverArtUrl || session.coverUrl || undefined },
-        duration: Math.max(0, Math.floor(session.durationMs || 0)),
-        al: { id: 0, name: session.album || 'Stage', picUrl: session.coverArtUrl || session.coverUrl || undefined },
-        ar: [{ id: 0, name: session.artist || 'Stage' }],
-        dt: Math.max(0, Math.floor(session.durationMs || 0)),
+        album: { id: 0, name: session.album || 'Stage', coverUrl: session.coverArtUrl || session.coverUrl || undefined },
+        durationMs: Math.max(0, Math.floor(session.durationMs || 0)),
         sourceType: 'cloud',
         isStage: true,
+        sourceRef: { kind: 'stage', mediaId: session.id },
         stageData: session,
     } as SongResult), []);
 
@@ -519,13 +542,11 @@ export function useStagePlaybackController({
         id: -Math.max(1, Math.floor(session.updatedAt || Date.now())),
         name: session.title || lyricData.title || 'Stage Lyrics',
         artists: [{ id: 0, name: session.artist || lyricData.artist || 'Stage' }],
-        album: { id: 0, name: session.album || 'Stage', picUrl: undefined },
-        duration: Math.max(0, Math.floor(getStageLyricsTimelineBounds(lyricData).endTimeSec * 1000)),
-        al: { id: 0, name: session.album || 'Stage', picUrl: undefined },
-        ar: [{ id: 0, name: session.artist || lyricData.artist || 'Stage' }],
-        dt: Math.max(0, Math.floor(getStageLyricsTimelineBounds(lyricData).endTimeSec * 1000)),
+        album: { id: 0, name: session.album || 'Stage' },
+        durationMs: Math.max(0, Math.floor(getStageLyricsTimelineBounds(lyricData).endTimeSec * 1000)),
         sourceType: 'cloud',
         isStage: true,
+        sourceRef: { kind: 'stage', mediaId: String(session.updatedAt) },
         stageData: session,
     } as SongResult), []);
 
@@ -554,7 +575,7 @@ export function useStagePlaybackController({
 
         resetStageLyricsClock();
         const stageSong = buildStagePlaybackSong(session);
-        currentSongRef.current = stageSong.id;
+        currentSongRef.current = getPlaybackSongKey(stageSong);
         setIsLyricsLoading(false);
         let parsedLyrics: LyricData | null = null;
         if (session.lyricsText?.trim()) {
@@ -636,7 +657,7 @@ export function useStagePlaybackController({
         clearPlaybackSurface();
         shouldAutoPlayRef.current = false;
         pendingResumeTimeRef.current = null;
-        currentSongRef.current = stageSong.id;
+        currentSongRef.current = getPlaybackSongKey(stageSong);
         setCurrentSong(stageSong);
         setCachedCoverUrl(null);
         setAudioSrc(null);
@@ -714,18 +735,16 @@ export function useStagePlaybackController({
             id: -Math.max(1, Math.floor(Date.now())),
             name: fallbackTitle,
             artists: [{ id: 0, name: fallbackArtist }],
-            album: { id: 0, name: fallbackAlbum || 'Now Playing', picUrl: fallbackCoverUrl || undefined },
-            duration: Math.max(0, Math.floor(resolvedDurationSec * 1000)),
-            al: { id: 0, name: fallbackAlbum || 'Now Playing', picUrl: fallbackCoverUrl || undefined },
-            ar: [{ id: 0, name: fallbackArtist }],
-            dt: Math.max(0, Math.floor(resolvedDurationSec * 1000)),
+            album: { id: 0, name: fallbackAlbum || 'Now Playing', coverUrl: fallbackCoverUrl || undefined },
+            durationMs: Math.max(0, Math.floor(resolvedDurationSec * 1000)),
             sourceType: 'cloud',
             isStage: true,
+            sourceRef: { kind: 'stage', mediaId: String(track?.id || `${fallbackTitle}|${fallbackArtist}`) },
         } as SongResult) : null;
 
         shouldAutoPlayRef.current = false;
         pendingResumeTimeRef.current = null;
-        currentSongRef.current = fallbackSong?.id ?? null;
+        currentSongRef.current = fallbackSong ? getPlaybackSongKey(fallbackSong) : null;
         setCurrentSong(fallbackSong);
         setCachedCoverUrl(fallbackCoverUrl);
         setAudioSrc(null);
@@ -880,7 +899,7 @@ export function useStagePlaybackController({
     }, []);
 
     const openStagePlayer = useCallback(async () => {
-        if (stageSource === 'now-playing' && activePlaybackContext === 'stage') {
+        if ((stageSource === 'now-playing' || stageSource === 'playercap') && activePlaybackContext === 'stage') {
             navigateToPlayer();
             return;
         }
@@ -889,6 +908,15 @@ export function useStagePlaybackController({
             mainPlaybackSnapshotRef.current = buildPlaybackSnapshot();
         } else {
             stagePlaybackSnapshotRef.current = buildPlaybackSnapshot();
+        }
+
+        if (stageSource === 'playercap') {
+            // Passive source: switch to the stage context and navigate; the main playback pane is filled by the reactive mirror effect.
+            clearMainPlaybackContext();
+            stagePlaybackSnapshotRef.current = null;
+            setActivePlaybackContext('stage');
+            navigateToPlayer();
+            return;
         }
 
         if (stageSource === 'now-playing') {
@@ -964,7 +992,7 @@ export function useStagePlaybackController({
             return;
         }
 
-        if (stageSource === 'now-playing') {
+        if (stageSource === 'now-playing' || stageSource === 'playercap') {
             stagePlaybackSnapshotRef.current = null;
             setActivePlaybackContext('main');
             clearMainPlaybackContext();
@@ -981,7 +1009,7 @@ export function useStagePlaybackController({
             return null;
         }
 
-        if (stageSource === 'now-playing') {
+        if (stageSource === 'now-playing' || stageSource === 'playercap') {
             stagePlaybackSnapshotRef.current = null;
             setActivePlaybackContext('main');
             clearMainPlaybackContext();
@@ -1296,6 +1324,75 @@ export function useStagePlaybackController({
         setPlayerState(current => current === nextPlayerState ? current : nextPlayerState);
     }, [isNowPlayingStageActive, nowPlayingPaused, setPlayerState]);
 
+    // PlayerCap → main playback pane (passive mirror). Lyrics are already LyricData (no parsing); cover/duration/track update with each event, audio is left empty so <audio> does not hijack the clock.
+    useEffect(() => {
+        if (stageSource !== 'playercap' || activePlaybackContext !== 'stage') {
+            return;
+        }
+        const track = playerCapState.track;
+        const nextLyrics = playerCapState.lyrics;
+        // Mid source-switch (the active player has changed, new content hasn't arrived yet for that brief window): keep the previous song's content to avoid flashing the empty-state overlay in the main view
+        // (Folia's empty state depends on currentSong=null). Only genuine idle (activePlayer is empty) actually clears. Consistent with the OBS output's look and feel.
+        if (!track && !nextLyrics && playerCapState.activePlayer) {
+            return;
+        }
+        const durationSec = playerCapState.clock.durationSec;
+        const key = `${track?.title ?? ''}|${track?.name ?? ''}|${track?.artist ?? ''}`;
+        if (key !== playerCapSongKeyRef.current) {
+            playerCapSongKeyRef.current = key;
+            playerCapSongIdRef.current -= 1; // one stable negative id per new song, triggers the main app's song-change side effects (theme/offset/etc.)
+        }
+        const durationMs = Math.max(0, Math.floor(durationSec * 1000));
+        const song: SongResult | null = (track || nextLyrics) ? ({
+            id: playerCapSongIdRef.current,
+            name: track?.name || track?.title || 'PlayerCap',
+            artists: [{ id: 0, name: track?.artist || '' }],
+            album: { id: 0, name: '', coverUrl: track?.coverUrl || undefined },
+            durationMs,
+            sourceType: 'cloud',
+            isStage: true,
+            sourceRef: { kind: 'stage', mediaId: key },
+        } as SongResult) : null;
+
+        shouldAutoPlayRef.current = false;
+        pendingResumeTimeRef.current = null;
+        currentSongRef.current = song?.id ?? null;
+        setCurrentSong(song);
+        setCachedCoverUrl(track?.coverUrl ?? null);
+        setAudioSrc(null);
+        setPlayQueue([]);
+        setIsFmMode(false);
+        setIsLyricsLoading(false);
+        setLyrics(nextLyrics);
+        setDuration(durationSec);
+    }, [
+        stageSource,
+        activePlaybackContext,
+        playerCapState.track,
+        playerCapState.lyrics,
+        playerCapState.activePlayer,
+        playerCapState.clock.durationSec,
+        currentSongRef,
+        pendingResumeTimeRef,
+        setAudioSrc,
+        setCachedCoverUrl,
+        setCurrentSong,
+        setDuration,
+        setIsFmMode,
+        setIsLyricsLoading,
+        setLyrics,
+        setPlayQueue,
+        shouldAutoPlayRef,
+    ]);
+
+    useEffect(() => {
+        if (!isPlayerCapStageActive) {
+            return;
+        }
+        const nextPlayerState = playerCapState.playerState === 'playing' ? PlayerState.PLAYING : PlayerState.PAUSED;
+        setPlayerState(current => current === nextPlayerState ? current : nextPlayerState);
+    }, [isPlayerCapStageActive, playerCapState.playerState, setPlayerState]);
+
     useEffect(() => {
         if (activePlaybackContext !== 'stage' || stageSource) {
             return;
@@ -1321,6 +1418,10 @@ export function useStagePlaybackController({
         nowPlayingPaused,
         nowPlayingDebugInfo,
         isNowPlayingStageActive,
+        isPlayerCapStageActive,
+        getPlayerCapDisplayTime,
+        playerCapConnectionStatus,
+        playerCapPlayers,
         mainPlaybackSnapshotRef,
         stageLyricsClockRef,
         resetNowPlayingClock,

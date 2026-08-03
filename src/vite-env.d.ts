@@ -6,6 +6,13 @@ declare global {
   const __APP_VERSION__: string;
   const __APP_VERSION_LABEL__: string;
   const __APP_RELEASE_CHANNEL__: string;
+  const __DOCKER_STACK_VERSION__: string;
+
+  interface Window {
+    __FOLIA_RUNTIME_CONFIG__?: {
+      aiProvider?: 'gemini' | 'openai';
+    };
+  }
 
   interface ElectronCacheDirectoryResult {
     path: string;
@@ -18,6 +25,8 @@ declare global {
     data?: Uint8Array | ArrayBuffer | null;
     mimeType?: string | null;
   }
+
+  type ElectronKugouOperation = import('./services/onlineMusic/kugouTransport').KugouOperation;
 
   interface ElectronAudioCacheStats {
     size: number;
@@ -37,6 +46,11 @@ declare global {
     port: number | null;
     error: string | null;
     updatedAt: number;
+  }
+
+  interface ElectronKugouApiStatus {
+    available: boolean;
+    error: string | null;
   }
 
   interface ElectronTaskbarControlState {
@@ -192,6 +206,7 @@ declare global {
     supported: boolean;
     updateCheckSupported: boolean;
     updateCheckSupportReason?: 'system' | 'channel' | null;
+    platform?: string;
     updateCheckEnabled: boolean;
     autoUpdateEnabled: boolean;
     currentVersion: string;
@@ -481,6 +496,11 @@ declare global {
       getNeteasePort: () => Promise<number>;
       getNeteaseApiStatus: () => Promise<ElectronNeteaseApiStatus>;
       onNeteaseApiStatusChanged: (callback: (status: ElectronNeteaseApiStatus) => void) => () => void;
+      getKugouApiStatus: () => Promise<ElectronKugouApiStatus>;
+      kugouRequest: (
+        operation: ElectronKugouOperation,
+        params?: Record<string, string | number | boolean | undefined>,
+      ) => Promise<unknown>;
       minimizeWindow: () => Promise<boolean>;
       toggleMaximizeWindow: () => Promise<boolean>;
       toggleFullscreenWindow: () => Promise<boolean>;
