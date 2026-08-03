@@ -202,7 +202,7 @@ function kwDESCrypt(msg: number[], key: number[], mode: number): number[] {
   }
 }
 
-export async function unlockNeteaseUrl(songId: number): Promise<UnlockSongUrlResult> {
+export async function unlockNeteaseUrl(songId: number | string): Promise<UnlockSongUrlResult> {
   try {
     const baseUrl = 'https://music-api.gdstudio.xyz/api.php';
     const url = `${baseUrl}?types=url&id=${songId}`;
