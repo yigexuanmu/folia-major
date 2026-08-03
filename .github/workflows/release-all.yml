@@ -1,0 +1,129 @@
+name: Build All & Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-all-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win
+            upload_pattern: 'release/*.exe'
+          - os: macos-latest
+            target: --mac
+            upload_pattern: 'release/*.dmg'
+          - os: ubuntu-latest
+            target: --linux
+            upload_pattern: 'release/*.tar.gz'
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app for Electron
+        env:
+          ELECTRON: 'true'
+          APP_VERSION_LABEL: Folia
+          APP_RELEASE_CHANNEL: stable
+        run: npm run build
+
+      - name: Package Electron app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npx electron-builder ${{ matrix.target }} --publish never
+
+      - name: Package Linux archive
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          cd release
+          if [ -d linux-unpacked ]; then
+            tar -czf "folia-major-${VERSION}-linux-x64.tar.gz" linux-unpacked
+          fi
+          ls -la
+
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: build-${{ matrix.os }}
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+            release/*.blockmap
+            release/*.yml
+            release/*.tar.gz
+            release/*.pkg.tar.zst
+            !release/builder-debug.yml
+          if-no-files-found: warn
+          retention-days: 14
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v6
+
+      - name: Determine version
+        id: meta
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        shell: bash
+        run: |
+          mapfile -d '' files < <(find artifacts -type f -print0)
+          gh release delete "${TAG}" --repo "${GITHUB_REPOSITORY}" --cleanup-tag --yes >/dev/null 2>&1 || true
+          cat > release-notes.md <<EOF
+          Folia fork v${VERSION}
+
+          基于 chthollyphile/folia-major 的个人 fork 构建，包含私房菜定制（播放音源兜底、Nix 打包）。
+
+          ## 安装包
+
+          - **Windows**: Folia-Setup-${VERSION}.exe
+          - **macOS**: Folia-${VERSION}-x64.dmg / Folia-${VERSION}-arm64.dmg
+          - **Linux**: folia-major-${VERSION}-linux-x64.tar.gz（解压即用）
+
+          ## 构建信息
+
+          - Source: ${GITHUB_SHA}
+          - Branch: ${GITHUB_REF_NAME}
+          EOF
+          gh release create "${TAG}" "${files[@]}" --repo "${GITHUB_REPOSITORY}" --title "Folia ${TAG}" --notes-file release-notes.md --target "${GITHUB_SHA}" --draft
