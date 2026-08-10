@@ -234,10 +234,9 @@ export async function unlockBodianUrl(keyword: string, songName: string, artist:
 
     const devid = String(Math.floor(Math.random() * 100000000000));
     const path = '/api/play/music/v2/audioUrl';
-    const params = `?br=320kmp3&musicId=${matchedId}`;
     const ts = Date.now();
-    const str = `http://bd-api.kuwo.cn${path}${params}&timestamp=${ts}`;
-    const filtered = params.substring(1).replace(/[^a-zA-Z0-9]/g, '').split('').sort().join('');
+    const str = `http://bd-api.kuwo.cn${path}?&br=320kmp3&musicId=${matchedId}&timestamp=${ts}`;
+    const filtered = str.substring(str.indexOf('?') + 1).replace(/[^a-zA-Z0-9]/g, '').split('').sort().join('');
     const dataToEncrypt = `kuwotest${filtered}${path}`;
     const sign = md5(dataToEncrypt);
     const audioUrl = `${str}&sign=${sign}`;
@@ -248,6 +247,8 @@ export async function unlockBodianUrl(keyword: string, songName: string, artist:
       'channel': 'aliopen',
       'devid': devid,
       'ver': '3.9.0',
+      'host': 'bd-api.kuwo.cn',
+      'qimei36': '1e9970cbcdc20a031dee9f37100017e1840e',
       'X-Forwarded-For': '1.0.1.114',
     };
 
@@ -255,7 +256,7 @@ export async function unlockBodianUrl(keyword: string, songName: string, artist:
     try {
       await proxyFetch(adUrl, {
         method: 'POST',
-        headers: { ...headers, 'content-type': 'application/json' },
+        headers: { ...headers, 'content-type': 'application/json; charset=utf-8' },
         body: JSON.stringify({ type: 5, subType: 5, musicId: 0, adToken: '' }),
       });
     } catch {}

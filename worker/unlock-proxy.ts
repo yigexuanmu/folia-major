@@ -46,6 +46,8 @@ export async function handleUnlockProxy(request: Request): Promise<Response> {
       headers['channel'] = 'aliopen';
       headers['devid'] = String(Math.floor(Math.random() * 100000000000));
       headers['ver'] = '3.9.0';
+      headers['host'] = 'bd-api.kuwo.cn';
+      headers['qimei36'] = '1e9970cbcdc20a031dee9f37100017e1840e';
       headers['X-Forwarded-For'] = '1.0.1.114';
     } else if (hostname === 'mobi.kuwo.cn') {
       headers['User-Agent'] = 'okhttp/3.10.0';
