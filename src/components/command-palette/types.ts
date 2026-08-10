@@ -67,6 +67,7 @@ export type CommandPaletteContext = {
     togglePlay: () => void;
     toggleLoop: () => void;
     onReplayGainModeChange: (mode: ReplayGainMode) => void;
+    openAudioEqualizer: () => void;
     handleNextTrack: () => void;
     handlePrevTrack: () => void;
     shuffleQueue: () => void;
@@ -96,6 +97,8 @@ export type CommandPaletteContext = {
     voiceInputPauseEnabled: boolean;
     voiceInputPauseSupported: boolean;
     toggleVoiceInputPause: () => void;
+    preventDisplaySleepDuringPlayback: boolean;
+    togglePreventDisplaySleepDuringPlayback: () => void;
     setAppLanguagePreference: (preference: AppLanguagePreference) => Promise<void> | void;
     runAutoMatchBestLyric: () => Promise<boolean>;
     setIsUserGuideModalOpen: (isOpen: boolean) => void;

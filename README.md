@@ -29,6 +29,75 @@ Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器�
 
 这里是一些基于个人使用习惯做的改动，不定期更新，随缘维护：
 
+## 展示
+
+![visualizer](./img/visualizer.png)
+
+### 演示视频
+
+https://github.com/user-attachments/assets/af806cf1-f67f-4b88-b2e7-57db507e9e81
+
+https://github.com/user-attachments/assets/fd27f4f0-64b9-4c57-8c3b-10df767f934b
+
+https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
+
+### 部分主题预览
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="./img/preview-fume.png" alt="Fume 主题预览" />
+    </td>
+    <td width="50%">
+      <img src="./img/preview-lumi.png" alt="Lumi 主题预览" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>浮名</strong></td>
+    <td align="center"><strong>流光</strong></td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="./img/preview-cad.png" alt="Cad 主题预览" />
+    </td>
+    <td width="50%">
+      <img src="./img/preview-pat.png" alt="Pat 主题预览" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>心象</strong></td>
+    <td align="center"><strong>云阶</strong></td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="./img/preview-cappella.jpg" alt="群唱 主题预览" />
+    </td>
+    <td width="50%">
+      <img src="./img/preview-tilt.png" alt="Tilt 主题预览" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>群唱</strong></td>
+    <td align="center"><strong>倾诉</strong></td>
+  </tr>
+    <tr>
+    <td width="50%">
+      <img src="./img/preview-diorama.png" alt="镜台 主题预览" />
+    </td>
+    <td width="50%">
+      <img src="./img/preview-pendolo.png" alt="时计 主题预览" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>镜台</strong></td>
+    <td align="center"><strong>时计</strong></td>
+  </tr>
+</table>
+
+不同的歌词动画具有不同的排版氛围和可调参数，让全屏歌词拥有如同文字PV般的丰富视觉效果，同时又能兼顾响应式布局，自动适配不同窗口尺寸。
+
+## 核心能力
+
 | 模块 | 说明 |
 | --- | --- |
 | 播放音源兜底 | 遇到无法直接播放的歌曲时，会尝试从其他平台找可用的音源（可在 设置 → 播放 中开关）。 |

@@ -44,7 +44,7 @@
 
 let
   pname = "folia-major";
-  version = "0.6.1";
+  version = "0.6.16";
 
   runtimeLibs = lib.makeLibraryPath [
     stdenv.cc.cc.lib alsa-lib at-spi2-core cups dbus expat
@@ -64,7 +64,7 @@ stdenv.mkDerivation (finalAttrs: {
     inherit (finalAttrs) pname version src;
     inherit pnpm;
     fetcherVersion = 4;
-    hash = "sha256-3RKN7mJSRnj2yyjsQrU5JwYHpGG3YL8pwKLSDgLPn9E=";
+    hash = "sha256-itypGerLvtqoESZRW7TejsT1PHfzapDzhKHJLjXMZlM=";
   };
 
   env.SKIP_NATIVE_BUILD = "true";

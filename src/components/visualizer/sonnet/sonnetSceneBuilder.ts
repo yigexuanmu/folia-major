@@ -1,5 +1,5 @@
 import type { SonnetTuning, Theme } from '../../../types';
-import { resolveThemeFontStack, resolveThemeFontWeight } from '../../../utils/fontStacks';
+import { normalizeFontWeight, resolveThemeFontStack } from '../../../utils/fontStacks';
 import type { SonnetParagraph, SonnetShot } from './types';
 import { hashSonnetSeed } from './sonnetRandom';
 import { buildSonnetShotMg } from './sonnetShotMg';
@@ -17,6 +17,12 @@ import {
     type SegmentView,
 } from './sonnetTextViewBuilder';
 import { createSonnetGlitchEffect, type SonnetGlitchEffect } from './sonnetGlitchFilter';
+import {
+    buildSonnetMeasuredBoundsDebug,
+    createSonnetShotDebugInfo,
+    type SonnetDebugShotInfo,
+} from './sonnetDebug';
+import { resolveSonnetGeoVariant } from './sonnetSpatialMgGeometry';
 
 // src/components/visualizer/sonnet/sonnetSceneBuilder.ts
 // Builds one bounded paragraph scene; playback-time mutation remains in the runtime controller.
@@ -26,6 +32,7 @@ export interface ShotView {
     shot: SonnetShot;
     container: import('pixi.js').Container;
     segments: SegmentView[];
+    debugInfo: SonnetDebugShotInfo;
     baseX: number;
     baseY: number;
     basePivotX: number;
@@ -84,6 +91,8 @@ export const buildSonnetScene = (
         options.tuning,
         options.staticMode,
     );
+    const fontFamily = resolveThemeFontStack(options.theme);
+    const manualFontWeight = normalizeFontWeight(options.theme.fontWeight);
     const postProcessFilters: import('pixi.js').Filter[] = [];
     if (showBackgroundMg) {
         const density = Math.round(4 + options.tuning.mgDensity * 5);
@@ -112,8 +121,10 @@ export const buildSonnetScene = (
         const nameText = new Text({
             text: `[ THEME ] ${options.theme.name.toUpperCase()}`,
             style: new TextStyle({
-                fontFamily: resolveThemeFontStack(options.theme),
-                fontWeight: 'bold',
+                fontFamily,
+                fontWeight: manualFontWeight === null
+                    ? 'bold'
+                    : String(manualFontWeight) as import('pixi.js').TextStyleFontWeight,
                 fontSize: 14,
                 fill: options.theme.primaryColor,
                 letterSpacing: 4
@@ -130,7 +141,10 @@ export const buildSonnetScene = (
         const descText = new Text({
             text: options.theme.description,
             style: new TextStyle({
-                fontFamily: resolveThemeFontStack(options.theme),
+                fontFamily,
+                fontWeight: manualFontWeight === null
+                    ? undefined
+                    : String(manualFontWeight) as import('pixi.js').TextStyleFontWeight,
                 fontSize: 12,
                 fill: options.theme.secondaryColor,
                 wordWrap: true,
@@ -143,12 +157,6 @@ export const buildSonnetScene = (
         if (showOuterMetadata) sceneBackgroundLayer.addChild(descText);
     }
     container.addChild(sceneBackgroundLayer);
-
-
-
-
-    const fontFamily = resolveThemeFontStack(options.theme);
-    const fontWeight = resolveThemeFontWeight(options.theme, 600);
     const shots = paragraph.shots.map((shot, shotIndex) => {
         const shotContainer = new Container();
         const compiledLines = shot.lineIndices
@@ -172,7 +180,7 @@ export const buildSonnetScene = (
             height,
             baseFontSize: fontSize,
             fontFamily,
-            fontWeight,
+            fontWeight: manualFontWeight,
         });
         const mgLayer = buildSonnetShotMg(
             pixi,
@@ -223,7 +231,7 @@ export const buildSonnetScene = (
                     paragraphKind: paragraph.kind,
                     width,
                     fontFamily,
-                    fontWeight,
+                    fontWeight: manualFontWeight,
                     theme: options.theme,
                     glowEnabled: postProcessProfile.glowStrength > 0,
                     showFixedGeo,
@@ -241,22 +249,45 @@ export const buildSonnetScene = (
             shotContainer.addChild(mask);
             shotContainer.mask = mask;
         }
+        // Debug overlay stays above the text and never feeds the bounds/mask math.
+        shotContainer.addChild(buildSonnetMeasuredBoundsDebug(pixi, placements));
+        const usesGeoMg = shot.kind === 'type-impact' || shot.kind === 'fragment-collage';
+        const debugInfo = createSonnetShotDebugInfo({
+            programSeed: options.programSeed,
+            paragraphId: paragraph.id,
+            paragraphKind: paragraph.kind,
+            shot,
+            shotIndex,
+            shotCount: paragraph.shots.length,
+            baseFontSize: fontSize,
+            wordCount,
+            geoVariant: usesGeoMg ? resolveSonnetGeoVariant(sceneSeed + shotIndex * 97) : null,
+            placements,
+            segmentTexts: segments.map(segment => segment.text),
+        });
         
-        // Ensure camera always focuses precisely on the hero word, regardless of how large or skewed the layout is
+        // Poster blocks start centered before runtime tracking; other templates start on the hero word.
         const heroPlacement = placements.find(p => p.role === 'hero');
-        const focusX = heroPlacement ? heroPlacement.x : (bounds.x + bounds.width / 2);
-        const focusY = heroPlacement ? heroPlacement.y : (bounds.y + bounds.height / 2);
+        const focusX = shot.kind === 'poster-blocks'
+            ? 0
+            : heroPlacement ? heroPlacement.x : (bounds.x + bounds.width / 2);
+        const focusY = shot.kind === 'poster-blocks'
+            ? 0
+            : heroPlacement ? heroPlacement.y : (bounds.y + bounds.height / 2);
         
         shotContainer.pivot.set(focusX, focusY);
         shotContainer.position.set(
-            width * (0.5 + shot.camera.x),
-            height * (0.48 + shot.camera.y + (shotIndex % 2 ? 0.025 : -0.025)),
+            width * (shot.kind === 'poster-blocks' ? 0.5 : 0.5 + shot.camera.x),
+            height * (shot.kind === 'poster-blocks'
+                ? 0.5
+                : 0.48 + shot.camera.y + (shotIndex % 2 ? 0.025 : -0.025)),
         );
         container.addChild(shotContainer);
         return {
             shot,
             container: shotContainer,
             segments: views,
+            debugInfo,
             baseX: shotContainer.x,
             baseY: shotContainer.y,
             basePivotX: focusX,
@@ -272,12 +303,17 @@ export const buildSonnetScene = (
 
 
     if (!showOnlyText) {
-        postProcessFilters.push(...applySonnetScenePostProcess(
+        const sceneFilters = applySonnetScenePostProcess(
             pixi,
             container,
             postProcessProfile,
             sceneSeed,
-        ));
+        );
+        if (sceneFilters.length > 0) {
+            // Keep full-scene shaders in viewport space even when visible lyric/decor bounds are smaller.
+            container.filterArea = new pixi.Rectangle(0, 0, width, height);
+            postProcessFilters.push(...sceneFilters);
+        }
     }
     const transitionBlurFilter = options.tuning.enableTransitions && !options.staticMode
         ? new pixi.BlurFilter({ strength: 0, quality: 1, kernelSize: 5, resolution: 0.5 })

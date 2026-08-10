@@ -28,6 +28,8 @@ const placement: SonnetTypographyPlacement = {
     displayText: 'あ\nな\nた',
     role: 'hero',
     fontScale: 1,
+    measuredWidth: 60,
+    measuredHeight: 162,
     x: 120,
     y: 80,
     rotation: 0,
@@ -49,7 +51,7 @@ describe('Sonnet glyph layout', () => {
         );
 
         expect(glyphs.map(glyph => glyph.char).join('')).toBe(segment.text);
-        expect(glyphs.map(glyph => glyph.startTime)).toEqual([2, 2.232, 2.464]);
+        expect(glyphs.map(glyph => glyph.startTime)).toEqual([2, 2.4, 2.8]);
         expect(glyphs.every((glyph, index) => (
             index === 0 || glyph.baseY > glyphs[index - 1].baseY
         ))).toBe(true);

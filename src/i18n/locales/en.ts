@@ -34,6 +34,8 @@ export default {
     "minimizeToTaskbar": "Minimize will stay in taskbar",
     "voiceInputPauseOn": "Pause on voice input enabled",
     "voiceInputPauseOff": "Pause on voice input disabled",
+    "preventDisplaySleepOn": "Display will stay awake during playback",
+    "preventDisplaySleepOff": "Display sleep prevention disabled",
     "taskbarHidden": "Main window taskbar icon hidden",
     "taskbarRestored": "Main window taskbar icon restored",
     "openPlayerOnLaunch": "Launch directly to player page",
@@ -139,6 +141,11 @@ export default {
     "likeFailed": "Failed to like song",
     "unliked": "Removed from Liked",
     "playlistUpdated": "Playlist updated",
+    "providerLikeUnavailable": "{{provider}} does not support liking songs.",
+    "providerPlaylistMutationUnavailable": "{{provider}} does not support adding songs to playlists.",
+    "providerRecommendationsUnavailable": "{{provider}} does not provide recommendation content.",
+    "providerUserAlbumsUnavailable": "{{provider}} does not provide the user's album library.",
+    "providerLibraryUnavailable": "{{provider}} does not provide a playlist library.",
     "songUnavailable": "Song has been taken down",
     "songUnavailableSkipping": "Song has been taken down, skipping",
     "songUnavailablePrompt": "Song has been taken down. Auto-skipping in {{seconds}}s",
@@ -229,15 +236,18 @@ export default {
       "playback-replaygain-off": { "title": "Disable ReplayGain", "description": "Play audio without ReplayGain adjustment" },
       "playback-replaygain-track": { "title": "ReplayGain: Track mode", "description": "Apply per-track ReplayGain adjustment" },
       "playback-replaygain-album": { "title": "ReplayGain: Album mode", "description": "Apply album ReplayGain adjustment" },
+      "playback-equalizer": { "title": "Audio equalizer", "description": "Open the ten-band audio equalizer" },
       "settings-local-lyrics-priority": { "title": "Local song lyrics priority", "description": "Choose whether local songs prefer local or online lyrics" },
       "settings-integration": { "title": "Integration settings", "description": "Open Stage, Now Playing, and Navidrome settings" },
       "settings-discord-presence": { "title": "Discord playback status", "description": "Open Discord Rich Presence settings" },
       "settings-obs-browser-source": { "title": "OBS browser source", "description": "Open OBS browser source settings" },
+      "desktop-toggle-lyric-api": { "title": "Lyrics API", "description": "Toggle the local unauthenticated lyrics endpoint" },
       "settings-storage": { "title": "Storage settings", "description": "Open cache and storage settings" },
       "settings-r2-sync": { "title": "Sync server settings", "description": "Open sync server settings" },
       "sync-now": { "title": "Sync now", "description": "Sync AI themes" },
       "settings-desktop": { "title": "Desktop settings", "description": "Open desktop app settings" },
       "desktop-toggle-voice-input-pause": { "title": "Voice input pause", "description": "Toggle pausing playback during voice input" },
+      "desktop-toggle-prevent-display-sleep": { "title": "Prevent display sleep during playback", "description": "Keep the display awake while music is playing" },
       "settings-lab": { "title": "Lab settings", "description": "Open experimental settings" },
       "visualizer-toggle-random-per-song": { "title": "Random visualizer for every song", "description": "Toggle a random lyric animation mode whenever the song changes" },
       "settings-visualizer": { "title": "Visualizer settings", "description": "Open lyrics animation workbench" },
@@ -354,6 +364,22 @@ export default {
     "pause": "Pause",
     "close": "Close",
     "volume": "Volume",
+    "openEqualizer": "Open audio equalizer",
+    "equalizerTitle": "10-band equalizer",
+    "equalizerDescription": "Shape playback from deep bass to high treble. Changes are saved automatically.",
+    "equalizerEnabled": "Equalizer on",
+    "equalizerDisabled": "Equalizer off",
+    "equalizerGain": "Band gain",
+    "equalizerReset": "Reset equalizer",
+    "equalizerPreset": {
+      "flat": "Level",
+      "lofi": "Lo-Fi",
+      "radio": "Radio",
+      "vinyl": "Vinyl",
+      "vocal": "Vocal",
+      "bass": "Bass boost",
+      "custom": "Custom"
+    },
     "cadenze": {
       "fontScale": "Font Scale",
       "widthRatio": "Line Width",
@@ -419,6 +445,14 @@ export default {
     "loginNote": "Open Netease Music App > Discover > Scan QR",
     "loginTitleKugou": "Scan with KuGou Music",
     "loginNoteKugou": "Open KuGou Music and scan this QR code",
+    "loginTitleQq": "Scan to sign in to QQ Music",
+    "loginNoteQq": "Scan this QR code with the matching app",
+    "qqLoginMethodTitle": "Choose sign-in method",
+    "qqLoginMethodHint": "Pick the method matching the account your QQ Music app is bound to",
+    "qqLoginMethodPending": "Pick a sign-in method to generate the QR code",
+    "qqLoginMethodCurrent": "Current method: {{method}}",
+    "qqLoginMethodMobile": "QQ",
+    "qqLoginMethodWechat": "WeChat",
     "switchOnlineProvider": "Switch online music provider",
     "confirmOnlineProviderSwitch": "Switch to {{provider}}? Current online playback and queue will be cleared.",
     "onlineProvider": "Online music provider",
@@ -558,6 +592,16 @@ export default {
     "replayGainModeDesc": "Normalize playback loudness using track or album ReplayGain metadata when available.",
     "integrationSettings": "Integration settings",
     "integrationSettingsDesc": "Connections for external apps and services.",
+    "lyricApi": "Lyrics API",
+    "enableLyricApi": "Enable Lyrics API",
+    "lyricApiDesc": "Expose a fixed-port local endpoint without authentication so external programs can read sanitized lyrics for the current song. Listens on 127.0.0.1 only.",
+    "lyricApiAddress": "Endpoint",
+    "copyLyricApiAddress": "Copy endpoint",
+    "lyricApiRunning": "Running",
+    "lyricApiUnavailable": "Unavailable",
+    "lyricApiEnabledStatus": "Lyrics API enabled at http://127.0.0.1:32109/v1/lyric",
+    "lyricApiDisabledStatus": "Lyrics API disabled",
+    "lyricApiEnableFailed": "Failed to start the Lyrics API",
     "storageSettings": "Storage settings",
     "storageSettingsDesc": "Cache usage, cleanup, media cache, and cache directory.",
     "storageSettingsPanelDesc": "Cache usage, cleanup, and media cache behavior.",
@@ -697,6 +741,8 @@ export default {
     "voiceInputSettings": "Voice input",
     "voiceInputPause": "Pause playback during voice input",
     "voiceInputPauseDesc": "Automatically pause playback while system voice input (Win+H voice typing, IME speech-to-text) or another app uses the microphone, and resume afterwards. Windows desktop only.",
+    "preventDisplaySleepDuringPlayback": "Prevent display sleep during playback",
+    "preventDisplaySleepDuringPlaybackDesc": "Desktop only. Keep the display awake while music is playing; normal sleep behavior resumes when playback pauses or stops.",
     "showOpenPanelCloseButton": "Show panel close button",
     "showOpenPanelCloseButtonDesc": "Keep the floating close button visible after the song info card opens.",
     "showOpenPanelCloseButtonDescSub": "Turn this off for cleaner screen recordings. Mobile users may still prefer leaving it on.",
@@ -750,6 +796,8 @@ export default {
     "obsBrowserSourceClients": "Clients",
     "visualSettings": "Visual Settings",
     "daylightMode": "Light / Dark Mode",
+    "followSystemTheme": "Follow System Theme",
+    "followSystemThemeDesc": "Automatically switch between light and dark themes with the system. Manual theme switching turns this off.",
     "lyricsRenderer": "Lyrics Animation",
     "lyricsRendererDesc": "Choose the lyrics animation mode used on the playback page.",
     "lyricsAnimationAdjust": "Lyrics Animation Adjust",
@@ -916,6 +964,15 @@ export default {
     "sonnetShowGiantDecorativeText": "Giant decorative outline text",
     "sonnetShowBackgroundDecor": "Background decorations",
     "sonnetEnableTransitions": "Scene transitions",
+    "sonnetPostProcessSection": "Post-processing",
+    "sonnetPostProcessEnabled": "Scene post-process filter",
+    "sonnetPostProcessGrain": "Film grain",
+    "sonnetPostProcessContrast": "Contrast boost",
+    "sonnetPostProcessRgbShift": "RGB shift",
+    "sonnetPostProcessLensDistortion": "Lens distortion",
+    "sonnetPostProcessLensDispersion": "Lens dispersion",
+    "sonnetPostProcessHalftone": "Halftone screen",
+    "sonnetPostProcessVignette": "Vignette",
     "sonnetToggleOn": "On",
     "sonnetToggleOff": "Off",
     "sonnetPerformanceWarningTitle": "Sonnet performance warning",
@@ -1257,19 +1314,45 @@ export default {
     "noDescription": "No description available",
   },
   "releaseNotes": {
-    "v0_6_9": {
-      "intro": "Here are the new features and improvements in version 0.6.10.",
-      "sonnetVisualizer": {
-        "title": "Sonnet Lyric Visualizer",
-        "description": "A new Japanese-style lyric PV mode combines kinetic typography, camera motion, scene transitions, and configurable visual layers."
+    "v0_6_16": {
+      "intro": "Here are the new features and improvements in version 0.6.16.",
+      "qqMusicProvider": {
+        "title": "Initial QQ Music Integration",
+        "description": "Basic account sign-in, online search, and playback are now available. Feature support is still limited and will be expanded in future releases."
       },
-      "replayGain": {
-        "title": "ReplayGain Loudness Balancing",
-        "description": "Apply track or album ReplayGain metadata to supported playback sources, with controls in the player, settings, and command palette."
+      "audioEqualizer": {
+        "title": "Audio Equalizer",
+        "description": "Adjust and save equalizer settings from the playback controls for sound better suited to your device."
       },
-      "panelNavigationHint": {
-        "title": "Clearer Panel Navigation",
-        "description": "When the player panel is expanded, the back button now shows to make returning to the previous view easier."
+      "lyricApi": {
+        "title": "Desktop Lyrics API",
+        "description": "A new local API lets external apps read the current track and synchronized lyrics."
+      },
+      "localSongCovers": {
+        "title": "Local Track Covers",
+        "description": "You can now import, display, and persist custom artwork for individual local tracks."
+      }
+    },
+    "v0_6_15": {
+      "intro": "Here are the new features and improvements in version 0.6.15.",
+      "sonnetLensEffects": {
+        "title": "Sonnet Lens Effects",
+        "description": "New lens distortion and chromatic dispersion controls give the Sonnet visualizer a richer optical look."
+      },
+      "sonnetPostProcess": {
+        "title": "Refined Sonnet Post-processing",
+        "description": "Improved defaults, stable transitions, and cleaner RGB Shift rendering keep Sonnet's effects expressive without compromising lyric clarity."
+      }
+    },
+    "v0_6_12": {
+      "intro": "Here are the new features and improvements in version 0.6.14.",
+      "sonnetLayout": {
+        "title": "Rebuilt Sonnet Layout Engine",
+        "description": "The Sonnet visualizer's layout engine has been rebuilt for more polished, balanced, and stable lyric typography."
+      },
+      "followSystemTheme": {
+        "title": "Follow System Appearance",
+        "description": "Enable this option in Settings to automatically switch between light and dark themes with your system."
       }
     },
     "v0_6_8": {

@@ -34,6 +34,8 @@ export default {
     "minimizeToTaskbar": "最小化将保留在任务栏",
     "voiceInputPauseOn": "语音输入时暂停已开启",
     "voiceInputPauseOff": "语音输入时暂停已关闭",
+    "preventDisplaySleepOn": "播放时将阻止显示器休眠",
+    "preventDisplaySleepOff": "已关闭播放时阻止休眠",
     "taskbarHidden": "主窗口任务栏图标已隐藏",
     "taskbarRestored": "主窗口任务栏图标已恢复",
     "openPlayerOnLaunch": "启动后将直接进入播放页",
@@ -139,6 +141,11 @@ export default {
     "likeFailed": "添加失败",
     "unliked": "已取消喜欢",
     "playlistUpdated": "歌单已更新",
+    "providerLikeUnavailable": "{{provider}} 暂不支持喜欢歌曲。",
+    "providerPlaylistMutationUnavailable": "{{provider}} 暂不支持将歌曲添加到歌单。",
+    "providerRecommendationsUnavailable": "{{provider}} 暂未提供推荐内容。",
+    "providerUserAlbumsUnavailable": "{{provider}} 暂未提供用户专辑库。",
+    "providerLibraryUnavailable": "{{provider}} 暂未提供歌单库。",
     "songUnavailable": "歌曲已下架",
     "songUnavailableSkipping": "歌曲已下架，正在跳过",
     "songUnavailablePrompt": "歌曲已下架，{{seconds}} 秒后自动跳过",
@@ -229,15 +236,18 @@ export default {
       "playback-replaygain-off": { "title": "关闭 ReplayGain", "description": "播放音频时不应用 ReplayGain 调整" },
       "playback-replaygain-track": { "title": "ReplayGain：单曲模式", "description": "按每首歌曲的 ReplayGain 数据调整响度" },
       "playback-replaygain-album": { "title": "ReplayGain：专辑模式", "description": "按专辑 ReplayGain 数据调整响度" },
+      "playback-equalizer": { "title": "音频均衡器", "description": "打开十段音频均衡器" },
       "settings-local-lyrics-priority": { "title": "本地歌曲歌词优先级", "description": "选择本地歌曲优先使用本地或在线歌词" },
       "settings-integration": { "title": "集成设置", "description": "打开 Stage、Now Playing 和 Navidrome 设置" },
       "settings-discord-presence": { "title": "Discord 播放状态", "description": "打开 Discord Rich Presence 设置" },
       "settings-obs-browser-source": { "title": "OBS 浏览器源", "description": "打开 OBS 浏览器源设置" },
+      "desktop-toggle-lyric-api": { "title": "歌词接口", "description": "切换本地免鉴权歌词接口" },
       "settings-storage": { "title": "存储设置", "description": "打开缓存和存储设置" },
       "settings-r2-sync": { "title": "同步服务设置", "description": "打开同步服务设置" },
       "sync-now": { "title": "立即同步", "description": "同步 AI 主题" },
       "settings-desktop": { "title": "桌面端设置", "description": "打开桌面应用设置" },
       "desktop-toggle-voice-input-pause": { "title": "语音输入时暂停", "description": "切换语音输入时自动暂停播放" },
+      "desktop-toggle-prevent-display-sleep": { "title": "播放时阻止休眠", "description": "播放音乐时保持显示器唤醒" },
       "settings-lab": { "title": "实验设置", "description": "打开实验功能设置" },
       "visualizer-toggle-random-per-song": { "title": "每首歌随机歌词动画", "description": "歌曲切换时随机使用一种歌词动画模式" },
       "settings-visualizer": { "title": "可视化设置", "description": "打开歌词动画实验台" },
@@ -355,6 +365,22 @@ export default {
     "pause": "暂停",
     "close": "关闭",
     "volume": "音量",
+    "openEqualizer": "打开音频均衡器",
+    "equalizerTitle": "10 段音频均衡器",
+    "equalizerDescription": "从低频到高频调节播放声音，修改会自动保存。",
+    "equalizerEnabled": "均衡器已开启",
+    "equalizerDisabled": "均衡器已关闭",
+    "equalizerGain": "频段增益",
+    "equalizerReset": "重置均衡器",
+    "equalizerPreset": {
+      "flat": "水平",
+      "lofi": "Lo-Fi",
+      "radio": "收音机",
+      "vinyl": "黑胶",
+      "vocal": "人声",
+      "bass": "低音增强",
+      "custom": "自定义"
+    },
     "cadenze": {
       "fontScale": "字体比例",
       "widthRatio": "行宽",
@@ -420,6 +446,14 @@ export default {
     "loginNote": "打开网易云音乐APP > 发现 > 扫一扫",
     "loginTitleKugou": "使用酷狗音乐APP扫码",
     "loginNoteKugou": "打开酷狗音乐APP扫描二维码",
+    "loginTitleQq": "扫码登录QQ音乐",
+    "loginNoteQq": "请使用对应 App 扫码登录",
+    "qqLoginMethodTitle": "选择登录方式",
+    "qqLoginMethodHint": "请根据 QQ 音乐 App 绑定的账号类型选择登录方式\nQQ 绑定账号请选择 QQ，微信绑定账号请选择微信",
+    "qqLoginMethodPending": "选择登录方式后生成二维码",
+    "qqLoginMethodCurrent": "当前登录方式：{{method}}",
+    "qqLoginMethodMobile": "QQ",
+    "qqLoginMethodWechat": "微信",
     "switchOnlineProvider": "切换在线音乐平台",
     "confirmOnlineProviderSwitch": "切换到 {{provider}}？当前在线播放与队列将被清空。",
     "onlineProvider": "在线音乐平台",
@@ -559,6 +593,16 @@ export default {
     "replayGainModeDesc": "检测到增益数据时，按单曲或专辑 ReplayGain 统一播放响度。",
     "integrationSettings": "连接与集成",
     "integrationSettingsDesc": "外部程序接入设置。",
+    "lyricApi": "歌词接口",
+    "enableLyricApi": "启用歌词接口",
+    "lyricApiDesc": "在固定端口上提供无需鉴权的本地接口，外部程序可读取当前歌曲的精简歌词数据。仅监听 127.0.0.1。",
+    "lyricApiAddress": "接口地址",
+    "copyLyricApiAddress": "复制接口地址",
+    "lyricApiRunning": "运行中",
+    "lyricApiUnavailable": "不可用",
+    "lyricApiEnabledStatus": "歌词接口已在 http://127.0.0.1:32109/v1/lyric 启用",
+    "lyricApiDisabledStatus": "歌词接口已关闭",
+    "lyricApiEnableFailed": "歌词接口启动失败",
     "storageSettings": "存储与同步",
     "storageSettingsDesc": "缓存占用、清理、主题云同步。",
     "storageSettingsPanelDesc": "缓存占用、清理、主题云同步。",
@@ -698,6 +742,8 @@ export default {
     "voiceInputSettings": "语音输入",
     "voiceInputPause": "语音输入时暂停播放",
     "voiceInputPauseDesc": "检测到系统语音输入（如 Win+H 语音键入、输入法语音转文字）或其他应用占用麦克风时自动暂停播放，结束后自动恢复。仅 Windows 桌面端生效。",
+    "preventDisplaySleepDuringPlayback": "播放时阻止休眠",
+    "preventDisplaySleepDuringPlaybackDesc": "仅桌面端生效。音乐播放期间保持显示器唤醒，暂停或停止播放后恢复系统原有的休眠行为。",
     "showOpenPanelCloseButton": "显示信息卡片关闭按钮",
     "showOpenPanelCloseButtonDesc": "歌曲信息卡片打开后，显示右下角浮动关闭按钮。",
     "showOpenPanelCloseButtonDescSub": "移动端可能仍然更需要这个按钮。",
@@ -753,6 +799,8 @@ export default {
     "obsBrowserSourceClients": "连接数",
     "visualSettings": "视觉设置",
     "daylightMode": "明暗模式",
+    "followSystemTheme": "跟随系统明暗",
+    "followSystemThemeDesc": "根据系统设置自动切换亮色 / 暗色主题；手动切换明暗模式后将关闭此选项。",
     "lyricsRenderer": "歌词动画",
     "lyricsRendererDesc": "选择播放页使用的歌词动画模式。",
     "lyricsAnimationAdjust": "歌词动画样式",
@@ -919,6 +967,15 @@ export default {
     "sonnetShowGiantDecorativeText": "巨型装饰镂空文字",
     "sonnetShowBackgroundDecor": "背景装饰",
     "sonnetEnableTransitions": "场景转场",
+    "sonnetPostProcessSection": "后处理",
+    "sonnetPostProcessEnabled": "整体后处理滤镜",
+    "sonnetPostProcessGrain": "胶片颗粒",
+    "sonnetPostProcessContrast": "对比度增强",
+    "sonnetPostProcessRgbShift": "RGB 色差",
+    "sonnetPostProcessLensDistortion": "透镜扭曲",
+    "sonnetPostProcessLensDispersion": "透镜色散",
+    "sonnetPostProcessHalftone": "半调网点",
+    "sonnetPostProcessVignette": "暗角",
     "sonnetToggleOn": "开启",
     "sonnetToggleOff": "关闭",
     "sonnetPerformanceWarningTitle": "商籁性能警告",
@@ -1258,19 +1315,45 @@ export default {
     "noDescription": "暂无详细介绍",
   },
   "releaseNotes": {
-    "v0_6_9": {
-      "intro": "以下是 0.6.10 的新功能与改进",
-      "sonnetVisualizer": {
-        "title": "全新视觉：商籁",
-        "description": "新增日式文字 PV 歌词可视化模式，结合动态排版、镜头运动与场景转场，并支持调整可见图层和渲染质量。"
+    "v0_6_16": {
+      "intro": "以下是 0.6.16 的新功能与改进",
+      "qqMusicProvider": {
+        "title": "QQ 音乐初步接入",
+        "description": "目前提供基础的账号登录、在线搜索与播放能力，支持的功能仍较少，后续版本将继续完善。"
       },
-      "replayGain": {
-        "title": "ReplayGain 响度平衡",
-        "description": "支持对本地、Navidrome 与在线音乐应用单曲或专辑 ReplayGain 数据，并可在播放器、设置和命令面板中快速切换。"
+      "audioEqualizer": {
+        "title": "音频均衡器",
+        "description": "可在播放控制面板中调节均衡器并保存声音设置，让不同设备获得更合适的听感。"
       },
-      "panelNavigationHint": {
-        "title": "播放器面板导航提示",
-        "description": "展开播放器面板时，返回按钮会短暂显示，更容易回到上一级视图。"
+      "lyricApi": {
+        "title": "桌面歌词 API",
+        "description": "新增本地歌词接口，方便外部应用读取当前播放歌曲与同步歌词。"
+      },
+      "localSongCovers": {
+        "title": "本地单曲封面",
+        "description": "现在可以为本地单曲导入、显示并持久化自定义封面。"
+      }
+    },
+    "v0_6_15": {
+      "intro": "以下是 0.6.15 的新功能与改进",
+      "sonnetLensEffects": {
+        "title": "商籁镜头特效",
+        "description": "新增透镜扭曲与色散调节，为商籁 / Sonnet 可视化带来更丰富的光学质感。"
+      },
+      "sonnetPostProcess": {
+        "title": "商籁后处理优化",
+        "description": "优化默认参数与转场稳定性，并改善 RGB Shift 的渲染效果，在保持视觉表现力的同时让歌词更加清晰。"
+      }
+    },
+    "v0_6_12": {
+      "intro": "以下是 0.6.14 的新功能与改进",
+      "sonnetLayout": {
+        "title": "商籁排版引擎重构",
+        "description": "重构商籁 / Sonnet 模式的排版引擎，带来更加美观、合理且稳定的文字布局效果。"
+      },
+      "followSystemTheme": {
+        "title": "跟随系统明暗主题",
+        "description": "可在设置中开启跟随系统明暗主题，开启后应用会随系统的浅色或深色模式自动切换。"
       }
     },
     "v0_6_8": {

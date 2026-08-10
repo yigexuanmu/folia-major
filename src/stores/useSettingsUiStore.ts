@@ -24,6 +24,12 @@ import {
     writePinnedCommandIds,
     type PinnedCommandIds,
 } from '../components/command-palette/pinnedCommandPreferences';
+import {
+    readStoredAudioEqualizerSettings,
+    resolveAudioEqualizerSettings,
+    writeStoredAudioEqualizerSettings,
+    type AudioEqualizerSettings,
+} from '../utils/audioEqualizer';
 
 // src/stores/useSettingsUiStore.ts
 // Shared settings state and actions used by App, Home, and SettingsModal.
@@ -46,6 +52,7 @@ export type SettingsModalState = {
 
 export const MINIMIZE_TO_TRAY_STORAGE_KEY = 'minimize_to_tray';
 export const VOICE_INPUT_PAUSE_STORAGE_KEY = 'voice_input_pause_enabled';
+export const PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_STORAGE_KEY = 'prevent_display_sleep_during_playback';
 export const HIDE_TASKBAR_ICON_STORAGE_KEY = 'hide_taskbar_icon';
 export const REMOTE_CONTROL_SKIP_TASKBAR_STORAGE_KEY = 'remote_control_skip_taskbar';
 export const OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY = 'open_player_on_launch';
@@ -55,6 +62,7 @@ export const SHOW_HARMONY_SUBTITLE_STORAGE_KEY = 'show_harmony_subtitle';
 export const HARMONY_SUBTITLE_BACKGROUND_STORAGE_KEY = 'harmony_subtitle_background';
 export const SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY = 'show_subtitle_translation';
 export const SUBTITLE_CONTENT_MODE_STORAGE_KEY = 'subtitle_content_mode';
+export const FOLLOW_SYSTEM_THEME_STORAGE_KEY = 'follow_system_theme';
 const LYRICS_FONT_FALLBACK_FAMILIES_STORAGE_KEY = 'lyrics_font_fallback_families';
 const LYRICS_FONT_WEIGHT_STORAGE_KEY = 'lyrics_font_weight';
 const SUBTITLE_FONT_INHERITS_LYRICS_STORAGE_KEY = 'subtitle_font_inherits_lyrics';
@@ -79,6 +87,14 @@ const setStoredBoolean = (key: string, value: boolean) => {
     if (typeof window !== 'undefined') {
         localStorage.setItem(key, String(value));
     }
+};
+
+export const readSystemThemeIsDaylight = (): boolean | null => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+        return null;
+    }
+
+    return window.matchMedia('(prefers-color-scheme: light)').matches;
 };
 
 export const readStoredSubtitleContentMode = (): SubtitleContentMode => {
@@ -490,6 +506,16 @@ const readStoredSonnetTuning = (): SonnetTuning => {
                 ? parsed.outerFrameMode
                 : DEFAULT_SONNET_TUNING.outerFrameMode,
             textureResolution: resolvePendoloNumber(parsed.textureResolution, DEFAULT_SONNET_TUNING.textureResolution, 0.5, 4),
+            postProcessEnabled: typeof parsed.postProcessEnabled === 'boolean'
+                ? parsed.postProcessEnabled
+                : DEFAULT_SONNET_TUNING.postProcessEnabled,
+            postProcessGrain: resolvePendoloNumber(parsed.postProcessGrain, DEFAULT_SONNET_TUNING.postProcessGrain, 0, 1),
+            postProcessContrast: resolvePendoloNumber(parsed.postProcessContrast, DEFAULT_SONNET_TUNING.postProcessContrast, 0, 1),
+            postProcessRgbShift: resolvePendoloNumber(parsed.postProcessRgbShift, DEFAULT_SONNET_TUNING.postProcessRgbShift, 0, 1),
+            postProcessHalftone: resolvePendoloNumber(parsed.postProcessHalftone, DEFAULT_SONNET_TUNING.postProcessHalftone, 0, 1),
+            postProcessVignette: resolvePendoloNumber(parsed.postProcessVignette, DEFAULT_SONNET_TUNING.postProcessVignette, 0, 2),
+            postProcessLensDistortion: resolvePendoloNumber(parsed.postProcessLensDistortion, DEFAULT_SONNET_TUNING.postProcessLensDistortion, 0, 2),
+            postProcessLensDispersion: resolvePendoloNumber(parsed.postProcessLensDispersion, DEFAULT_SONNET_TUNING.postProcessLensDispersion, 0, 1),
         };
     } catch {
         return DEFAULT_SONNET_TUNING;
@@ -1137,6 +1163,7 @@ export type SettingsUiState = {
     disableVisualizerGeometricBackground: boolean;
     minimizeToTray: boolean;
     voiceInputPauseEnabled: boolean;
+    preventDisplaySleepDuringPlayback: boolean;
     hideTaskbarIcon: boolean;
     hideRemoteControlTaskbarIcon: boolean;
     openPlayerOnLaunch: boolean;
@@ -1152,6 +1179,7 @@ export type SettingsUiState = {
     urlBackgroundSelectedId: string | null;
     visualizerFrameRate: VisualizerFrameRate;
     isDaylight: boolean;
+    followSystemTheme: boolean;
     visualizerMode: VisualizerMode;
     randomVisualizerModePerSong: boolean;
     sonnetPerformanceWarningOpen: boolean;
@@ -1209,6 +1237,8 @@ export type SettingsUiState = {
     webObsThemeMode: 'static' | 'builtin' | 'ai';
     queueAddBehavior: QueueAddBehavior;
     audioOutputDeviceId: string;
+    audioEqualizerSettings: AudioEqualizerSettings;
+    isAudioEqualizerOpen: boolean;
     volume: number;
     isMuted: boolean;
     loopMode: 'off' | 'all' | 'one';
@@ -1229,7 +1259,7 @@ export type SettingsUiState = {
     setAudioQuality: (quality: AudioQuality) => void;
     setTransparentPlayerBackgroundFromSystem: (enabled: boolean) => void;
     handleTogglePlayerPageNativeBlur: (enable: boolean) => void;
-    setDesktopPreferenceSnapshot: (settings: { MINIMIZE_TO_TRAY?: unknown; HIDE_TASKBAR_ICON?: unknown; REMOTE_CONTROL_SKIP_TASKBAR?: unknown; VOICE_INPUT_PAUSE_ENABLED?: unknown; }) => void;
+    setDesktopPreferenceSnapshot: (settings: { MINIMIZE_TO_TRAY?: unknown; HIDE_TASKBAR_ICON?: unknown; REMOTE_CONTROL_SKIP_TASKBAR?: unknown; VOICE_INPUT_PAUSE_ENABLED?: unknown; PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK?: unknown; }) => void;
     setStoredCappellaEmojiPack: (pack: StoredCappellaEmojiImage[]) => void;
     setCappellaCustomEmojiImages: (images: CappellaEmojiImage[]) => void;
     setIsLoadingCappellaCustomEmojiPack: (loading: boolean) => void;
@@ -1267,6 +1297,7 @@ export type SettingsUiState = {
     handleToggleDisableVisualizerGeometricBackground: (disable: boolean) => void;
     handleToggleMinimizeToTray: (enable: boolean) => void;
     handleToggleVoiceInputPause: (enable: boolean) => void;
+    handleTogglePreventDisplaySleepDuringPlayback: (enable: boolean) => void;
     handleToggleHideTaskbarIcon: (enable: boolean) => void;
     handleToggleHideRemoteControlTaskbarIcon: (enable: boolean) => void;
     handleToggleOpenPlayerOnLaunch: (enable: boolean) => void;
@@ -1286,6 +1317,8 @@ export type SettingsUiState = {
     handleSetUrlBackgroundList: (items: UrlBackgroundItem[]) => void;
     handleSetVisualizerFrameRate: (frameRate: VisualizerFrameRate) => void;
     setDaylightPreference: (isDaylight: boolean) => void;
+    setDaylightPreferenceFromSystem: (isDaylight: boolean) => void;
+    setFollowSystemTheme: (enabled: boolean) => void;
     handleSetVisualizerMode: (mode: VisualizerMode, options?: { notify?: boolean; skipSonnetWarning?: boolean }) => void;
     handleSetSonnetPerformanceWarningDontShowAgain: (enabled: boolean) => void;
     handleConfirmSonnetPerformanceWarning: () => void;
@@ -1352,6 +1385,9 @@ export type SettingsUiState = {
     setWebObsThemeMode: (mode: 'static' | 'builtin' | 'ai') => void;
     handleSetQueueAddBehavior: (behavior: QueueAddBehavior) => void;
     handleSetAudioOutputDeviceId: (deviceId: string) => void;
+    handleSetAudioEqualizerSettings: (settings: AudioEqualizerSettings) => void;
+    openAudioEqualizer: () => void;
+    closeAudioEqualizer: () => void;
     handleSetVolume: (val: number) => void;
     handleToggleMute: () => void;
     handleToggleLoopMode: () => void;
@@ -1367,6 +1403,12 @@ export type SettingsUiState = {
 const notify = (get: () => SettingsUiState, message: StatusMessage) => {
     get().statusSetter?.(message);
 };
+
+const initialFollowSystemTheme = getStoredBoolean(FOLLOW_SYSTEM_THEME_STORAGE_KEY, false);
+const initialStoredDaylight = getStoredBoolean('default_theme_daylight', false);
+const initialDaylight = initialFollowSystemTheme
+    ? (readSystemThemeIsDaylight() ?? initialStoredDaylight)
+    : initialStoredDaylight;
 
 export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     statusSetter: null,
@@ -1403,6 +1445,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     disableVisualizerGeometricBackground: getStoredBoolean('disable_visualizer_geometric_background', false),
     minimizeToTray: getStoredBoolean(MINIMIZE_TO_TRAY_STORAGE_KEY, false),
     voiceInputPauseEnabled: getStoredBoolean(VOICE_INPUT_PAUSE_STORAGE_KEY, false),
+    preventDisplaySleepDuringPlayback: getStoredBoolean(PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_STORAGE_KEY, false),
     hideTaskbarIcon: getStoredBoolean(HIDE_TASKBAR_ICON_STORAGE_KEY, false),
     hideRemoteControlTaskbarIcon: getStoredBoolean(REMOTE_CONTROL_SKIP_TASKBAR_STORAGE_KEY, false),
     openPlayerOnLaunch: getStoredBoolean(OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY, false),
@@ -1417,7 +1460,8 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     urlBackgroundList: readStoredUrlBackgroundList(),
     urlBackgroundSelectedId: readStoredUrlBackgroundSelectedId(),
     visualizerFrameRate: readStoredVisualizerFrameRate(),
-    isDaylight: getStoredBoolean('default_theme_daylight', false),
+    followSystemTheme: initialFollowSystemTheme,
+    isDaylight: initialDaylight,
     visualizerMode: readStoredVisualizerMode(),
     randomVisualizerModePerSong: getStoredBoolean('random_visualizer_mode_per_song', false),
     sonnetPerformanceWarningOpen: false,
@@ -1473,6 +1517,8 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     webObsThemeMode: readStoredWebObsThemeMode(),
     queueAddBehavior: readStoredQueueAddBehavior(),
     audioOutputDeviceId: readStoredAudioOutputDeviceId(),
+    audioEqualizerSettings: readStoredAudioEqualizerSettings(),
+    isAudioEqualizerOpen: false,
     volume: readStoredVolume(),
     isMuted: getStoredBoolean('player_is_muted', false),
     loopMode: readStoredLoopMode(),
@@ -1530,6 +1576,10 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         if (typeof settings.VOICE_INPUT_PAUSE_ENABLED === 'boolean') {
             patch.voiceInputPauseEnabled = settings.VOICE_INPUT_PAUSE_ENABLED;
             setStoredBoolean(VOICE_INPUT_PAUSE_STORAGE_KEY, settings.VOICE_INPUT_PAUSE_ENABLED);
+        }
+        if (typeof settings.PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK === 'boolean') {
+            patch.preventDisplaySleepDuringPlayback = settings.PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK;
+            setStoredBoolean(PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_STORAGE_KEY, settings.PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK);
         }
         if (typeof settings.HIDE_TASKBAR_ICON === 'boolean') {
             patch.hideTaskbarIcon = settings.HIDE_TASKBAR_ICON;
@@ -1748,6 +1798,17 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             text: i18n.t('notifications.' + (enable ? 'voiceInputPauseOn' : 'voiceInputPauseOff')),
         });
     },
+    handleTogglePreventDisplaySleepDuringPlayback: (enable) => {
+        setStoredBoolean(PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_STORAGE_KEY, enable);
+        set({ preventDisplaySleepDuringPlayback: enable });
+        if (window.electron?.saveSettings) {
+            void window.electron.saveSettings('PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK', enable);
+        }
+        notify(get, {
+            type: 'info',
+            text: i18n.t('notifications.' + (enable ? 'preventDisplaySleepOn' : 'preventDisplaySleepOff')),
+        });
+    },
     handleToggleHideTaskbarIcon: (enable) => {
         setStoredBoolean(HIDE_TASKBAR_ICON_STORAGE_KEY, enable);
         set({ hideTaskbarIcon: enable });
@@ -1891,9 +1952,40 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         setGlobalVisualizerFrameRate(frameRate);
         set({ visualizerFrameRate: frameRate });
     },
-    setDaylightPreference: (enabled) => {
+    // System updates are kept separate from the manual setter so a user click can disable auto-follow.
+    setDaylightPreferenceFromSystem: (enabled) => {
+        if (!get().followSystemTheme) {
+            return;
+        }
+
         setStoredBoolean('default_theme_daylight', enabled);
         set({ isDaylight: enabled });
+        if (typeof window !== 'undefined' && window.electron?.setNativeTheme) {
+            void window.electron.setNativeTheme('system');
+        }
+    },
+    setFollowSystemTheme: (enabled) => {
+        setStoredBoolean(FOLLOW_SYSTEM_THEME_STORAGE_KEY, enabled);
+        set({ followSystemTheme: enabled });
+
+        if (typeof window !== 'undefined' && window.electron?.setNativeTheme) {
+            void window.electron.setNativeTheme(enabled ? 'system' : (get().isDaylight ? 'light' : 'dark'));
+        }
+
+        if (enabled) {
+            const systemThemeIsDaylight = readSystemThemeIsDaylight();
+            if (systemThemeIsDaylight !== null) {
+                get().setDaylightPreferenceFromSystem(systemThemeIsDaylight);
+            }
+        }
+    },
+    setDaylightPreference: (enabled) => {
+        const wasFollowingSystem = get().followSystemTheme;
+        if (wasFollowingSystem) {
+            setStoredBoolean(FOLLOW_SYSTEM_THEME_STORAGE_KEY, false);
+        }
+        setStoredBoolean('default_theme_daylight', enabled);
+        set({ isDaylight: enabled, ...(wasFollowingSystem ? { followSystemTheme: false } : {}) });
         if (typeof window !== 'undefined' && window.electron?.setNativeTheme) {
             void window.electron.setNativeTheme(enabled ? 'light' : 'dark');
         }
@@ -2130,6 +2222,16 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
                 ? patch.outerFrameMode
                 : prev.outerFrameMode,
             textureResolution: resolvePendoloNumber(patch.textureResolution, prev.textureResolution, 0.5, 4),
+            postProcessEnabled: typeof patch.postProcessEnabled === 'boolean'
+                ? patch.postProcessEnabled
+                : prev.postProcessEnabled,
+            postProcessGrain: resolvePendoloNumber(patch.postProcessGrain, prev.postProcessGrain, 0, 1),
+            postProcessContrast: resolvePendoloNumber(patch.postProcessContrast, prev.postProcessContrast, 0, 1),
+            postProcessRgbShift: resolvePendoloNumber(patch.postProcessRgbShift, prev.postProcessRgbShift, 0, 1),
+            postProcessHalftone: resolvePendoloNumber(patch.postProcessHalftone, prev.postProcessHalftone, 0, 1),
+            postProcessVignette: resolvePendoloNumber(patch.postProcessVignette, prev.postProcessVignette, 0, 2),
+            postProcessLensDistortion: resolvePendoloNumber(patch.postProcessLensDistortion, prev.postProcessLensDistortion, 0, 2),
+            postProcessLensDispersion: resolvePendoloNumber(patch.postProcessLensDispersion, prev.postProcessLensDispersion, 0, 1),
         };
         if (typeof window !== 'undefined') localStorage.setItem('sonnet_tuning', JSON.stringify(next));
         set({ sonnetTuning: next });
@@ -2642,6 +2744,13 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             localStorage.removeItem('audio_output_device_id');
         }
     },
+    handleSetAudioEqualizerSettings: (settings) => {
+        const resolved = resolveAudioEqualizerSettings(settings);
+        writeStoredAudioEqualizerSettings(resolved);
+        set({ audioEqualizerSettings: resolved });
+    },
+    openAudioEqualizer: () => set({ isAudioEqualizerOpen: true }),
+    closeAudioEqualizer: () => set({ isAudioEqualizerOpen: false }),
     handleSetVolume: (val) => {
         if (typeof window !== 'undefined') {
             localStorage.setItem('player_volume', String(val));
@@ -2733,6 +2842,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     disableVisualizerGeometricBackground: state.disableVisualizerGeometricBackground,
     minimizeToTray: state.minimizeToTray,
     voiceInputPauseEnabled: state.voiceInputPauseEnabled,
+    preventDisplaySleepDuringPlayback: state.preventDisplaySleepDuringPlayback,
     hideTaskbarIcon: state.hideTaskbarIcon,
     hideRemoteControlTaskbarIcon: state.hideRemoteControlTaskbarIcon,
     openPlayerOnLaunch: state.openPlayerOnLaunch,
@@ -2748,6 +2858,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     urlBackgroundSelectedId: state.urlBackgroundSelectedId,
     visualizerFrameRate: state.visualizerFrameRate,
     isDaylight: state.isDaylight,
+    followSystemTheme: state.followSystemTheme,
     lastSeenGuideVersion: state.lastSeenGuideVersion,
     isUserGuideModalOpen: state.isUserGuideModalOpen,
     visualizerMode: state.visualizerMode,
@@ -2824,6 +2935,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleToggleDisableVisualizerGeometricBackground: state.handleToggleDisableVisualizerGeometricBackground,
     handleToggleMinimizeToTray: state.handleToggleMinimizeToTray,
     handleToggleVoiceInputPause: state.handleToggleVoiceInputPause,
+    handleTogglePreventDisplaySleepDuringPlayback: state.handleTogglePreventDisplaySleepDuringPlayback,
     handleToggleHideTaskbarIcon: state.handleToggleHideTaskbarIcon,
     handleToggleHideRemoteControlTaskbarIcon: state.handleToggleHideRemoteControlTaskbarIcon,
     handleToggleOpenPlayerOnLaunch: state.handleToggleOpenPlayerOnLaunch,
@@ -2843,6 +2955,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleSetUrlBackgroundList: state.handleSetUrlBackgroundList,
     handleSetVisualizerFrameRate: state.handleSetVisualizerFrameRate,
     setDaylightPreference: state.setDaylightPreference,
+    setDaylightPreferenceFromSystem: state.setDaylightPreferenceFromSystem,
+    setFollowSystemTheme: state.setFollowSystemTheme,
     setLastSeenGuideVersion: state.setLastSeenGuideVersion,
     setIsUserGuideModalOpen: state.setIsUserGuideModalOpen,
     handleSetVisualizerMode: state.handleSetVisualizerMode,
@@ -2912,5 +3026,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
 });
 
 if (typeof window !== 'undefined' && window.electron?.setNativeTheme) {
-    void window.electron.setNativeTheme(useSettingsUiStore.getState().isDaylight ? 'light' : 'dark');
+    const initialSettings = useSettingsUiStore.getState();
+    void window.electron.setNativeTheme(
+        initialSettings.followSystemTheme ? 'system' : (initialSettings.isDaylight ? 'light' : 'dark'),
+    );
 }
