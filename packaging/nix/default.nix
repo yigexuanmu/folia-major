@@ -125,6 +125,10 @@ stdenv.mkDerivation (finalAttrs: {
     appdir=$out/lib/folia-major
     mkdir -p $appdir
     cp -a dist $appdir/
+    # build/ assets: main.cjs resolves icons via __dirname/../build/*
+    # (tray icon, thumbar icons); electron-builder copies them as extraResources
+    # for packaged builds, the nix package needs them in-place too
+    cp -a build $appdir/build
     cp -a electron $appdir/
     cp -a shared $appdir/
     cp package.json $appdir/
