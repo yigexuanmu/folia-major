@@ -112,6 +112,9 @@ https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
 
 - **Windows / macOS / Linux**: 最新安装包请前往 [Releases 页面](https://github.com/yigexuanmu/folia-major/releases/latest) 下载。
 
+> [!IMPORTANT]
+> 如果国内网络从 GitHub Releases 下载较慢，可以使用 [夸克网盘](https://pan.quark.cn/s/6e4c6fa3bc6f) 或 [百度云](https://pan.baidu.com/s/1f0x3g-8PMcNCO-TJ5z1rPw?pwd=flia) 下载。网盘链接仅提供 Windows 与 Apple silicon 的正式版安装包.
+
 ### Nix 安装
 
 仓库内包含完整的 Nix flake（`flake.nix`），无需额外配置：
@@ -174,6 +177,20 @@ npx electron-builder --linux --publish never # Linux
 本仓库及其源代码仅供个人学习、技术交流与非营利测试使用。请勿将其用于商业盈利用途。若因对在线资源的传播、加工或再分发而引发版权纠纷或其他责任，均由使用者自行承担，项目开发者不承担相关责任。
 
 请始终尊重数字版权，并在条件允许时通过官方平台支持正版音乐。
+
+## 致谢
+
+特别感谢以下项目和资源：
+
+- [chenmozhijin/LDDC](https://github.com/chenmozhijin/LDDC)
+- [NeteaseCloudMusicApiEnhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced)
+- [chenglou/pretext](https://github.com/chenglou/pretext)
+- [MakcRe/KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi)
+- [paper-design/shaders](https://github.com/paper-design/shaders)
+- [yakult-green-tea/qq-music-api](https://github.com/yakult-green-tea/qq-music-api)
+
+本项目接入了 [Apple Music-like Lyrics TTML 逐词歌词库](https://github.com/amll-dev/amll-ttml-db) 以提供高质量的歌词文件，感谢此歌词库的作者和贡献者们。
+
 
 ## 许可证
 
