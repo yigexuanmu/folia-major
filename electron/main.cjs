@@ -69,8 +69,15 @@ if (process.platform === 'linux') {
     app.commandLine.appendSwitch('password-store', linuxPasswordStore);
   }
 
-  app.commandLine.appendSwitch('disable-vulkan');
-  app.commandLine.appendSwitch('disable-features', 'Vulkan');
+  // Wallpaper-wrapped sessions reach the compositor through the windowtolayer proxy, where the
+  // default GL/EGL backend stalls the GPU process; ANGLE-on-Vulkan is the only backend that
+  // initialises through the proxy, so the blanket Vulkan ban below must not hit those sessions.
+  const isWallpaperWrappedSession = process.env.FOLIA_WRAPPED_BY_WINDOWTOLAYER === '1';
+
+  if (!isWallpaperWrappedSession) {
+    app.commandLine.appendSwitch('disable-vulkan');
+    app.commandLine.appendSwitch('disable-features', 'Vulkan');
+  }
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
   app.commandLine.appendSwitch('log-level', '3');
 
@@ -86,6 +93,9 @@ if (process.platform === 'linux') {
     app.commandLine.appendSwitch('enable-unsafe-swiftshader');
   } else {
     app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
+    if (isWallpaperWrappedSession) {
+      app.commandLine.appendSwitch('use-angle', 'vulkan');
+    }
   }
 }
 
@@ -156,9 +166,16 @@ function launchWrappedSelf({ onError } = {}) {
     return Promise.resolve('missing');
   }
 
+  // Desktop launchers often force --ozone-platform=x11 (the Nix wrapper does). The wrapped child
+  // must speak Wayland to reach the windowtolayer proxy socket, so strip any platform override
+  // and pin wayland — otherwise wtl never sees a window and no layer surface ever appears.
+  const childArgs = process.argv.slice(1)
+    .filter((arg) => !arg.startsWith('--ozone-platform'));
+  childArgs.push('--ozone-platform=wayland');
+
   return new Promise((resolve) => {
     const child = spawn(wtl, ['--layer=bottom', '--interactivity=all',
-      process.execPath, ...process.argv.slice(1)],
+      process.execPath, ...childArgs],
       {
         env: { ...process.env, FOLIA_WRAPPED_BY_WINDOWTOLAYER: '1', FOLIA_RELAUNCH: '1' },
         stdio: 'inherit',
