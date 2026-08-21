@@ -13,6 +13,10 @@ Applied by `packaging/linux/build-windowtolayer.mjs`: it clones the pinned revis
 rework, bump `PINNED_REV` in that file, re-apply the fixes by hand, regenerate each patch with
 `git diff <file>`, and update the base revision here.
 
+The Nix package (`packaging/nix/default.nix`) rebuilds the same pinned revision and patches
+hermetically; its `windowtolayerRev` must be kept in sync with `PINNED_REV` (and the
+`fetchFromGitLab` hash refreshed) whenever the revision is bumped.
+
 ### `windowtolayer-popup-resilience.patch` (popup/menu resilience fix)
 
 Upstream treats any request-handling error as fatal, so unsupported requests (e.g. popups,
