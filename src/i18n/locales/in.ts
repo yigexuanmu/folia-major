@@ -221,6 +221,13 @@ export default {
     "previewQueueSearch": "Cari antrean saat ini: {{query}}",
     "previewQueueSearchEmpty": "Ketik nama lagu, artis, album, atau indeks antrean",
     "queueIndex": "Antrean #{{index}}",
+    "volumeInputPlaceholder": "Masukkan volume dari 0 sampai 100",
+    "volumeCurrent": "Volume saat ini: {{value}}%",
+    "volumeInvalid": "Masukkan angka dari 0 sampai 100",
+    "volumeSetPreview": "Atur volume ke {{value}}%",
+    "volumeControlTitle": "Volume pemutaran",
+    "volumeControlHint": "Geser penggeser atau masukkan angka di atas",
+    "volumeMutedHint": "Dibisukan; perubahan berlaku setelah suara diaktifkan",
     "sourceCurrent": "sumber saat ini",
     "sourceLocal": "perpustakaan lokal",
     "sourceNavidrome": "Navidrome",
@@ -238,6 +245,7 @@ export default {
       "search-navidrome": { "title": "Cari lagu Navidrome", "description": "Cari di perpustakaan Navidrome" },
       "search-netease": { "title": "Cari lagu NetEase", "description": "Cari di NetEase Cloud Music" },
       "queue": { "title": "Antrean", "description": "Cari di antrean putar saat ini" },
+      "playback-volume": { "title": "Volume", "description": "Atur volume pemutaran" },
       "settings-help": { "title": "Buka Bantuan", "description": "Buka panduan dan pintasan" },
       "show-user-guide": { "title": "Tampilkan Panduan Pengguna", "description": "Buka tutorial panduan pengguna" },
       "settings-options": { "title": "Buka Opsi", "description": "Buka pusat opsi" },
@@ -1465,6 +1473,29 @@ export default {
     "noDescription": "Tidak ada deskripsi tersedia"
   },
   "releaseNotes": {
+    "v0_6_22": {
+      "intro": "Berikut fitur baru dan peningkatan di versi 0.6.22.",
+      "stillVisualizer": {
+        "title": "Visualizer Lirik Statis",
+        "description": "Gunakan tampilan lirik tiga baris yang statis dan hemat sumber daya tanpa latar visualizer animasi, termasuk untuk lirik Browser Source OBS."
+      },
+      "commandPaletteEnhancements": {
+        "title": "Palet Perintah yang Lebih Cerdas",
+        "description": "Atur volume pemutaran dengan slider atau angka 0–100; perintah yang sering digunakan muncul lebih dulu di hasil pencarian."
+      },
+      "gridVisibility": {
+        "title": "Sembunyikan Lebih Banyak Koleksi Grid",
+        "description": "GridMap kini dapat menyembunyikan playlist, koleksi cloud, radio, dan rekomendasi harian agar tampilan beranda tetap fokus."
+      },
+      "temperaPerformance": {
+        "title": "Kontrol Performa Tempera",
+        "description": "Tempera kini mendukung hingga 16 gambar kustom dan opsi pass pasca-pemrosesan 1x untuk mengurangi penggunaan GPU dan VRAM dengan sedikit kompromi pada ketajaman."
+      },
+      "playbackCompatibility": {
+        "title": "Metadata Pemutaran yang Lebih Andal",
+        "description": "Pembaruan Media Session menunggu durasi trek baru siap; URL sampul QQ Music dan Kugou kini menggunakan ukuran gambar yang lebih sesuai."
+      }
+    },
     "v0_6_20": {
       "intro": "Berikut fitur baru dan peningkatan di versi 0.6.20.",
       "temperaVisualizer": {

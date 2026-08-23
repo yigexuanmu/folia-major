@@ -15,12 +15,22 @@ import { getProviderSongMetadata } from '../../services/onlineMusic/songMetadata
 import { buildObsCustomCss } from '../../utils/obsCustomCss';
 import type { AudioEqualizerModeId } from '../../utils/audioEqualizer';
 import { hasUploadedObsAsset } from '../../utils/visualSettingsConfig';
-import { ListMusic, ListX, Pause, Play, Repeat, Search, Shuffle, SkipBack, SkipForward } from 'lucide-react';
+import { ListMusic, ListX, Pause, Play, Repeat, Search, Shuffle, SkipBack, SkipForward, Volume2 } from 'lucide-react';
 
 // src/components/command-palette/commandRegistry.ts
 // Defines command palette entries and the lightweight matching used for autocomplete.
 
 const MAX_COMMAND_MATCHES = 10;
+const MATCH_QUALITY = {
+    contains: 1,
+    prefix: 2,
+    input: 3,
+    exact: 4,
+} as const;
+
+type RankedCommandPaletteMatch = CommandPaletteMatch & {
+    matchQuality: number;
+};
 
 const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 
@@ -149,6 +159,50 @@ const createQueueSearchCommand = (): CommandPaletteCommand => ({
             .replace('{{query}}', trimmedInput);
     },
     execute: () => false,
+});
+
+const parseVolumePercent = (input: string) => {
+    const trimmedInput = input.trim();
+    if (!trimmedInput) {
+        return null;
+    }
+    const value = Number(trimmedInput);
+    return Number.isFinite(value) && value >= 0 && value <= 100 ? value : null;
+};
+
+const createVolumeCommand = (): CommandPaletteCommand => ({
+    id: 'playback-volume',
+    group: 'playback',
+    title: 'Volume',
+    description: 'Adjust playback volume',
+    keywords: ['volume', 'volume slider', '音量', '音量条', 'yinliang', 'yinliangtiao', 'yl', 'ylt'],
+    icon: Volume2,
+    placeholder: i18n.t('commandPalette.volumeInputPlaceholder'),
+    requiresInput: true,
+    getInitialInput: context => String(Math.round(context.volume * 100)),
+    getPreview: (input, context) => {
+        if (!input.trim()) {
+            return context.t('commandPalette.volumeCurrent', 'Current volume: {{value}}%')
+                .replace('{{value}}', String(Math.round(context.volume * 100)));
+        }
+
+        const value = parseVolumePercent(input);
+        if (value === null) {
+            return context.t('commandPalette.volumeInvalid', 'Enter a number from 0 to 100');
+        }
+
+        return context.t('commandPalette.volumeSetPreview', 'Set volume to {{value}}%')
+            .replace('{{value}}', String(value));
+    },
+    execute: (input, context) => {
+        const value = parseVolumePercent(input);
+        if (value === null) {
+            return false;
+        }
+
+        context.setVolume(value / 100);
+        return true;
+    },
 });
 
 const createSettingsCommand = (
@@ -284,6 +338,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSearchCommand('search-navidrome', 'Search Navidrome songs', 'Search Navidrome library', ['navi', 'navidrome', 'search navidrome', '导航', '服务器', 'fuwuqi', 'fwq'], () => 'navidrome'),
     createSearchCommand('search-netease', 'Search NetEase songs', 'Search NetEase Cloud Music', ['netease', 'cloud', 'search netease', '网易云', '网抑云', 'wangyiyun', 'wyy'], () => 'netease'),
     createQueueSearchCommand(),
+    createVolumeCommand(),
 
     createSettingsCommand('settings-help', 'Open Help', 'Open help and shortcuts', ['help', '帮助', 'bangzhu', 'bz'], 'help'),
     {
@@ -648,6 +703,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         execute: (_input, context) => context.runAutoMatchBestLyric(),
     },
 
+    createVisualizerCommand('still', 'Visualizer: Still', 'Switch to the static low-resource visualizer', ['visualizer still', 'still', 'static', 'low resource', '静止', '静态', '低占用', 'jingzhi', 'jingtai', 'jz']),
     createVisualizerCommand('classic', 'Visualizer: Luminous', 'Switch to classic visualizer', ['visualizer classic', 'classic', '流光', 'liuguang', 'lg']),
     createVisualizerCommand('cadenza', 'Visualizer: Mindscape', 'Switch to cadenza visualizer', ['visualizer cadenza', 'cadenza', 'mindscape', '心象', 'xinxiang', 'xx']),
     createVisualizerCommand('partita', 'Visualizer: Partita', 'Switch to partita visualizer', ['visualizer partita', 'partita', '云阶', 'yunjie', 'yj']),
@@ -1094,29 +1150,55 @@ export const getCommandPaletteMatches = (
         }));
     }
 
+    const recentCommandRanks = new Map<string, number>();
+    recentCommandIds.forEach((commandId, index) => {
+        if (!recentCommandRanks.has(commandId)) {
+            recentCommandRanks.set(commandId, index);
+        }
+    });
+
     const matches = filteredCommands
         .map(command => {
             let bestScore = 0;
             let bestInput = '';
+            let matchQuality = 0;
 
             for (const keyword of command.keywords) {
                 const normalizedKeyword = normalize(keyword);
                 if (normalizedQuery === normalizedKeyword) {
                     bestScore = Math.max(bestScore, 120);
+                    matchQuality = Math.max(matchQuality, MATCH_QUALITY.exact);
                 } else if (normalizedKeyword.startsWith(normalizedQuery)) {
                     bestScore = Math.max(bestScore, 100 - normalizedKeyword.length);
+                    matchQuality = Math.max(matchQuality, MATCH_QUALITY.prefix);
                 } else if (normalizedQuery.startsWith(`${normalizedKeyword} `)) {
                     bestScore = Math.max(bestScore, 90 + normalizedKeyword.length + (command.requiresInput ? 20 : 0));
                     bestInput = query.trim().slice(keyword.length).trim();
+                    matchQuality = Math.max(matchQuality, MATCH_QUALITY.input);
                 } else if (normalizedKeyword.includes(normalizedQuery)) {
                     bestScore = Math.max(bestScore, 60 - normalizedKeyword.indexOf(normalizedQuery));
+                    matchQuality = Math.max(matchQuality, MATCH_QUALITY.contains);
                 }
             }
 
-            return bestScore > 0 ? { command, score: bestScore, input: bestInput } : null;
+            return bestScore > 0 ? { command, score: bestScore, input: bestInput, matchQuality } : null;
         })
-        .filter((match): match is CommandPaletteMatch => Boolean(match))
-        .sort((a, b) => b.score - a.score || a.command.title.localeCompare(b.command.title));
+        .filter((match): match is RankedCommandPaletteMatch => Boolean(match))
+        .sort((a, b) => {
+            if (a.matchQuality !== b.matchQuality) {
+                return b.matchQuality - a.matchQuality;
+            }
+
+            const aRecentRank = recentCommandRanks.get(a.command.id);
+            const bRecentRank = recentCommandRanks.get(b.command.id);
+            if (aRecentRank !== undefined || bRecentRank !== undefined) {
+                if (aRecentRank === undefined) return 1;
+                if (bRecentRank === undefined) return -1;
+                if (aRecentRank !== bRecentRank) return aRecentRank - bRecentRank;
+            }
+
+            return b.score - a.score || a.command.title.localeCompare(b.command.title);
+        });
 
     return matches.slice(0, MAX_COMMAND_MATCHES);
 };

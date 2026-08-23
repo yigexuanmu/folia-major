@@ -222,6 +222,13 @@ export default {
     "previewQueueSearch": "搜索当前队列：{{query}}",
     "previewQueueSearchEmpty": "输入歌名、歌手、专辑或队列序号",
     "queueIndex": "队列 #{{index}}",
+    "volumeInputPlaceholder": "输入 0 到 100 的音量",
+    "volumeCurrent": "当前音量：{{value}}%",
+    "volumeInvalid": "请输入 0 到 100 的数字",
+    "volumeSetPreview": "将音量设为 {{value}}%",
+    "volumeControlTitle": "播放音量",
+    "volumeControlHint": "拖动音量条，或在上方输入数字",
+    "volumeMutedHint": "当前已静音；调整后将在取消静音时生效",
     "sourceCurrent": "当前来源",
     "sourceLocal": "本地音乐",
     "sourceNavidrome": "Navidrome",
@@ -239,6 +246,7 @@ export default {
       "search-navidrome": { "title": "搜索 Navidrome", "description": "搜索 Navidrome 音乐库" },
       "search-netease": { "title": "搜索网易云", "description": "搜索网易云音乐" },
       "queue": { "title": "队列", "description": "搜索当前播放队列" },
+      "playback-volume": { "title": "音量条", "description": "调整播放音量" },
       "settings-help": { "title": "打开帮助", "description": "打开帮助和快捷键" },
       "show-user-guide": { "title": "打开用户指引", "description": "查看应用使用指南" },
       "settings-options": { "title": "打开选项", "description": "打开设置中心" },
@@ -368,6 +376,7 @@ export default {
     "visualizerWorkbench": "歌词动画实验台",
     "visualizerTemporary": "临时工作台",
     "visualizerMode": "模式",
+    "visualizerStill": "静止",
     "visualizerClassic": "流光",
     "visualizerCadenze": "心象",
     "visualizerPartita": "云阶",
@@ -1517,6 +1526,29 @@ export default {
     "noDescription": "暂无详细介绍",
   },
   "releaseNotes": {
+    "v0_6_22": {
+      "intro": "以下是 0.6.22 的新功能与改进",
+      "stillVisualizer": {
+        "title": "静止/still 歌词可视化",
+        "description": "新增低占用的静止/still 歌词可视化模式"
+      },
+      "commandPaletteEnhancements": {
+        "title": "更聪明的命令面板",
+        "description": "命令面板支持通过滑块或数值调整音量，并会优先显示常用命令。"
+      },
+      "gridVisibility": {
+        "title": "隐藏更多 GridMap 集合",
+        "description": "隐藏歌单功能扩展支持到云盘、广播和每日推荐。"
+      },
+      "temperaPerformance": {
+        "title": "凝彩/Tempera 性能控制",
+        "description": "凝彩/Tempera 自定义图片池提升至 16 张，并新增后处理纹理压缩选项。"
+      },
+      "playbackCompatibility": {
+        "title": "更可靠的播放元数据",
+        "description": "修复媒体会话切歌时序问题，并优化 QQ 音乐和酷狗封面尺寸处理。"
+      }
+    },
     "v0_6_20": {
       "intro": "以下是 0.6.20 的新功能与改进",
       "temperaVisualizer": {

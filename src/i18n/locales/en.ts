@@ -222,6 +222,13 @@ export default {
     "previewQueueSearch": "Search current queue: {{query}}",
     "previewQueueSearchEmpty": "Type a song name, artist, album, or queue index",
     "queueIndex": "Queue #{{index}}",
+    "volumeInputPlaceholder": "Enter a volume from 0 to 100",
+    "volumeCurrent": "Current volume: {{value}}%",
+    "volumeInvalid": "Enter a number from 0 to 100",
+    "volumeSetPreview": "Set volume to {{value}}%",
+    "volumeControlTitle": "Playback volume",
+    "volumeControlHint": "Drag the slider or enter a number above",
+    "volumeMutedHint": "Muted; this changes the volume used after unmuting",
     "sourceCurrent": "current source",
     "sourceLocal": "local library",
     "sourceNavidrome": "Navidrome",
@@ -239,6 +246,7 @@ export default {
       "search-navidrome": { "title": "Search Navidrome songs", "description": "Search Navidrome library" },
       "search-netease": { "title": "Search NetEase songs", "description": "Search NetEase Cloud Music" },
       "queue": { "title": "Queue", "description": "Search the current play queue" },
+      "playback-volume": { "title": "Volume", "description": "Adjust playback volume" },
       "settings-help": { "title": "Open Help", "description": "Open help and shortcuts" },
       "show-user-guide": { "title": "Show User Guide", "description": "Open the user guide tutorial" },
       "settings-options": { "title": "Open Options", "description": "Open the options center" },
@@ -368,6 +376,7 @@ export default {
     "visualizerWorkbench": "Lyrics Animation Lab",
     "visualizerTemporary": "Temporary Workbench",
     "visualizerMode": "Mode",
+    "visualizerStill": "Still",
     "visualizerClassic": "Luminous",
     "visualizerCadenze": "Mindscape",
     "visualizerPartita": "Partita",
@@ -1517,6 +1526,29 @@ export default {
     "noDescription": "No description available",
   },
   "releaseNotes": {
+    "v0_6_22": {
+      "intro": "Here are the new features and improvements in version 0.6.22.",
+      "stillVisualizer": {
+        "title": "Still Lyric Visualizer",
+        "description": "Use a low-resource static three-line lyric view without an animated visualizer background, including for OBS browser-source lyrics."
+      },
+      "commandPaletteEnhancements": {
+        "title": "A Smarter Command Palette",
+        "description": "Set playback volume with a slider or a 0–100 value, while frequently used commands rise to the top of matching results."
+      },
+      "gridVisibility": {
+        "title": "Hide More Grid Collections",
+        "description": "GridMap can now hide playlists, cloud collections, radios, and daily recommendations so the home view stays focused."
+      },
+      "temperaPerformance": {
+        "title": "Tempera Performance Controls",
+        "description": "Tempera now supports up to 16 custom images and an optional 1x post-process pass to reduce GPU and VRAM use at the cost of some sharpness."
+      },
+      "playbackCompatibility": {
+        "title": "More Reliable Playback Metadata",
+        "description": "Media Session updates now wait for the new track's duration, and QQ Music and KuGou cover URLs use more appropriate image sizes."
+      }
+    },
     "v0_6_20": {
       "intro": "Here are the new features and improvements in version 0.6.20.",
       "temperaVisualizer": {
