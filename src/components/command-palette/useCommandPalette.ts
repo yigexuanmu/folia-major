@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getAvailableCommandPaletteCommands, getCommandPaletteMatches, getQueueSongMatches, COMMAND_PALETTE_COMMANDS } from './commandRegistry';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getAvailableCommandPaletteCommands, getCommandPaletteMatches, isCommandPaletteCommandEnabled, COMMAND_PALETTE_COMMANDS } from './commandRegistry';
 import { isRecordableRecentCommand, readRecentCommandIds, recordRecentCommandId, resolveRecentCommandToRecord } from './recentCommands';
 import type { CommandPaletteContext, CommandPaletteCommand, CommandPaletteMatch } from './types';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
@@ -8,7 +8,7 @@ import { resolvePinnedCommandSlots } from './pinnedCommandPreferences';
 // src/components/command-palette/useCommandPalette.ts
 // Manages palette state, keyboard opening, and selected autocomplete item.
 
-const isTextEntryTarget = (target: EventTarget | null) => {
+export const isTextEntryTarget = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) {
         return false;
     }
@@ -39,20 +39,37 @@ export const useCommandPalette = ({
     const [activeCommand, setActiveCommand] = useState<CommandPaletteCommand | null>(null);
     const [isExecuting, setIsExecuting] = useState(false);
     const [recentCommandIds, setRecentCommandIds] = useState<string[]>(() => readRecentCommandIds());
+    const close = useCallback(() => {
+        setIsOpen(false);
+        setQuery('');
+        setMatchQuery('');
+        setIsComposing(false);
+        setActiveIndex(0);
+        setActiveCommand(null);
+        setIsExecuting(false);
+    }, []);
     const pinnedCommandIds = useSettingsUiStore(state => state.pinnedCommandIds);
     const availableCommands = useMemo(() => getAvailableCommandPaletteCommands(context), [context]);
     const pinnedCommands = useMemo(
         () => resolvePinnedCommandSlots(pinnedCommandIds, availableCommands),
         [availableCommands, pinnedCommandIds],
     );
+    const surface = activeCommand?.surface ?? null;
+    // Surfaces drive the input themselves, so they may need the raw value and a way to write
+    // both the visible query and the match query at once.
+    const commitQuery = useCallback((next: string) => {
+        setQuery(next);
+        setMatchQuery(next);
+        setActiveIndex(0);
+    }, []);
 
     const matches = useMemo(() => {
-        const activeInput = activeCommand?.id === 'playback-volume' ? query : matchQuery;
+        const activeInput = surface?.useLiveQuery ? query : matchQuery;
         let list: CommandPaletteMatch[];
         if (!activeCommand) {
             list = getCommandPaletteMatches(matchQuery, context, recentCommandIds);
-        } else if (activeCommand.id === 'queue') {
-            list = getQueueSongMatches(matchQuery, context);
+        } else if (surface?.buildMatches) {
+            list = surface.buildMatches({ context, query });
         } else {
             const inputCommands = COMMAND_PALETTE_COMMANDS.filter(cmd => cmd.requiresInput);
             const activeMatch: CommandPaletteMatch = {
@@ -84,7 +101,7 @@ export const useCommandPalette = ({
                 previewText,
             };
         });
-    }, [activeCommand, matchQuery, query, context, recentCommandIds]);
+    }, [activeCommand, matchQuery, query, context, recentCommandIds, surface]);
 
     const activePreview = useMemo(() => {
         const match = matches[activeIndex];
@@ -98,16 +115,6 @@ export const useCommandPalette = ({
         setIsOpen(true);
         setActiveIndex(0);
     }, [currentView, isBlocked]);
-
-    const close = useCallback(() => {
-        setIsOpen(false);
-        setQuery('');
-        setMatchQuery('');
-        setIsComposing(false);
-        setActiveIndex(0);
-        setActiveCommand(null);
-        setIsExecuting(false);
-    }, []);
 
     const recordRecentCommand = useCallback((command: CommandPaletteCommand) => {
         if (isRecordableRecentCommand(command, COMMAND_PALETTE_COMMANDS)) {
@@ -123,6 +130,26 @@ export const useCommandPalette = ({
         setMatchQuery(initialInput);
         setActiveIndex(0);
     }, [context, recordRecentCommand]);
+
+    // Opens the palette straight into one command, used by the per-command openHotkey entries.
+    const openCommand = useCallback((command: CommandPaletteCommand) => {
+        if (currentView !== 'player' || isBlocked || isExecuting) {
+            return;
+        }
+
+        setIsOpen(true);
+        setIsComposing(false);
+        activateInputCommand(command);
+    }, [activateInputCommand, currentView, isBlocked, isExecuting]);
+
+    // Lets a UI surface outside the palette jump straight into one command, without having to
+    // import the registry or know how a command is activated.
+    const openCommandById = useCallback((commandId: string) => {
+        const command = COMMAND_PALETTE_COMMANDS.find(entry => entry.id === commandId);
+        if (command) {
+            openCommand(command);
+        }
+    }, [openCommand]);
 
     const executeMatch = useCallback(async (index: number) => {
         if (isExecuting) {
@@ -159,9 +186,7 @@ export const useCommandPalette = ({
         }
     }, [activateInputCommand, close, context, activeCommand, matches, isExecuting, recordRecentCommand]);
 
-    const executeActive = useCallback(() => executeMatch(activeIndex), [activeIndex, executeMatch]);
-
-    const executePinnedCommand = useCallback(async (command: CommandPaletteCommand) => {
+    const executeCommand = useCallback(async (command: CommandPaletteCommand) => {
         if (isExecuting) {
             return false;
         }
@@ -183,9 +208,56 @@ export const useCommandPalette = ({
         }
     }, [activateInputCommand, close, context, isExecuting, recordRecentCommand]);
 
+    const executeActive = useCallback(async () => {
+        const handled = await surface?.onSubmit?.({
+            context,
+            query,
+            setQuery: commitQuery,
+            matches,
+            activeIndex,
+            setActiveIndex,
+            isExecuting,
+            executeMatch,
+            executeCommand,
+            close,
+        });
+        if (handled !== null && handled !== undefined) {
+            return handled;
+        }
+        return executeMatch(activeIndex);
+    }, [activeIndex, close, commitQuery, context, executeCommand, executeMatch, isExecuting, matches, query, surface]);
+
+
+
     useEffect(() => {
         setActiveIndex(0);
     }, [matchQuery]);
+
+    // Execute mode fires as soon as the buffer is unambiguous, so the surface gets a chance to
+    // act on every keystroke. The ref keeps one buffer from being judged twice.
+    const handledQueryRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!surface?.onQueryChange) {
+            handledQueryRef.current = null;
+            return;
+        }
+        if (handledQueryRef.current === query) {
+            return;
+        }
+        handledQueryRef.current = query;
+        void surface.onQueryChange({
+            context,
+            query,
+            setQuery: commitQuery,
+            matches,
+            activeIndex,
+            setActiveIndex,
+            isExecuting,
+            executeMatch,
+            executeCommand,
+            close,
+        });
+    }, [activeIndex, close, commitQuery, context, executeCommand, executeMatch, isExecuting, matches, query, surface]);
 
     // Space-to-pill conversion for commands requiring input
     useEffect(() => {
@@ -198,14 +270,15 @@ export const useCommandPalette = ({
             if (trimmed) {
                 const matchedCmd = COMMAND_PALETTE_COMMANDS.find(cmd =>
                     cmd.requiresInput &&
-                    cmd.keywords.some(kw => kw.toLowerCase() === trimmed.toLowerCase())
+                    cmd.keywords.some(kw => kw.toLowerCase() === trimmed.toLowerCase()) &&
+                    isCommandPaletteCommandEnabled(cmd, context)
                 );
                 if (matchedCmd) {
                     activateInputCommand(matchedCmd);
                 }
             }
         }
-    }, [activateInputCommand, query, isComposing, isOpen, activeCommand]);
+    }, [activateInputCommand, context, query, isComposing, isOpen, activeCommand]);
 
     useEffect(() => {
         if (!isOpen || isComposing) {
@@ -227,6 +300,28 @@ export const useCommandPalette = ({
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
+            // Commands declare their own entry shortcut; the palette just dispatches them.
+            // Availability is honoured here too, or a hotkey would still reach a command the
+            // current state has withdrawn — the queue's ctrl+p during Personal FM, say.
+            const hotkeyCommand = COMMAND_PALETTE_COMMANDS.find(command => (
+                command.openHotkey
+                && command.openHotkey.key.toLowerCase() === event.key.toLowerCase()
+                && Boolean(command.openHotkey.ctrl) === event.ctrlKey
+                && !event.altKey
+                && !event.metaKey
+                && isCommandPaletteCommandEnabled(command, context)
+            ));
+            if (hotkeyCommand) {
+                const needsIdleFocus = !hotkeyCommand.openHotkey?.ctrl;
+                if (currentView !== 'player' || isBlocked || (needsIdleFocus && isTextEntryTarget(event.target))) {
+                    return;
+                }
+
+                event.preventDefault();
+                openCommand(hotkeyCommand);
+                return;
+            }
+
             if (event.code !== 'KeyS') {
                 return;
             }
@@ -246,12 +341,13 @@ export const useCommandPalette = ({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [currentView, isBlocked, open]);
+    }, [context, currentView, isBlocked, open, openCommand]);
 
     return {
         activeIndex,
         activePreview,
         activeCommand,
+        openCommandById,
         availableCommands,
         setActiveCommand,
         isExecuting,
@@ -264,10 +360,12 @@ export const useCommandPalette = ({
         open,
         pinnedCommands,
         query,
+        commitQuery,
         setActiveIndex,
         setIsComposing,
         setMatchQuery,
         setQuery,
-        executePinnedCommand,
+        executeCommand,
+        executePinnedCommand: executeCommand,
     };
 };

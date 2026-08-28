@@ -38,6 +38,9 @@ export default {
     "voiceInputPauseOff": "Pause on voice input disabled",
     "preventDisplaySleepOn": "Display will stay awake during playback",
     "preventDisplaySleepOff": "Display sleep prevention disabled",
+    "sleepTimerOn": "Sleep timer armed",
+    "sleepTimerOff": "Sleep timer cancelled",
+    "sleepTimerPlaybackPaused": "Sleep timer ended; playback paused",
     "taskbarHidden": "Main window taskbar icon hidden",
     "taskbarRestored": "Main window taskbar icon restored",
     "openPlayerOnLaunch": "Launch directly to player page",
@@ -173,6 +176,9 @@ export default {
     "queueShuffled": "Queue shuffled",
     "queueCleared": "Queue cleared",
     "queueUpdated": "Added to queue",
+    "queueBatchRemoved": "Removed {{count}} songs from the queue",
+    "queueBatchMovedNext": "Moved {{count}} songs to play next",
+    "queueBatchMovedEnd": "Moved {{count}} songs to the end of the queue",
     "copiedSongInfo": "Copied song info",
     "copied": "Copied",
     "copyFailed": "Copy failed, please try again",
@@ -221,7 +227,56 @@ export default {
     "previewSearch": "Search {{source}} songs: {{query}}",
     "previewQueueSearch": "Search current queue: {{query}}",
     "previewQueueSearchEmpty": "Type a song name, artist, album, or queue index",
+    "pickerFilterPlaceholder": "Type to filter, then click or press Enter",
+    "pickerCurrent": "Current: {{mode}}",
+    "pickerDescription": {
+      "visualizer": {
+        "still": "One line held still — no animation, no background, lowest load",
+        "classic": "One big centred line; each character turns and lights up as it is sung",
+        "cadenza": "The line breaks into single characters that drift across the screen",
+        "partita": "Lyrics step down block by block along guide lines, like stairs through cloud",
+        "fume": "Layers of lyrics fill the frame while the camera drifts after the line being sung",
+        "cappella": "Lyrics arrive as chat bubbles, left and right, with avatars and stickers",
+        "tilt": "Long lines break themselves up and lean into italics, like someone speaking close up",
+        "claddagh": "Lyrics circle a tilted ring track, size contrast pulling the loop into depth",
+        "monet": "A poster layout — lyric rail left, portrait right, spectrum along the bottom",
+        "diorama": "Dot-matrix text flies through a 3D scene, the camera cut to the lyrics",
+        "pendolo": "The cover sits in a clock face; lyrics tick along an arc, escapement by escapement",
+        "sonnet": "Thin rules, frames and hollow giant letters unfold in turn, each line set like a page of verse",
+        "tempera": "Broad fields of colour and fine halftone recompose slowly; the words invert wherever they cross the paint"
+      },
+      "background": {
+        "common": "Fluid glow drawn from the cover's colours, geometric shapes drifting behind it",
+        "latent": "Pixel and fluid shaders tinted from the cover, swelling with the audio",
+        "monet": "The cover or your own image as a full background, with layout, blur and drift",
+        "nomand": "A Paper-style paper texture pass over the cover or your own image",
+        "sora": "A slow-moving starfield — the quietest background there is",
+        "url": "Embeds any web page into the player as its background"
+      }
+    },
+    "executeMode": {
+      "title": "Execute mode",
+      "placeholder": "Press a shortcut key to run it instantly",
+      "unknown": "No command uses \"{{keys}}\"",
+      "unknownHint": "Press Esc to clear and try another key"
+    },
     "queueIndex": "Queue #{{index}}",
+    "queueFacet": "Metadata",
+    "queueFacetArtist": "Artist",
+    "queueFacetAlbum": "Album",
+    "queueCurrentFacets": "Current song artist or album",
+    "queueCurrent": "Current song",
+    "queueActionRemove": "Remove matches",
+    "queueActionNext": "Move matches to play next",
+    "queueActionEnd": "Move matches to queue end",
+    "queueClearAction": "Clear batch action",
+    "queueClearFacet": "Clear artist or album filter",
+    "queueBatchPreview": "{{count}} matching songs will be affected",
+    "queueBatchNeedsFilter": "Add a search or @ filter before running a batch action",
+    "queueBatchSkippedCurrent": "The currently playing song is excluded",
+    "queueBatchConfirm": "Confirm",
+    "queueNoMatches": "No matching songs in the queue",
+    "queueSyntaxHint": "Use @ for artist/album filters · use -- for batch actions",
     "volumeInputPlaceholder": "Enter a volume from 0 to 100",
     "volumeCurrent": "Current volume: {{value}}%",
     "volumeInvalid": "Enter a number from 0 to 100",
@@ -229,6 +284,26 @@ export default {
     "volumeControlTitle": "Playback volume",
     "volumeControlHint": "Drag the slider or enter a number above",
     "volumeMutedHint": "Muted; this changes the volume used after unmuting",
+    "sleepTimerTitle": "Sleep timer",
+    "sleepTimerEnabledHint": "Timer will end after {{hours}}h {{minutes}}m",
+    "sleepTimerZeroHint": "Choose a duration greater than zero",
+    "sleepTimerDisabledHint": "Turn it on to start the timer",
+    "sleepTimerCountdownHint": "Closing in {{time}}",
+    "sleepTimerPauseCountdownHint": "Pausing playback in {{time}}",
+    "sleepTimerHoursLabel": "Hours",
+    "sleepTimerMinutesLabel": "Minutes",
+    "sleepTimerInputPlaceholder": "Enter minutes, --on, or --off",
+    "sleepTimerSetPreview": "Start a {{minutes}} min timer",
+    "sleepTimerOffPreview": "Press Enter to cancel the sleep timer",
+    "sleepTimerUnknownOption": "Unknown option --{{option}}",
+    "sleepTimerConflictingOptions": "--on and --off cannot be used together",
+    "sleepTimerInvalidMinutes": "Minutes must be one positive integer",
+    "sleepTimerMinutesOutOfRange": "Minutes must be between 1 and {{max}}",
+    "sleepTimerUnexpectedMinutes": "--off does not accept a duration",
+    "sleepTimerDurationRequired": "Enter minutes before turning the timer on",
+    "fmModeTitle": "Personal FM mode",
+    "fmModeHint": "Pick a scene to switch straight into scene mode",
+    "fmModeFilterPlaceholder": "Type to filter modes and scenes",
     "sourceCurrent": "current source",
     "sourceLocal": "local library",
     "sourceNavidrome": "Navidrome",
@@ -245,8 +320,9 @@ export default {
       "search-local": { "title": "Search local songs", "description": "Search local library" },
       "search-navidrome": { "title": "Search Navidrome songs", "description": "Search Navidrome library" },
       "search-netease": { "title": "Search NetEase songs", "description": "Search NetEase Cloud Music" },
-      "queue": { "title": "Queue", "description": "Search the current play queue" },
+      "queue": { "title": "Queue", "description": "Search the queue; use @ for metadata and -- for batch actions" },
       "playback-volume": { "title": "Volume", "description": "Adjust playback volume" },
+      "playback-fm-mode": { "title": "Personal FM mode", "description": "Switch the Personal FM mode or scene" },
       "settings-help": { "title": "Open Help", "description": "Open help and shortcuts" },
       "show-user-guide": { "title": "Show User Guide", "description": "Open the user guide tutorial" },
       "settings-options": { "title": "Open Options", "description": "Open the options center" },
@@ -267,6 +343,10 @@ export default {
       "playback-sound-preset-custom2": { "title": "Sound: Custom 2", "description": "Apply the second saved custom sound" },
       "settings-local-lyrics-priority": { "title": "Local song lyrics priority", "description": "Choose whether local songs prefer local or online lyrics" },
       "settings-integration": { "title": "Integration settings", "description": "Open Stage, Now Playing, and Navidrome settings" },
+      "automix-toggle": { "title": "Smart transition", "description": "Turn FOLIA smart transitions on or off" },
+      "transition-mode-crossfade": { "title": "Transition mode: Folia Crossfade", "description": "Use the simple one-out one-in crossfade" },
+      "transition-mode-automix": { "title": "Transition mode: Folia Automix", "description": "Analyse both tracks and mix them automatically" },
+      "transition-performance-toggle": { "title": "Transition performance mode", "description": "Toggle the more aggressive transition (needs the stem model)" },
       "settings-discord-presence": { "title": "Discord playback status", "description": "Open Discord Rich Presence settings" },
       "settings-obs-browser-source": { "title": "OBS browser source", "description": "Open OBS browser source settings" },
       "desktop-toggle-lyric-api": { "title": "Lyrics API", "description": "Toggle the local unauthenticated lyrics endpoint" },
@@ -275,6 +355,7 @@ export default {
       "settings-r2-sync": { "title": "Sync server settings", "description": "Open sync server settings" },
       "sync-now": { "title": "Sync now", "description": "Sync AI themes" },
       "settings-desktop": { "title": "Desktop settings", "description": "Open desktop app settings" },
+      "settings-update-channel": { "title": "Update channel", "description": "Choose the desktop app release channel" },
       "desktop-toggle-voice-input-pause": { "title": "Voice input pause", "description": "Toggle pausing playback during voice input" },
       "desktop-toggle-prevent-display-sleep": { "title": "Prevent display sleep during playback", "description": "Keep the display awake while music is playing" },
       "settings-lab": { "title": "Lab settings", "description": "Open experimental settings" },
@@ -285,6 +366,7 @@ export default {
       "settings-lyric-filter": { "title": "Lyric filter", "description": "Open lyric filter settings" },
       "settings-wallpaper-mode": { "title": "Wallpaper mode settings", "description": "Open wallpaper mode settings" },
       "desktop-toggle-wallpaper-mode": { "title": "Toggle wallpaper mode", "description": "Turn the app into a desktop lyrics wallpaper" },
+      "sleep-timer": { "title": "Sleep timer", "description": "Pause playback after a chosen duration, or close the desktop app" },
       "navigate-home": { "title": "Go home", "description": "Return to home view" },
       "navigate-player": { "title": "Go player", "description": "Return to player view" },
       "browser-fullscreen": { "title": "Fullscreen", "description": "Toggle browser fullscreen" },
@@ -312,6 +394,9 @@ export default {
       "theme-source-ai": { "title": "Theme source: AI inference", "description": "Generate song themes by having AI read the lyrics" },
       "theme-source-cover": { "title": "Theme source: cover colors", "description": "Generate song themes from the cover artwork palette" },
       "playback-auto-match-best-lyric": { "title": "Match best lyrics", "description": "Run automatic best lyric matching for the current song" },
+      "visualizer-picker": { "title": "Pick a visualizer", "description": "Browse lyric animation modes and click one to switch" },
+      "background-picker": { "title": "Pick a background", "description": "Browse background layouts and click one to switch" },
+      "visualizer-still": { "title": "Visualizer: Still", "description": "Switch to the static low-resource visualizer" },
       "visualizer-classic": { "title": "Visualizer: Luminous", "description": "Switch to classic visualizer" },
       "visualizer-cadenza": { "title": "Visualizer: Mindscape", "description": "Switch to cadenza visualizer" },
       "visualizer-partita": { "title": "Visualizer: Partita", "description": "Switch to partita visualizer" },
@@ -409,6 +494,7 @@ export default {
     "close": "Close",
     "volume": "Volume",
     "openEqualizer": "Open audio equalizer",
+    "automix": "Smart transition",
     "equalizerTitle": "Audio effects",
     "equalizerDescription": "Band equalization and audio effects",
     "equalizerEnabled": "Processing on",
@@ -417,6 +503,8 @@ export default {
     "equalizerReset": "Reset the active custom slot",
     "equalizerEffects": "Effect chain",
     "equalizerEffectsHint": "Applied after the bands",
+    "equalizerEffectNoiseTag": "noise",
+    "equalizerEffectNoiseTagHint": "This slider adds a noise floor of its own - most audible where the music is quietest",
     "equalizerEffect": {
       "highpass": "Low cut",
       "lowpass": "High cut",
@@ -515,6 +603,71 @@ export default {
     "retry": "Retry",
     "catalogUnavailable": "This album or artist cannot be opened because the provider did not return a valid catalog ID."
   },
+  "personalFmMode": {
+    "openPicker": "Switch the Personal FM mode",
+    "category": {
+      "mode": "Mode",
+      "mood": "Mood",
+      "activity": "Moment",
+      "genre": "Genre",
+      "language": "Language"
+    },
+    "mode": {
+      "DEFAULT": "Default",
+      "FAMILIAR": "Familiar",
+      "EXPLORE": "Explore",
+      "SCENE_RCMD": "Scene",
+      "PUZZLE_MODE_RCMD": "Puzzle"
+    },
+    "scene": {
+      "NIGHT_EMO": "Melancholy",
+      "CURE": "Healing",
+      "CHEERFUL": "Cheerful",
+      "LYRICAL": "Lyrical",
+      "INSPIRATIONAL": "Inspirational",
+      "RELAX": "Relax",
+      "SWEET": "Love Songs",
+      "EXERCISE": "Workout",
+      "FOCUS": "Focus",
+      "SLEEP_HELP": "Sleep",
+      "TAKE_SHOWER": "Shower",
+      "COMMUTE": "Commute",
+      "COFFEE_SHOP": "Coffee Shop",
+      "GAMES": "Gaming",
+      "DANCE": "Dance",
+      "RAINY": "Rainy Day",
+      "RHYTHM_BLUES": "R&B",
+      "RAP": "Rap",
+      "K_POP": "K-Pop",
+      "ELECTRONIC": "Electronic",
+      "ROCK": "Rock",
+      "FOLK": "Folk",
+      "GUDIAN": "Classical",
+      "JAZZ": "Jazz",
+      "BLUE": "Blues",
+      "PUNK": "Funk",
+      "COUNTRY": "Country",
+      "LIGHT": "Light Music",
+      "GUOFENG": "Guofeng",
+      "MANYAO": "Slow DJ",
+      "MUSICAL": "Musical",
+      "ACG": "ACG",
+      "JINGDIAN": "Classics",
+      "ORIGINAL_MUSICIAL": "Indie Original",
+      "YINGSHI": "Soundtrack",
+      "CHINESE": "Mandarin",
+      "ENGLISH": "Western",
+      "YUEYU": "Cantonese",
+      "JAPANESE": "Japanese",
+      "FRANCH": "French",
+      "LATIN": "Latin",
+      "GLOBAL": "Global"
+    },
+    "statusPending": "Personal FM mode",
+    "statusApplied": "Personal FM switched to",
+    "statusEmpty": "This Personal FM mode returned nothing",
+    "statusFailed": "Failed to switch the Personal FM mode"
+  },
   "home": {
     "welcome": "Welcome to Folia",
     "loginPrompt": "Login with Netease Cloud Music to access your playlists.",
@@ -527,13 +680,13 @@ export default {
     "loginTitleKugou": "Scan with KuGou Music",
     "loginNoteKugou": "Open KuGou Music and scan this QR code",
     "loginTitleQq": "Scan to sign in to QQ Music",
-    "loginNoteQq": "Scan this QR code with the matching app",
+    "loginNoteQq": "Choose the sign-in method matching your account: QQ scan or WeChat scan",
     "qqLoginMethodTitle": "Choose sign-in method",
-    "qqLoginMethodHint": "Pick the method matching the account your QQ Music app is bound to",
+    "qqLoginMethodHint": "Use QQ scan for a QQ account, or WeChat scan for a WeChat account",
     "qqLoginMethodPending": "Pick a sign-in method to generate the QR code",
     "qqLoginMethodCurrent": "Current method: {{method}}",
-    "qqLoginMethodMobile": "QQ",
-    "qqLoginMethodWechat": "WeChat",
+    "qqLoginMethodMobile": "QQ scan",
+    "qqLoginMethodWechat": "WeChat scan",
     "switchOnlineProvider": "Switch online music provider",
     "confirmOnlineProviderSwitch": "Switch to {{provider}}? Current online playback and queue will be cleared.",
     "onlineProvider": "Online music provider",
@@ -646,9 +799,12 @@ export default {
     "seekBackward": "Seek Backward 5s",
     "hidePlayerChrome": "Hide progress bar and lower-right button",
     "toggleRightPanel": "Toggle right panel",
+    "cycleRightPanelTabs": "Cycle open right panel tabs",
     "openCommandPalette": "Open command palette",
+    "openCommandPaletteQueue": "Open queue in command palette",
     "browserFullscreen": "Fullscreen",
     "madeBy": "Project:",
+    "joinDiscord": "Join our Discord",
     "version": "version"
   },
   "lyricProvider": {
@@ -710,6 +866,67 @@ export default {
     "replayGainSettings": "Audio gain",
     "replayGainMode": "ReplayGain mode( Loudness Balancing )",
     "replayGainModeDesc": "Normalize playback loudness using track or album ReplayGain metadata when available.",
+    "transitionSettings": "Folia transitions",
+    "transitionEnable": "Blend",
+    "transitionMode": "Transition mode",
+    "transitionCrossfade": "Folia Crossfade",
+    "transitionCrossfadeDesc": "One fade out into one fade in.",
+    "transitionAutomix": "Folia Automix",
+    "transitionAutomixDesc": "Analyses both tracks and mixes them automatically.",
+    "transitionActive": "Active",
+    "transitionFellBack": "Using crossfade",
+    "crossfadeMaxSeconds": "Maximum transition length",
+    "crossfadeSecondsValue": "{{seconds}}s",
+    "transitionAutomixUnavailable": "Automix is unavailable in this environment: audio cannot be decoded for analysis, so song changes fall back to the stable crossfade.",
+    "transitionEngineFull": "Full",
+    "transitionEngineFullDesc": "Tighter beat alignment, and the tracks split into stems.",
+    "transitionEngineLite": "Compatible",
+    "transitionEngineLiteDesc": "Browser limits mean the mix can come out around half as good as the desktop build.",
+    "transitionEngineNeedsModels": "The analysis models are not downloaded yet. Download them to run the full engine.",
+    "transitionPerformance": "Performance mode",
+    "transitionPerformanceDesc": "A more aggressive transition.",
+    "transitionPerformanceNeedsStems": "Not available in the browser build.",
+    "transitionPerformanceNeedsModel": "Needs the stem separation model downloaded first.",
+    "modelsTitle": "Analysis models",
+    "modelsDesc": "The full engine needs its neural network models and a runtime, about {{size}} together.",
+    "modelEnablesBeatGrid": "Beat This!",
+    "modelEnablesStems": "HTDemucs",
+    "modelEnablesRuntime": "Required component",
+    "modelScopeAutomix": "Automix",
+    "modelScopePerformance": "Performance mode",
+    "modelInstalled": "Installed",
+    "modelMissing": "Not installed",
+    "modelUnsupported": "Unsupported",
+    "modelUnsupportedWhy": "Vocal separation does not run on this device's processor",
+    "modelDownload": "Download",
+    "modelCancel": "Cancel",
+    "modelScan": "Find on this computer",
+    "modelScanning": "Looking...",
+    "modelScanNone": "No usable model file found",
+    "modelScanFound": "Installed {{count}} model(s)",
+    "modelManualHint": "Every download route failed. Fetch the files from a netdisk onto this machine, then press Find on this computer to install them.",
+    "modelManualLink": "Get from a netdisk",
+    "modelManualTitle": "Download the models from a netdisk",
+    "modelManualDialogDesc": "Once the files are on this machine, come back and press Find on this computer - they are verified and installed for you.",
+    "modelManualOpen": "Open the link",
+    "modelLocation": "Model location",
+    "modelLocationChange": "Change location",
+    "modelLocationReset": "Reset to default",
+    "modelRemoveAll": "Delete all models",
+    "modelRemoveConfirm": "This deletes the {{size}} of installed model files and drops Automix to compatible mode. You can download them again at any time.",
+    "modelRemoveDone": "Deleted, {{size}} freed",
+    "modelRemoveFailed": "Could not delete: {{what}}",
+    "modelManualCode": "Code",
+    "modelManualCodeCopied": "Copied",
+    "modelReminderTitle": "The analysis models are not downloaded",
+    "modelReminderDesc": "The full Folia transition engine needs its neural network models, about 249MB together.",
+    "modelReminderDownload": "Download",
+    "modelReminderLater": "Got it",
+    "modelReminderNever": "Don't remind me",
+    "transitionAnimation": "Transition animation",
+    "transitionAnimationDesc": "Drawn at the centre of the screen while a mix runs. Any key dismisses it. Not shown for transitions under 5 seconds.",
+    "transitionAutomixNeedsCache": "Song caching is off, so online tracks are never analysed. Automix ends up about 50% less effective.",
+    "transitionAutomixEnableCache": "Turn song caching on",
     "integrationSettings": "Integration settings",
     "integrationSettingsDesc": "Connections for external apps and services.",
     "lyricApi": "Lyrics API",
@@ -747,12 +964,16 @@ export default {
     "pinnedCommandSlot": "Slot {{index}}",
     "pinnedCommandNone": "No pinned command",
     "playlistData": "Playlist Data",
+    "analysisData": "Analysis Data",
     "lyrics": "Lyrics",
     "covers": "Covers",
     "mediaFiles": "Media Files",
     "mediaCache": "Media Cache",
     "enableMediaCache": "Cache Songs",
-    "enableMediaCacheDesc": "Cache audio after playback for offline listening.",
+    "enableMediaCacheDesc": "Cache audio for offline listening. It also lets blended song changes measure the next track before its first play.",
+    "mediaCacheLimit": "Cache Limit",
+    "mediaCacheLimitDesc": "Past this, the songs you have not played in longest are dropped first.",
+    "mediaCacheLimitNone": "No limit",
     "cachedSongsCount": "Cached Songs",
     "cacheDirectory": "Cache Directory",
     "cacheDirectoryDesc": "Choose where large desktop cache files should be stored.",
@@ -764,6 +985,7 @@ export default {
     "r2Sync": "Sync Server",
     "r2SyncEnable": "Enable sync server",
     "r2SyncEnableDesc": "Sync appearance settings and AI themes through your own Cloudflare D1 Worker or self-hosted sync service.",
+    "r2SyncDeployDocs": "Deployment guide",
     "r2SyncWorkerUrl": "Sync Server URL",
     "r2SyncToken": "Bearer Token",
     "r2SyncTokenPlaceholder": "Worker SYNC_TOKEN",
@@ -811,6 +1033,26 @@ export default {
     "enableStaticModeDescSub": "Does not affect lyric text effects or rendering.",
     "labSettings": "Lab Settings",
     "labSettingsDesc": "Open a separate page for experimental playback and panel behavior settings.",
+    "developerSettings": "Developer",
+    "developerSettingsDesc": "What the app logged while it was running.",
+    "consoleLogCapture": "Session log",
+    "consoleLogCaptureDesc": "What the app logs while it runs.",
+    "consoleLogConvention": "Lines are grouped by the [Module] prefix they start with, so each can be filtered on its own. See docs/client-logging.md.",
+    "debugLogsToFile": "Save to file",
+    "debugLogModeAppend": "Append",
+    "debugLogModeOverwrite": "Overwrite",
+    "debugLogsUnavailable": "Desktop app only",
+    "memoryMonitor": "Memory monitor",
+    "memoryMonitorDesc": "Sample every process and record the curve.",
+    "memoryMonitorInterval": "Interval",
+    "memoryMonitorOffHint": "Recording is off, so nothing is being sampled.",
+    "memoryMonitorStart": "Start recording",
+    "memoryCurrent": "Current",
+    "memoryPeak": "Peak",
+    "memoryFloor": "Floor",
+    "memoryAverage": "Average",
+    "memoryByProcess": "By process",
+    "memorySeriesUnavailable": "Not reported on this platform",
     "labPerformanceSection": "Performance & Background",
     "labPerformanceSectionDesc": "Controls for animation workload and the home background.",
     "labPlayerUiSection": "Player Page UI",
@@ -1124,12 +1366,20 @@ export default {
     "temperaTextInversion": "Dynamic text inversion",
     "temperaImageSection": "Canvas images",
     "temperaAddLayerImage": "Add image",
+    "temperaClearLayerImages": "Clear all",
     "temperaLayerImageHint": "Each shot picks one image from the pool; its alignment decides where.",
     "temperaLayerImageFrequency": "Appearance rate",
     "temperaLayerAlignFree": "Any",
     "temperaLayerAlignLeft": "Left",
     "temperaLayerAlignCenter": "Centre",
     "temperaLayerAlignRight": "Right",
+    "temperaLayerAlignTop": "Top",
+    "temperaLayerAlignMiddle": "Middle",
+    "temperaLayerAlignBottom": "Bottom",
+    "temperaLayerAlignPosition": "{{vertical}} · {{horizontal}}",
+    "temperaLayerAlignGridHint": "Choose a position directly on the 3x3 preview grid",
+    "temperaLayerAlignVerticalRandom": "Random vertically",
+    "temperaLayerAlignHorizontalRandom": "Random horizontally",
     "temperaRemoveLayerImage": "Remove image",
     "temperaLayerImageScale": "Size",
     "temperaLayerImageOpacity": "Opacity",
@@ -1526,201 +1776,23 @@ export default {
     "noDescription": "No description available",
   },
   "releaseNotes": {
-    "v0_6_22": {
-      "intro": "Here are the new features and improvements in version 0.6.22.",
-      "stillVisualizer": {
-        "title": "Still Lyric Visualizer",
-        "description": "Use a low-resource static three-line lyric view without an animated visualizer background, including for OBS browser-source lyrics."
+    "v0_7_0": {
+      "intro": "Here are the new features and improvements in version 0.7.0.",
+      "temperaVisualExpansion": {
+        "title": "A Much Broader Tempera Visual Language",
+        "description": "Tempera expands from 62 to 121 shot compositions with new soft, cutout, and monumental families, plus better alignment editing and resolution previews for custom images."
       },
-      "commandPaletteEnhancements": {
-        "title": "A Smarter Command Palette",
-        "description": "Set playback volume with a slider or a 0–100 value, while frequently used commands rise to the top of matching results."
+      "commandPaletteWorkflows": {
+        "title": "Advanced Command Palette Workflows",
+        "description": "Search and operate on the queue with batch syntax, switch Personal FM modes with pinyin matching, and use queue shortcuts or Tab cycling from the player page."
       },
-      "gridVisibility": {
-        "title": "Hide More Grid Collections",
-        "description": "GridMap can now hide playlists, cloud collections, radios, and daily recommendations so the home view stays focused."
+      "awlrcLyrics": {
+        "title": "AWLRC Word-Timed Lyrics",
+        "description": "Local lyrics can now load AWLRC containers while preserving word timing, translation, and romanization tracks."
       },
-      "temperaPerformance": {
-        "title": "Tempera Performance Controls",
-        "description": "Tempera now supports up to 16 custom images and an optional 1x post-process pass to reduce GPU and VRAM use at the cost of some sharpness."
-      },
-      "playbackCompatibility": {
-        "title": "More Reliable Playback Metadata",
-        "description": "Media Session updates now wait for the new track's duration, and QQ Music and KuGou cover URLs use more appropriate image sizes."
-      }
-    },
-    "v0_6_20": {
-      "intro": "Here are the new features and improvements in version 0.6.20.",
-      "temperaVisualizer": {
-        "title": "Tempera Lyric PV",
-        "description": "A new screen-tone lyric visualizer with word-level motion, flowing shot handoffs, cover gradients, and an optional pool of canvas images."
-      },
-      "themeParkEditor": {
-        "title": "Full Theme Park Editor",
-        "description": "Edit light and dark theme colors, names, descriptions, word colors, and lyric icons with a live visualizer preview; import or export theme JSON when you want to use an AI-generated theme."
-      },
-      "coverDrivenThemes": {
-        "title": "Cover-Driven Theme Generation",
-        "description": "Built-in themes now derive their palettes from the current cover instead of relying on fixed presets, and cover-only generation can create a theme without an AI key."
-      },
-      "wallpaperMode": {
-        "title": "Linux Lyrics Wallpaper",
-        "description": "Linux desktop builds can sink Folia to the desktop layer and keep lyrics visible as a wallpaper, with recovery safeguards when the wallpaper wrapper fails."
-      },
-      "linuxCredentialStorage": {
-        "title": "More Reliable Linux Credentials",
-        "description": "Linux desktops such as Hyprland and sway now use the available encrypted credential store, so KuGou and QQ Music logins can persist across restarts."
-      }
-    },
-    "v0_6_19": {
-      "intro": "Here are the new features and improvements in version 0.6.19.",
-      "audioEffectChain": {
-        "title": "Post-processing Audio Effects",
-        "description": "The equalizer now supports a post-processing chain after the frequency bands, with tone shaping, saturation, bit crush, wow, vinyl noise, stereo width, space, and dynamics controls that can be saved in sound presets."
-      },
-      "globalLyricOffset": {
-        "title": "Global Lyric Timing Offset",
-        "description": "Shift lyrics for every song on this device to compensate for Bluetooth or other output latency, with a live preview for fine tuning."
-      },
-      "obsCustomCssAssets": {
-        "title": "OBS Custom CSS for Uploaded Assets",
-        "description": "Copy a ready-to-paste Custom CSS snippet for uploaded backgrounds, portraits, and other assets in OBS Browser Source. GIFs keep their animation when they fit the size budget; oversized GIFs are copied as static frames."
-      },
-      "trackSwitchPreview": {
-        "title": "Clearer Track Switching",
-        "description": "Hover the floating player's previous and next controls to preview neighboring track titles, keep the navigation arrows visible, and clear the current queue from the Command Palette."
-      },
-      "visualizerBackgroundEffects": {
-        "title": "Richer Visualizer Background Effects",
-        "description": "Monet backgrounds can drift slowly with optional vertical streaks, while Nomand adds dithering, fluted glass, paper texture, halftone dots, and lens distortion controls."
-      }
-    },
-    "v0_6_18": {
-      "intro": "Here are the new features and improvements in version 0.6.18.",
-      "m3uPlaylists": {
-        "title": "Portable M3U8 Playlists",
-        "description": "Import .m3u8 files into your local library and export Folia playlists as UTF-8 M3U8 files with portable paths. Unmatched or ambiguous paths are reported instead of being added silently."
-      },
-      "gridMapBatchTools": {
-        "title": "Search and Manage Local Collections",
-        "description": "GridMap search now supports multiple terms across names, paths, and metadata. Select folders, albums, or artists in batches to play, queue, create playlists, or remove library entries; folders can also be rescanned without touching files on disk."
-      },
-      "foliaIgnore": {
-        "title": "Flexible .foliaignore Rules",
-        "description": "Add .foliaignore files to imported roots or subfolders to exclude temporary files, cache directories, and unwanted audio with familiar gitignore-style patterns. Changes apply on the next re-import."
-      },
-      "incrementalLocalScans": {
-        "title": "Faster Incremental Library Scans",
-        "description": "Re-imports now reuse unchanged files, detect additions and removals, and load metadata in the background, making large local libraries quicker to refresh."
-      },
-      "localCoverAssets": {
-        "title": "More Efficient Local Artwork",
-        "description": "Local covers are deduplicated into persistent assets and served in size-aware thumbnails, reducing repeated storage and unnecessary full-resolution image work across the library."
-      }
-    },
-    "v0_6_17": {
-      "intro": "Here are the new features and improvements in version 0.6.17.",
-      "sonnetSceneVariants": {
-        "title": "More Sonnet Scene Variants",
-        "description": "Sonnet now draws from 100 background compositions, with new celestial, marine, music, craft, and kinetic themes plus more frame and geometry variations."
-      },
-      "sonnetDrawingMotion": {
-        "title": "Layered Drawing Motion",
-        "description": "Sonnet's lines, fills, and decorative elements now reveal in staggered drawing sequences for richer, more organic scene transitions."
-      },
-      "equalizerDaylight": {
-        "title": "Clearer Daylight Equalizer",
-        "description": "Improved contrast, surfaces, controls, and accent colors make the audio equalizer easier to read and operate in the light theme."
-      }
-    },
-    "v0_6_16": {
-      "intro": "Here are the new features and improvements in version 0.6.16.",
-      "qqMusicProvider": {
-        "title": "Initial QQ Music Integration",
-        "description": "Basic account sign-in, online search, and playback are now available. Feature support is still limited and will be expanded in future releases."
-      },
-      "audioEqualizer": {
-        "title": "Audio Equalizer",
-        "description": "Adjust and save equalizer settings from the playback controls for sound better suited to your device."
-      },
-      "lyricApi": {
-        "title": "Desktop Lyrics API",
-        "description": "A new local API lets external apps read the current track and synchronized lyrics."
-      },
-      "localSongCovers": {
-        "title": "Local Track Covers",
-        "description": "You can now import, display, and persist custom artwork for individual local tracks."
-      }
-    },
-    "v0_6_15": {
-      "intro": "Here are the new features and improvements in version 0.6.15.",
-      "sonnetLensEffects": {
-        "title": "Sonnet Lens Effects",
-        "description": "New lens distortion and chromatic dispersion controls give the Sonnet visualizer a richer optical look."
-      },
-      "sonnetPostProcess": {
-        "title": "Refined Sonnet Post-processing",
-        "description": "Improved defaults, stable transitions, and cleaner RGB Shift rendering keep Sonnet's effects expressive without compromising lyric clarity."
-      }
-    },
-    "v0_6_12": {
-      "intro": "Here are the new features and improvements in version 0.6.14.",
-      "sonnetLayout": {
-        "title": "Rebuilt Sonnet Layout Engine",
-        "description": "The Sonnet visualizer's layout engine has been rebuilt for more polished, balanced, and stable lyric typography."
-      },
-      "followSystemTheme": {
-        "title": "Follow System Appearance",
-        "description": "Enable this option in Settings to automatically switch between light and dark themes with your system."
-      }
-    },
-    "v0_6_8": {
-      "intro": "Here are the new features and improvements in version 0.6.8.",
-      "navidromeRecent": {
-        "title": "Recent Music in Navidrome",
-        "description": "New Recently Added and Recently Played pages make it easier to resume listening or discover new additions to your library."
-      },
-      "cappellaSafeArea": {
-        "title": "Improved Cappella Lyric Layout",
-        "description": "The lower lyric safe area now adapts to the actual line height, reducing overlaps across different font sizes and lyric layouts."
-      },
-      "kugouPlayback": {
-        "title": "Kugou Playback Compatibility",
-        "description": "Improved Kugou media URL handling in the desktop app to fix playback failures affecting some tracks."
-      }
-    },
-    "v0_6_5": {
-      "intro": "Here are the new features and improvements in version 0.6.7.",
-      "lyricPreview": {
-        "title": "Improved Lyric Animation Preview",
-        "description": "Lyric animation style settings now include a pause control for the preview and a new set of placeholder lyrics."
-      },
-      "responseSmoothness": {
-        "title": "Smoother Responsiveness",
-        "description": "Improved responsiveness across multiple components for smoother interactions and dynamic updates."
-      },
-      "commandPaletteV2": {
-        "title": "Command Palette v2",
-        "description": "Pin frequently used features in Appearance settings and benefit from expanded command memory."
-      },
-      "commandPaletteQueue": {
-        "title": "Playback Queue in Command Palette",
-        "description": "Manage the playback queue directly in the Command Palette with the Queue command."
-      }
-    },
-    "v0_6_3": {
-      "intro": "Here are the new features and improvements in the latest version.",
-      "pendoloTheme": {
-        "title": "New Visualizer: Pendolo Clockwork",
-        "description": "Introduces a new Pendolo visualizer with dynamic mechanical gears, radial lyric typography, and clickable lyrics jumping."
-      },
-      "obsDynamicAi": {
-        "title": "OBS Dynamic AI Theme",
-        "description": "The OBS Dynamic AI overlay now automatically regenerates an AI-driven theme that fits the current song upon track switching."
-      },
-      "playerCapEnhance": {
-        "title": "PlayerCap Data Layer & Sync",
-        "description": "Refactored the PlayerCap data layer to improve theme synchronization and settings propagation with the Web client for a seamless playback experience."
+      "desktopWindowTools": {
+        "title": "Smoother Desktop Overlays and Exports",
+        "description": "A tray preset enables locked, transparent, always-on-top mode in one step, while video export handles high-DPI displays, multiple monitors, and resolution cropping more reliably."
       }
     }
   },
@@ -2058,6 +2130,10 @@ export default {
       "title": "Command Palette",
       "desc": "Press the \"s\" key on the playback page to open the Command Palette and access commands quickly."
     },
+    "executeMode": {
+      "title": "Execute mode",
+      "desc": "Press \":\" on the playback page, then a single key such as n or v, to run a command immediately."
+    },
     "typeToSearch": {
       "title": "Instant Search",
       "desc": "Press any key in a song list to instantly start searching."
@@ -2160,6 +2236,9 @@ export default {
     "pause": "Pause",
     "transparentControls": "Transparent controls",
     "videoExport": "Video export",
+    "loopOff": "Loop off",
+    "loopAll": "Loop all",
+    "loopOne": "Loop one",
   },
   "aiHelp": {
     "openButton": "Need help?",
@@ -2168,6 +2247,9 @@ export default {
     "docsTitle": "Read the Folia documentation",
     "docsDescription": "Find usage instructions, configuration details, and troubleshooting guidance.",
     "openDocs": "Open docs",
+    "discordTitle": "Ask in the Discord community",
+    "discordDescription": "Troubleshoot with other users and the developers, and hear about new releases first.",
+    "openDiscord": "Join",
     "askAiTitle": "Still need help? Ask AI",
     "askAiDescription": "Describe your issue, then paste this prompt so the AI can use Folia documentation and source code as context.",
     "usageHint": "How to use it: open the official site for the model you use, describe your specific problem first, then paste this prompt below your question and send both together.",

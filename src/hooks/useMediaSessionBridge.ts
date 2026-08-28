@@ -3,11 +3,25 @@ import type { RefObject } from 'react';
 import { PlayerState } from '../types';
 import type { SongResult } from '../types';
 import { getSongAlbumLabel, getSongArtistLabel, getSongCoverUrl } from '../services/onlineMusic/songMetadata';
-import { isMediaSessionSourceReady, publishMediaSessionTrack } from '../utils/mediaSessionSync';
+import {
+    getSupportedMediaSessionArtworkUrl,
+    isMediaSessionSourceReady,
+    publishMediaSessionTrack,
+} from '../utils/mediaSessionSync';
 
 // Bridges Folia playback state to the browser Media Session API.
 type UseMediaSessionBridgeOptions = {
     audioRef: RefObject<HTMLAudioElement | null>;
+    /**
+     * The deck the displayed track is playing on, or null when the picture is live.
+     *
+     * Metadata, clock and source have to describe the same deck. `currentSong` is already the
+     * DISPLAYED track - the outgoing one for the length of a blend - while `audioRef` names the
+     * active deck, which by then is the arriving track. Publishing the two together put the outgoing
+     * track's title on the incoming track's duration and position, so the system panel showed one
+     * song's name over another song's progress. `audioSrc` is passed to match this element.
+     */
+    getDisplayAudioElement?: () => HTMLAudioElement | null;
     audioSrc: string | null;
     currentSong: SongResult | null;
     cachedCoverUrl: string | null;
@@ -23,6 +37,7 @@ type UseMediaSessionBridgeOptions = {
 
 export const useMediaSessionBridge = ({
     audioRef,
+    getDisplayAudioElement,
     audioSrc,
     currentSong,
     cachedCoverUrl,
@@ -106,12 +121,17 @@ export const useMediaSessionBridge = ({
             return;
         }
 
-        const audio = audioRef.current;
+        // The displayed track's own deck, so the position published below belongs to the title
+        // published beside it. Falls back to the active deck whenever no blend is holding a picture.
+        const audio = getDisplayAudioElement?.() ?? audioRef.current;
         if (!audio || !audioSrc) {
             return;
         }
 
         let disposed = false;
+        const sourceArtworkUrl = cachedCoverUrl || getSongCoverUrl(currentSong) || '';
+        let artworkUrl = getSupportedMediaSessionArtworkUrl(sourceArtworkUrl, document.baseURI);
+        let disposableArtworkUrl: string | null = null;
         const publish = () => {
             if (disposed || !isMediaSessionSourceReady(audio, audioSrc, document.baseURI)) {
                 return;
@@ -122,10 +142,36 @@ export const useMediaSessionBridge = ({
                     title: currentSong.name,
                     artist: getSongArtistLabel(currentSong) || unknownArtistLabel,
                     album: getSongAlbumLabel(currentSong),
-                    artworkUrl: cachedCoverUrl || getSongCoverUrl(currentSong) || '',
+                    artworkUrl,
                 });
             } catch (e) {
                 console.warn('[MediaSession] Failed to update metadata', e);
+            }
+        };
+
+        // MediaMetadata rejects Electron's custom protocol, so expose that image through a
+        // short-lived blob URL while this track owns the platform media session.
+        const prepareUnsupportedArtwork = async () => {
+            if (!sourceArtworkUrl || artworkUrl) return;
+
+            try {
+                const response = await fetch(sourceArtworkUrl);
+                if (!response.ok) throw new Error(`Artwork request failed: ${response.status}`);
+                const artworkBlob = await response.blob();
+                if (artworkBlob.size <= 0 || !artworkBlob.type.startsWith('image/')) {
+                    throw new Error('Artwork response is not a valid image');
+                }
+
+                const objectUrl = URL.createObjectURL(artworkBlob);
+                if (disposed) {
+                    URL.revokeObjectURL(objectUrl);
+                    return;
+                }
+                disposableArtworkUrl = objectUrl;
+                artworkUrl = objectUrl;
+                publish();
+            } catch (e) {
+                if (!disposed) console.warn('[MediaSession] Failed to prepare artwork', e);
             }
         };
 
@@ -134,14 +180,16 @@ export const useMediaSessionBridge = ({
         // Re-publish after playback starts in case Chromium delivered a late clear from the old source.
         audio.addEventListener('playing', publish);
         publish();
+        void prepareUnsupportedArtwork();
 
         return () => {
             disposed = true;
             audio.removeEventListener('loadedmetadata', publish);
             audio.removeEventListener('durationchange', publish);
             audio.removeEventListener('playing', publish);
+            if (disposableArtworkUrl) URL.revokeObjectURL(disposableArtworkUrl);
         };
-    }, [audioRef, audioSrc, cachedCoverUrl, currentSong, unknownArtistLabel]);
+    }, [audioRef, audioSrc, cachedCoverUrl, currentSong, getDisplayAudioElement, unknownArtistLabel]);
 
     useEffect(() => {
         if (!('mediaSession' in navigator)) {

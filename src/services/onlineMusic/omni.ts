@@ -15,6 +15,7 @@ import type {
     OmniSongReplacement,
     OmniUser,
     OnlineMusicProvider,
+    PersonalFmRequestOptions,
     ProviderCatalogEntityKind,
     QrLoginMethod,
     QrLoginState,
@@ -23,6 +24,7 @@ import { resolveProviderLyricsChorus } from '../../utils/lyrics/chorusResolver';
 import { OnlineProviderError } from '../../types/onlineMusic';
 import { useOnlineProviderAccountStore } from '../../stores/useOnlineProviderAccountStore';
 import { getPlaybackSourceRef } from '../../utils/appPlaybackGuards';
+import { saveSongReplayGain } from './resourceCache';
 import {
     getOnlineMusicProvider,
     getOnlineMusicProviderForSong,
@@ -174,6 +176,12 @@ export const omni = {
     // 没有这个能力就回空数组，UI 据此走单步流程；netease / kugou 完全不受影响。
     getQrLoginMethods(providerId: OmniProviderId): QrLoginMethod[] {
         return requireOnlineMusicProvider(providerId).auth?.getQrLoginMethods?.() ?? [];
+    },
+
+    async resolveQrLoginMethods(providerId: OmniProviderId): Promise<QrLoginMethod[]> {
+        const auth = requireOnlineMusicProvider(providerId).auth;
+        if (!auth) return [];
+        return auth.resolveQrLoginMethods?.() ?? auth.getQrLoginMethods?.() ?? [];
     },
 
     async createQrLogin(providerId: OmniProviderId, methodId?: string): Promise<{ key: string; imageUrl: string }> {
@@ -370,8 +378,8 @@ export const omni = {
         });
     },
 
-    async getPersonalFm(): Promise<UnifiedSong[]> {
-        return withActiveProvider(async provider => provider.recommendations?.getPersonalFm?.() ?? []);
+    async getPersonalFm(options?: PersonalFmRequestOptions): Promise<UnifiedSong[]> {
+        return withActiveProvider(async provider => provider.recommendations?.getPersonalFm?.(options) ?? []);
     },
 
     async getDailySongs(refresh?: boolean): Promise<UnifiedSong[]> {
@@ -399,7 +407,13 @@ export const omni = {
     },
 
     async getAudioSource(song: SongResult, quality: AudioQualityPreference): Promise<OmniAudioSource | null> {
-        return providerForSong(song).playback?.getAudioSource(song, quality) ?? null;
+        const source = await (providerForSong(song).playback?.getAudioSource(song, quality) ?? null);
+        // Written here rather than at either caller because this is the only moment a provider ever
+        // states a track's ReplayGain, and both callers - the prefetch pass and playback itself -
+        // may be the one that happens to see it. See getCachedSongReplayGain for what is lost
+        // otherwise: the URL is never fetched again once the bytes are cached.
+        if (source?.replayGain) void saveSongReplayGain(song, source.replayGain);
+        return source;
     },
 
     async getLyrics(song: SongResult, context?: { userId?: MediaId | null }): Promise<OmniLyricsResult> {

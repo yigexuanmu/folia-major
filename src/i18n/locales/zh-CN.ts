@@ -38,6 +38,9 @@ export default {
     "voiceInputPauseOff": "语音输入时暂停已关闭",
     "preventDisplaySleepOn": "播放时将阻止显示器休眠",
     "preventDisplaySleepOff": "已关闭播放时阻止休眠",
+    "sleepTimerOn": "定时关闭已开启",
+    "sleepTimerOff": "定时关闭已取消",
+    "sleepTimerPlaybackPaused": "睡眠定时已结束，播放已暂停",
     "taskbarHidden": "主窗口任务栏图标已隐藏",
     "taskbarRestored": "主窗口任务栏图标已恢复",
     "openPlayerOnLaunch": "启动后将直接进入播放页",
@@ -173,6 +176,9 @@ export default {
     "queueShuffled": "播放队列已打乱",
     "queueCleared": "播放队列已清空",
     "queueUpdated": "已添加到播放队列",
+    "queueBatchRemoved": "已从队列移除 {{count}} 首歌曲",
+    "queueBatchMovedNext": "已将 {{count}} 首歌曲移至下一首",
+    "queueBatchMovedEnd": "已将 {{count}} 首歌曲移至队尾",
     "copiedSongInfo": "已复制歌曲信息",
     "copied": "已复制",
     "copyFailed": "复制失败，请重试",
@@ -221,7 +227,56 @@ export default {
     "previewSearch": "搜索{{source}}歌曲：{{query}}",
     "previewQueueSearch": "搜索当前队列：{{query}}",
     "previewQueueSearchEmpty": "输入歌名、歌手、专辑或队列序号",
+    "pickerFilterPlaceholder": "输入以筛选，然后点击或按回车",
+    "pickerCurrent": "当前：{{mode}}",
+    "pickerDescription": {
+      "visualizer": {
+        "still": "歌词静止在画面中央，不做动画也不渲染背景，最省资源",
+        "classic": "单行大字居中，逐字旋转点亮，整行随呼吸轻浮",
+        "cadenza": "整句拆成单字散落画面，像脑海里浮起的碎片",
+        "partita": "歌词沿引导线逐块错落下行，像一级级云中阶梯",
+        "fume": "满屏歌词层层堆叠，镜头追着当前句推移，虚实之间浮沉",
+        "cappella": "歌词化成聊天气泡左右往返，配头像与表情，像一场对唱",
+        "tilt": "长句自动断行、随机斜体强调，像有人凑近低声说话",
+        "claddagh": "歌词沿倾斜圆环轨道循环推进，大小对比拉开纵深",
+        "monet": "海报式版面：左侧歌词轨、右侧肖像、底部频谱",
+        "diorama": "点阵化的文字在 3D 空间里穿行，镜头跟着歌词运镜",
+        "pendolo": "封面嵌进钟表盘，歌词沿弧线随擒纵一格格推过",
+        "sonnet": "短线、边框与镂空巨字轮番铺开，歌词像被排进一页页翻动的诗稿",
+        "tempera": "成片的色块与细密网点缓缓重组，歌词压过颜色时翻出反色"
+      },
+      "background": {
+        "common": "封面取色的流体光晕，衬几何图形缓缓漂浮",
+        "latent": "封面取色的像素与流体双层着色器，随音频起伏涨落",
+        "monet": "把封面或自定义图铺成背景，可调布局、模糊与漂移",
+        "nomand": "给封面或自定义图罩上 Paper 纸感效果",
+        "sora": "一片缓缓流动的星空，画面最干净",
+        "url": "把任意网页当作背景直接嵌进播放页"
+      }
+    },
+    "executeMode": {
+      "title": "执行模式",
+      "placeholder": "按下快捷键，立即执行",
+      "unknown": "没有命令使用 \"{{keys}}\"",
+      "unknownHint": "按 Esc 清空后再试"
+    },
     "queueIndex": "队列 #{{index}}",
+    "queueFacet": "元数据",
+    "queueFacetArtist": "歌手",
+    "queueFacetAlbum": "专辑",
+    "queueCurrentFacets": "当前歌曲的歌手或专辑",
+    "queueCurrent": "当前歌曲",
+    "queueActionRemove": "移除匹配歌曲",
+    "queueActionNext": "将匹配歌曲移至下一首",
+    "queueActionEnd": "将匹配歌曲移至队尾",
+    "queueClearAction": "清除批量操作",
+    "queueClearFacet": "清除歌手或专辑筛选",
+    "queueBatchPreview": "将影响 {{count}} 首匹配歌曲",
+    "queueBatchNeedsFilter": "执行批量操作前，请先输入搜索词或 @ 筛选",
+    "queueBatchSkippedCurrent": "已排除当前播放歌曲",
+    "queueBatchConfirm": "确认执行",
+    "queueNoMatches": "队列中没有匹配歌曲",
+    "queueSyntaxHint": "输入 @ 筛选歌手/专辑 · 输入 -- 执行批量操作",
     "volumeInputPlaceholder": "输入 0 到 100 的音量",
     "volumeCurrent": "当前音量：{{value}}%",
     "volumeInvalid": "请输入 0 到 100 的数字",
@@ -229,6 +284,26 @@ export default {
     "volumeControlTitle": "播放音量",
     "volumeControlHint": "拖动音量条，或在上方输入数字",
     "volumeMutedHint": "当前已静音；调整后将在取消静音时生效",
+    "sleepTimerTitle": "睡眠定时",
+    "sleepTimerEnabledHint": "定时器将在 {{hours}} 小时 {{minutes}} 分钟后结束",
+    "sleepTimerZeroHint": "请选择大于零的时长",
+    "sleepTimerDisabledHint": "开启后开始倒计时",
+    "sleepTimerCountdownHint": "{{time}} 后关闭",
+    "sleepTimerPauseCountdownHint": "{{time}} 后暂停播放",
+    "sleepTimerHoursLabel": "小时",
+    "sleepTimerMinutesLabel": "分钟",
+    "sleepTimerInputPlaceholder": "输入分钟数、--on 或 --off",
+    "sleepTimerSetPreview": "启动 {{minutes}} 分钟睡眠定时",
+    "sleepTimerOffPreview": "按回车取消睡眠定时",
+    "sleepTimerUnknownOption": "未知选项 --{{option}}",
+    "sleepTimerConflictingOptions": "--on 和 --off 不能同时使用",
+    "sleepTimerInvalidMinutes": "分钟数必须是一个正整数",
+    "sleepTimerMinutesOutOfRange": "分钟数必须在 1 到 {{max}} 之间",
+    "sleepTimerUnexpectedMinutes": "--off 不能指定时长",
+    "sleepTimerDurationRequired": "请先输入分钟数再开启定时器",
+    "fmModeTitle": "私人 FM 模式",
+    "fmModeHint": "点下方场景即可直接切到场景模式",
+    "fmModeFilterPlaceholder": "输入以筛选模式和场景",
     "sourceCurrent": "当前来源",
     "sourceLocal": "本地音乐",
     "sourceNavidrome": "Navidrome",
@@ -245,8 +320,9 @@ export default {
       "search-local": { "title": "搜索本地歌曲", "description": "搜索本地音乐库" },
       "search-navidrome": { "title": "搜索 Navidrome", "description": "搜索 Navidrome 音乐库" },
       "search-netease": { "title": "搜索网易云", "description": "搜索网易云音乐" },
-      "queue": { "title": "队列", "description": "搜索当前播放队列" },
+      "queue": { "title": "队列", "description": "搜索队列；使用 @ 筛选元数据，使用 -- 批量操作" },
       "playback-volume": { "title": "音量条", "description": "调整播放音量" },
+      "playback-fm-mode": { "title": "私人 FM 模式", "description": "切换私人 FM 的模式或场景" },
       "settings-help": { "title": "打开帮助", "description": "打开帮助和快捷键" },
       "show-user-guide": { "title": "打开用户指引", "description": "查看应用使用指南" },
       "settings-options": { "title": "打开选项", "description": "打开设置中心" },
@@ -267,6 +343,10 @@ export default {
       "playback-sound-preset-custom2": { "title": "音效：自定义 2", "description": "套用第二个自定义音效栏位" },
       "settings-local-lyrics-priority": { "title": "本地歌曲歌词优先级", "description": "选择本地歌曲优先使用本地或在线歌词" },
       "settings-integration": { "title": "集成设置", "description": "打开 Stage、Now Playing 和 Navidrome 设置" },
+      "automix-toggle": { "title": "智能过渡", "description": "开启或关闭 FOLIA 智能过渡" },
+      "transition-mode-crossfade": { "title": "过渡模式：Folia Crossfade", "description": "使用简单的一淡出一淡入交叉淡化" },
+      "transition-mode-automix": { "title": "过渡模式：Folia Automix", "description": "分析两首曲目并自动混音" },
+      "transition-performance-toggle": { "title": "过渡表现模式", "description": "切换更激进的过渡（需要人声分离模型）" },
       "settings-discord-presence": { "title": "Discord 播放状态", "description": "打开 Discord Rich Presence 设置" },
       "settings-obs-browser-source": { "title": "OBS 浏览器源", "description": "打开 OBS 浏览器源设置" },
       "desktop-toggle-lyric-api": { "title": "歌词接口", "description": "切换本地免鉴权歌词接口" },
@@ -275,6 +355,7 @@ export default {
       "settings-r2-sync": { "title": "同步服务设置", "description": "打开同步服务设置" },
       "sync-now": { "title": "立即同步", "description": "同步 AI 主题" },
       "settings-desktop": { "title": "桌面端设置", "description": "打开桌面应用设置" },
+      "settings-update-channel": { "title": "更新通道", "description": "选择桌面端发布通道" },
       "desktop-toggle-voice-input-pause": { "title": "语音输入时暂停", "description": "切换语音输入时自动暂停播放" },
       "desktop-toggle-prevent-display-sleep": { "title": "播放时阻止休眠", "description": "播放音乐时保持显示器唤醒" },
       "settings-lab": { "title": "实验设置", "description": "打开实验功能设置" },
@@ -285,6 +366,7 @@ export default {
       "settings-lyric-filter": { "title": "歌词过滤", "description": "打开歌词过滤设置" },
       "settings-wallpaper-mode": { "title": "壁纸模式设置", "description": "打开壁纸模式设置" },
       "desktop-toggle-wallpaper-mode": { "title": "切换壁纸模式", "description": "将应用作为桌面歌词壁纸" },
+      "sleep-timer": { "title": "睡眠定时", "description": "指定时长后暂停播放，桌面端将关闭应用" },
       "navigate-home": { "title": "回到首页", "description": "返回首页视图" },
       "navigate-player": { "title": "回到播放器", "description": "返回播放器视图" },
       "browser-fullscreen": { "title": "全屏", "description": "切换浏览器全屏" },
@@ -312,6 +394,9 @@ export default {
       "theme-source-ai": { "title": "主题来源：AI 推断", "description": "由 AI 读取歌词推断歌曲主题配色" },
       "theme-source-cover": { "title": "主题来源：封面取色", "description": "直接从封面配色生成歌曲主题" },
       "playback-auto-match-best-lyric": { "title": "匹配最佳歌词", "description": "为当前歌曲运行自动最佳歌词匹配" },
+      "visualizer-picker": { "title": "选择可视化", "description": "浏览歌词动画模式，点击即可切换" },
+      "background-picker": { "title": "选择背景", "description": "浏览背景布局，点击即可切换" },
+      "visualizer-still": { "title": "可视化：静止", "description": "切换到低占用的静态可视化" },
       "visualizer-classic": { "title": "可视化：流光", "description": "切换到经典可视化" },
       "visualizer-cadenza": { "title": "可视化：心象", "description": "切换到心象可视化" },
       "visualizer-partita": { "title": "可视化：云阶", "description": "切换到云阶可视化" },
@@ -409,6 +494,7 @@ export default {
     "close": "关闭",
     "volume": "音量",
     "openEqualizer": "打开音频均衡器",
+    "automix": "智能过渡",
     "equalizerTitle": "音频效果器",
     "equalizerDescription": "频段均衡与音频效果",
     "equalizerEnabled": "音频处理已开启",
@@ -417,6 +503,8 @@ export default {
     "equalizerReset": "重置当前自定义栏位",
     "equalizerEffects": "效果链",
     "equalizerEffectsHint": "在频段之后处理",
+    "equalizerEffectNoiseTag": "噪声",
+    "equalizerEffectNoiseTagHint": "这个滑块本身会产生噪声，音乐越安静越明显",
     "equalizerEffect": {
       "highpass": "低频截止",
       "lowpass": "高频截止",
@@ -515,6 +603,71 @@ export default {
     "retry": "重试",
     "catalogUnavailable": "无法打开该专辑或歌手：在线平台未返回有效的目录 ID。"
   },
+  "personalFmMode": {
+    "openPicker": "切换私人 FM 模式",
+    "category": {
+      "mode": "模式",
+      "mood": "情绪",
+      "activity": "场景",
+      "genre": "曲风",
+      "language": "语种"
+    },
+    "mode": {
+      "DEFAULT": "默认",
+      "FAMILIAR": "熟悉",
+      "EXPLORE": "探索",
+      "SCENE_RCMD": "场景",
+      "PUZZLE_MODE_RCMD": "拼图"
+    },
+    "scene": {
+      "NIGHT_EMO": "伤感",
+      "CURE": "治愈",
+      "CHEERFUL": "欢快",
+      "LYRICAL": "抒情",
+      "INSPIRATIONAL": "励志",
+      "RELAX": "放松",
+      "SWEET": "情歌",
+      "EXERCISE": "运动",
+      "FOCUS": "专注",
+      "SLEEP_HELP": "助眠",
+      "TAKE_SHOWER": "洗澡",
+      "COMMUTE": "出行",
+      "COFFEE_SHOP": "咖啡馆",
+      "GAMES": "游戏",
+      "DANCE": "舞蹈",
+      "RAINY": "雨天",
+      "RHYTHM_BLUES": "R&B",
+      "RAP": "说唱",
+      "K_POP": "K-Pop",
+      "ELECTRONIC": "电音",
+      "ROCK": "摇滚",
+      "FOLK": "民谣",
+      "GUDIAN": "古典",
+      "JAZZ": "爵士",
+      "BLUE": "蓝调",
+      "PUNK": "放克",
+      "COUNTRY": "乡村乐",
+      "LIGHT": "轻音乐",
+      "GUOFENG": "国风",
+      "MANYAO": "慢摇DJ",
+      "MUSICAL": "音乐剧",
+      "ACG": "二次元",
+      "JINGDIAN": "经典",
+      "ORIGINAL_MUSICIAL": "宝藏原创",
+      "YINGSHI": "影视",
+      "CHINESE": "华语",
+      "ENGLISH": "欧美",
+      "YUEYU": "粤语",
+      "JAPANESE": "日语",
+      "FRANCH": "法语",
+      "LATIN": "拉丁",
+      "GLOBAL": "全球"
+    },
+    "statusPending": "私人 FM 模式",
+    "statusApplied": "私人 FM 已切换到",
+    "statusEmpty": "该私人 FM 模式没有返回歌曲",
+    "statusFailed": "切换私人 FM 模式失败"
+  },
   "home": {
     "welcome": "欢迎使用 Folia",
     "loginPrompt": "登录网易云音乐以访问您的歌单。",
@@ -527,13 +680,13 @@ export default {
     "loginTitleKugou": "使用酷狗音乐APP扫码",
     "loginNoteKugou": "打开酷狗音乐APP扫描二维码",
     "loginTitleQq": "扫码登录QQ音乐",
-    "loginNoteQq": "请使用对应 App 扫码登录",
+    "loginNoteQq": "请选择与账号一致的登录方式：QQ 扫码或微信扫码",
     "qqLoginMethodTitle": "选择登录方式",
-    "qqLoginMethodHint": "请根据 QQ 音乐 App 绑定的账号类型选择登录方式\nQQ 绑定账号请选择 QQ，微信绑定账号请选择微信",
+    "qqLoginMethodHint": "请选择与 QQ 音乐账号一致的登录方式\nQQ 账号请选择 QQ 扫码，微信账号请选择微信扫码",
     "qqLoginMethodPending": "选择登录方式后生成二维码",
     "qqLoginMethodCurrent": "当前登录方式：{{method}}",
-    "qqLoginMethodMobile": "QQ",
-    "qqLoginMethodWechat": "微信",
+    "qqLoginMethodMobile": "QQ 扫码",
+    "qqLoginMethodWechat": "微信扫码",
     "switchOnlineProvider": "切换在线音乐平台",
     "confirmOnlineProviderSwitch": "切换到 {{provider}}？当前在线播放与队列将被清空。",
     "onlineProvider": "在线音乐平台",
@@ -646,9 +799,12 @@ export default {
     "seekBackward": "倒退 5 秒",
     "hidePlayerChrome": "隐藏进度条和右下角按钮",
     "toggleRightPanel": "切换右侧面板",
+    "cycleRightPanelTabs": "循环切换已打开右侧面板的标签页",
     "openCommandPalette": "打开命令面板",
+    "openCommandPaletteQueue": "直接打开命令面板队列",
     "browserFullscreen": "全屏",
     "madeBy": "Project:",
+    "joinDiscord": "加入 Discord 社区",
     "version": "版本"
   },
   "lyricProvider": {
@@ -710,6 +866,67 @@ export default {
     "replayGainSettings": "音频增益",
     "replayGainMode": "ReplayGain 模式 (响度平衡) ",
     "replayGainModeDesc": "检测到增益数据时，按单曲或专辑 ReplayGain 统一播放响度。",
+    "transitionSettings": "Folia 智能过渡",
+    "transitionEnable": "过渡",
+    "transitionMode": "过渡模式",
+    "transitionCrossfade": "Folia Crossfade",
+    "transitionCrossfadeDesc": "固定的淡出淡入。",
+    "transitionAutomix": "Folia Automix",
+    "transitionAutomixDesc": "分析歌曲并自动混音。",
+    "transitionActive": "使用中",
+    "transitionFellBack": "已退回淡化",
+    "crossfadeMaxSeconds": "过渡最长时长",
+    "crossfadeSecondsValue": "{{seconds}} 秒",
+    "transitionAutomixUnavailable": "当前环境无法解码音频做分析，Automix 不可用；换歌会退回稳定的交叉淡化。",
+    "transitionEngineFull": "完全体",
+    "transitionEngineFullDesc": "更精准的节拍对齐与轨道拆分。",
+    "transitionEngineLite": "兼容模式",
+    "transitionEngineLiteDesc": "因浏览器端技术限制原因实际混音效果可能比客户端差十分之五。",
+    "transitionEngineNeedsModels": "分析模型尚未下载，请下载后继续体验完全体。",
+    "transitionPerformance": "表现模式",
+    "transitionPerformanceDesc": "更激进的过渡表现。",
+    "transitionPerformanceNeedsStems": "浏览器端技术限制无法开启。",
+    "transitionPerformanceNeedsModel": "需要先下载音轨分离模型。",
+    "modelsTitle": "分析模型",
+    "modelsDesc": "完全体需下载神经网络模型与运行时，共约 {{size}}",
+    "modelEnablesBeatGrid": "Beat This!",
+    "modelEnablesStems": "HTDemucs",
+    "modelEnablesRuntime": "必要组件",
+    "modelScopeAutomix": "Automix",
+    "modelScopePerformance": "表现模式",
+    "modelInstalled": "已安装",
+    "modelMissing": "未安装",
+    "modelUnsupported": "设备不支持",
+    "modelUnsupportedWhy": "这台设备的处理器无法运行人声分离",
+    "modelDownload": "下载",
+    "modelCancel": "取消",
+    "modelScan": "从本机查找",
+    "modelScanning": "查找中…",
+    "modelScanNone": "未找到可用模型文件",
+    "modelScanFound": "已装入 {{count}} 个模型",
+    "modelManualHint": "下载线路全部失败，请使用网盘手动下载到本机，点击「从本机查找」可自动安装。",
+    "modelManualLink": "从网盘下载",
+    "modelManualTitle": "从网盘下载模型",
+    "modelManualDialogDesc": "下载到本机后回到这里点「从本机查找」，会自动校验并安装。",
+    "modelManualOpen": "打开链接",
+    "modelLocation": "模型位置",
+    "modelLocationChange": "更改位置",
+    "modelLocationReset": "恢复默认",
+    "modelRemoveAll": "删除所有模型",
+    "modelRemoveConfirm": "将删除已安装的 {{size}} 模型文件，Automix 会退回兼容模式。可以随时重新下载。",
+    "modelRemoveDone": "已删除，释放 {{size}}",
+    "modelRemoveFailed": "未能删除：{{what}}",
+    "modelManualCode": "提取码",
+    "modelManualCodeCopied": "已复制",
+    "modelReminderTitle": "还没有下载分析模型",
+    "modelReminderDesc": "Folia 智能过渡的完全体需下载神经网络模型，共约 249MB。",
+    "modelReminderDownload": "去下载",
+    "modelReminderLater": "知道了",
+    "modelReminderNever": "不再提醒",
+    "transitionAnimation": "过渡动画",
+    "transitionAnimationDesc": "混音过渡时在屏幕中央显示，按任意键消失。过渡短于 5 秒不显示。",
+    "transitionAutomixNeedsCache": "歌曲缓存已关闭，在线歌曲不会被分析。这会使 AutoMix 实际效果下降 50%。",
+    "transitionAutomixEnableCache": "开启歌曲缓存",
     "integrationSettings": "连接与集成",
     "integrationSettingsDesc": "外部程序接入设置。",
     "lyricApi": "歌词接口",
@@ -747,12 +964,16 @@ export default {
     "pinnedCommandSlot": "栏位 {{index}}",
     "pinnedCommandNone": "不固定命令",
     "playlistData": "歌单数据",
+    "analysisData": "分析数据",
     "lyrics": "歌词",
     "covers": "封面",
     "mediaFiles": "媒体文件",
     "mediaCache": "媒体缓存",
     "enableMediaCache": "缓存歌曲",
-    "enableMediaCacheDesc": "播放后缓存音频以便离线收听。",
+    "enableMediaCacheDesc": "缓存音频以便离线收听。开启后，混音过渡也能在第一次播放前就听懂下一首。",
+    "mediaCacheLimit": "缓存上限",
+    "mediaCacheLimitDesc": "超过上限后，最久没听的歌会被先删掉。",
+    "mediaCacheLimitNone": "不限制",
     "cachedSongsCount": "已缓存歌曲",
     "cacheDirectory": "缓存目录",
     "cacheDirectoryDesc": "选择媒体文件的缓存位置。",
@@ -764,6 +985,7 @@ export default {
     "r2Sync": "同步服务",
     "r2SyncEnable": "启用同步服务",
     "r2SyncEnableDesc": "通过你自己的 Cloudflare D1 Worker 或自托管同步服务同步外观设置与 AI 主题。",
+    "r2SyncDeployDocs": "部署文档",
     "r2SyncWorkerUrl": "Sync Server 地址",
     "r2SyncToken": "Bearer Token",
     "r2SyncTokenPlaceholder": "Worker 中的 SYNC_TOKEN",
@@ -811,6 +1033,26 @@ export default {
     "enableStaticModeDescSub": "不会影响歌词文本效果或渲染。",
     "labSettings": "实验室",
     "labSettingsDesc": "高级自定义功能",
+    "developerSettings": "开发者",
+    "developerSettingsDesc": "后台运行时的日志。",
+    "consoleLogCapture": "运行日志",
+    "consoleLogCaptureDesc": "后台运行时的日志。",
+    "consoleLogConvention": "日志按开头的 [模块] 前缀分组，可以单独筛选。详见 docs/client-logging.md。",
+    "debugLogsToFile": "写入本地文件",
+    "debugLogModeAppend": "追加",
+    "debugLogModeOverwrite": "覆盖",
+    "debugLogsUnavailable": "仅桌面版",
+    "memoryMonitor": "内存监控",
+    "memoryMonitorDesc": "定时记录各进程的内存与 CPU 占用。",
+    "memoryMonitorInterval": "采样间隔",
+    "memoryMonitorOffHint": "监控未开启，当前没有采样。",
+    "memoryMonitorStart": "开始记录",
+    "memoryCurrent": "当前",
+    "memoryPeak": "峰值",
+    "memoryFloor": "最低",
+    "memoryAverage": "平均",
+    "memoryByProcess": "分进程",
+    "memorySeriesUnavailable": "当前系统不提供这个数据",
     "labPerformanceSection": "性能与背景",
     "labPerformanceSectionDesc": "调整动画开销和主页背景表现。",
     "labPlayerUiSection": "播放页界面",
@@ -1126,12 +1368,20 @@ export default {
     "temperaTextInversion": "文字动态反色",
     "temperaImageSection": "画布图片",
     "temperaAddLayerImage": "添加图片",
+    "temperaClearLayerImages": "清空全部",
     "temperaLayerImageHint": "每个分镜会从图片池里随机取一张，位置由对齐倾向决定。",
     "temperaLayerImageFrequency": "出现频率",
     "temperaLayerAlignFree": "不限",
     "temperaLayerAlignLeft": "偏左",
     "temperaLayerAlignCenter": "居中",
     "temperaLayerAlignRight": "偏右",
+    "temperaLayerAlignTop": "顶部",
+    "temperaLayerAlignMiddle": "中部",
+    "temperaLayerAlignBottom": "底部",
+    "temperaLayerAlignPosition": "{{vertical}} · {{horizontal}}",
+    "temperaLayerAlignGridHint": "点击预览中的九宫格指定位置",
+    "temperaLayerAlignVerticalRandom": "纵向随机",
+    "temperaLayerAlignHorizontalRandom": "横向随机",
     "temperaRemoveLayerImage": "移除图片",
     "temperaLayerImageScale": "大小",
     "temperaLayerImageOpacity": "不透明度",
@@ -1526,201 +1776,23 @@ export default {
     "noDescription": "暂无详细介绍",
   },
   "releaseNotes": {
-    "v0_6_22": {
-      "intro": "以下是 0.6.22 的新功能与改进",
-      "stillVisualizer": {
-        "title": "静止/still 歌词可视化",
-        "description": "新增低占用的静止/still 歌词可视化模式"
+    "v0_7_0": {
+      "intro": "以下是 0.7.0 的新功能与改进",
+      "temperaVisualExpansion": {
+        "title": "凝彩构图全面扩展",
+        "description": "凝彩/Tempera 的镜头构图从 62 种扩展到 121 种，新增圆滑、镂空与巨构系列，并改进自定义图片的对齐编辑和分辨率预览。"
       },
-      "commandPaletteEnhancements": {
-        "title": "更聪明的命令面板",
-        "description": "命令面板支持通过滑块或数值调整音量，并会优先显示常用命令。"
+      "commandPaletteWorkflows": {
+        "title": "命令面板进阶工作流",
+        "description": "命令面板新增队列搜索与批量语法、私人 FM 模式切换和拼音检索；播放页也支持队列快捷键与 Tab 循环切换面板。"
       },
-      "gridVisibility": {
-        "title": "隐藏更多 GridMap 集合",
-        "description": "隐藏歌单功能扩展支持到云盘、广播和每日推荐。"
+      "awlrcLyrics": {
+        "title": "AWLRC 逐字歌词支持",
+        "description": "本地歌词现在可识别 AWLRC 容器，并保留逐字时序、翻译与罗马音轨道。"
       },
-      "temperaPerformance": {
-        "title": "凝彩/Tempera 性能控制",
-        "description": "凝彩/Tempera 自定义图片池提升至 16 张，并新增后处理纹理压缩选项。"
-      },
-      "playbackCompatibility": {
-        "title": "更可靠的播放元数据",
-        "description": "修复媒体会话切歌时序问题，并优化 QQ 音乐和酷狗封面尺寸处理。"
-      }
-    },
-    "v0_6_20": {
-      "intro": "以下是 0.6.20 的新功能与改进",
-      "temperaVisualizer": {
-        "title": "凝彩歌词 PV",
-        "description": "新增网点色块风格的歌词可视化，支持逐字动效、连续镜头交接、封面渐变，以及可选的画布图片池。"
-      },
-      "themeParkEditor": {
-        "title": "完整 Theme Park 主题编辑器",
-        "description": "可在实时可视化预览中编辑亮色与暗色主题的颜色、名称、描述、逐字颜色和歌词图标，也可以导入或导出主题 JSON 来处理 AI 生成的主题。"
-      },
-      "coverDrivenThemes": {
-        "title": "根据封面生成主题",
-        "description": "内置主题现在会从当前歌曲封面提取配色，不再依赖固定预设；封面取色模式也可以在没有 AI 密钥时直接生成主题。"
-      },
-      "wallpaperMode": {
-        "title": "Linux 歌词壁纸模式",
-        "description": "Linux 桌面端可以将 Folia 沉到桌面层，作为常驻的歌词壁纸显示；壁纸包装器异常时还会自动提供恢复保护。"
-      },
-      "linuxCredentialStorage": {
-        "title": "更可靠的 Linux 凭据保存",
-        "description": "Hyprland、sway 等 Linux 桌面环境现在会使用可用的加密凭据存储，让酷狗和 QQ 音乐登录状态能够跨重启保留。"
-      }
-    },
-    "v0_6_19": {
-      "intro": "以下是 0.6.19 的新功能与改进",
-      "audioEffectChain": {
-        "title": "均衡器后处理效果链",
-        "description": "均衡器现在支持在频段调节之后继续添加截止、饱和、降质、抖晃、黑胶噪声、立体声宽度、空间混响和动态压缩等效果，并可随内置或自定义音效预设保存。"
-      },
-      "globalLyricOffset": {
-        "title": "全局歌词时间偏移",
-        "description": "可为本设备的所有歌曲整体平移歌词时间轴，补偿蓝牙或其他输出延迟，并通过实时预览微调。"
-      },
-      "obsCustomCssAssets": {
-        "title": "OBS 上传资源与自定义 CSS",
-        "description": "可复制一段直接粘贴到 OBS Browser Source「Custom CSS」的代码，把上传的背景、肖像等资源带入 OBS；体积超限的 GIF 会提示并转为静态帧。"
-      },
-      "trackSwitchPreview": {
-        "title": "更清晰的切歌预览",
-        "description": "浮动播放条支持悬停预览上一首和下一首的标题，切歌箭头可保持显示，命令面板还新增清空播放队列命令。"
-      },
-      "visualizerBackgroundEffects": {
-        "title": "更丰富的视觉背景效果",
-        "description": "莫奈背景新增缓慢漂移和竖向纹理开关，漫游背景新增像素画、纹理玻璃、纸张纹理、半调网点与镜头畸变等效果。"
-      }
-    },
-    "v0_6_18": {
-      "intro": "以下是 0.6.18 的新功能与改进",
-      "m3uPlaylists": {
-        "title": "便携的 M3U8 歌单",
-        "description": "可将 .m3u8 文件导入本地曲库，也可把 Folia 歌单导出为 UTF-8 M3U8，并保留便于迁移的路径。无法匹配或存在歧义的路径会明确统计，不会被静默加入。"
-      },
-      "gridMapBatchTools": {
-        "title": "搜索与批量管理本地集合",
-        "description": "GridMap 搜索现在支持多词查询，并会匹配名称、路径和元数据。可批量选择文件夹、专辑或艺术家进行播放、加入队列、创建歌单或从曲库移除；文件夹还支持重新扫描导入根目录，磁盘文件不会被删除。"
-      },
-      "foliaIgnore": {
-        "title": "灵活的 .foliaignore 规则",
-        "description": "可在导入根目录或子目录放置 .foliaignore，用熟悉的 gitignore 风格规则排除临时文件、缓存目录和不需要导入的音频。规则会在下次重新导入时生效。"
-      },
-      "incrementalLocalScans": {
-        "title": "更快的增量扫描",
-        "description": "重新导入时会复用未变化的文件，只处理新增、修改或移除的内容，并在后台读取元数据，让大型本地曲库刷新更快。"
-      },
-      "localCoverAssets": {
-        "title": "更高效的本地封面",
-        "description": "本地封面会按内容去重并持久化保存，界面按需要使用合适尺寸的缩略图，减少重复存储和不必要的原图处理。"
-      }
-    },
-    "v0_6_17": {
-      "intro": "以下是 0.6.17 的新功能与改进",
-      "sonnetSceneVariants": {
-        "title": "更多商籁场景变体",
-        "description": "商籁现已扩展至 100 种背景构图，新增天体、海洋、音乐、工艺与动感主题，并带来更多边框和几何变化。"
-      },
-      "sonnetDrawingMotion": {
-        "title": "分层绘制动效",
-        "description": "商籁的线条、填充与装饰元素现在会按错落节奏逐步绘制，让场景转场更丰富、更自然。"
-      },
-      "equalizerDaylight": {
-        "title": "浅色均衡器显示优化",
-        "description": "提升浅色主题下的对比度，并优化面板、控件和强调色，让音频均衡器更清晰易用。"
-      }
-    },
-    "v0_6_16": {
-      "intro": "以下是 0.6.16 的新功能与改进",
-      "qqMusicProvider": {
-        "title": "QQ 音乐初步接入",
-        "description": "目前提供基础的账号登录、在线搜索与播放能力，支持的功能仍较少，后续版本将继续完善。"
-      },
-      "audioEqualizer": {
-        "title": "音频均衡器",
-        "description": "可在播放控制面板中调节均衡器并保存声音设置，让不同设备获得更合适的听感。"
-      },
-      "lyricApi": {
-        "title": "桌面歌词 API",
-        "description": "新增本地歌词接口，方便外部应用读取当前播放歌曲与同步歌词。"
-      },
-      "localSongCovers": {
-        "title": "本地单曲封面",
-        "description": "现在可以为本地单曲导入、显示并持久化自定义封面。"
-      }
-    },
-    "v0_6_15": {
-      "intro": "以下是 0.6.15 的新功能与改进",
-      "sonnetLensEffects": {
-        "title": "商籁镜头特效",
-        "description": "新增透镜扭曲与色散调节，为商籁 / Sonnet 可视化带来更丰富的光学质感。"
-      },
-      "sonnetPostProcess": {
-        "title": "商籁后处理优化",
-        "description": "优化默认参数与转场稳定性，并改善 RGB Shift 的渲染效果，在保持视觉表现力的同时让歌词更加清晰。"
-      }
-    },
-    "v0_6_12": {
-      "intro": "以下是 0.6.14 的新功能与改进",
-      "sonnetLayout": {
-        "title": "商籁排版引擎重构",
-        "description": "重构商籁 / Sonnet 模式的排版引擎，带来更加美观、合理且稳定的文字布局效果。"
-      },
-      "followSystemTheme": {
-        "title": "跟随系统明暗主题",
-        "description": "可在设置中开启跟随系统明暗主题，开启后应用会随系统的浅色或深色模式自动切换。"
-      }
-    },
-    "v0_6_8": {
-      "intro": "以下是 0.6.8 的新功能与改进",
-      "navidromeRecent": {
-        "title": "Navidrome 最近音乐",
-        "description": "新增“最近加入”和“最近播放”子页，更方便地继续聆听或发现音乐库中的新内容。"
-      },
-      "cappellaSafeArea": {
-        "title": "Cappella 字幕布局优化",
-        "description": "字幕下方安全区现在会随实际行高动态调整，减少不同字号与歌词排版下的遮挡。"
-      },
-      "kugouPlayback": {
-        "title": "酷狗播放兼容性",
-        "description": "桌面端改进酷狗媒体地址处理，修复部分歌曲可能无法播放的问题。"
-      }
-    },
-    "v0_6_5": {
-      "intro": "以下是 0.6.7 的新功能与改进",
-      "lyricPreview": {
-        "title": "歌词动画预览改进",
-        "description": "歌词动画样式设置新增预览窗口暂停功能，并提供一套全新的占位符歌词。"
-      },
-      "responseSmoothness": {
-        "title": "响应流畅度优化",
-        "description": "优化多个组件的响应表现，让界面交互与动态更新更加流畅。"
-      },
-      "commandPaletteV2": {
-        "title": "命令面板 v2",
-        "description": "可在界面设置中固定常用功能，并扩展命令记忆能力。"
-      },
-      "commandPaletteQueue": {
-        "title": "命令面板播放队列",
-        "description": "可直接在命令面板中使用“队列”命令管理播放队列。"
-      }
-    },
-    "v0_6_3": {
-      "intro": "以下是最新版本的新功能与改进",
-      "pendoloTheme": {
-        "title": "全新视觉：Pendolo 钟表主题",
-        "description": "新增具有机械齿轮动态效果的 Pendolo 主题，支持圆周文本排版与点击歌词跳转。"
-      },
-      "obsDynamicAi": {
-        "title": "OBS 动态 AI 主题",
-        "description": "OBS 动态 AI 挂件现在支持在切歌时自动重新生成契合当前歌曲风格的 AI 主题。"
-      },
-      "playerCapEnhance": {
-        "title": "PlayerCap 数据层与同步增强",
-        "description": "重构 PlayerCap 的数据链路，优化与 Web 端的主题同步及设置项透传，保障一致的播控体验。"
+      "desktopWindowTools": {
+        "title": "更顺手的桌面叠加与导出",
+        "description": "托盘新增“锁定 + 透明 + 置顶”一键预设；视频导出改善高 DPI、多显示器和分辨率裁剪，减少黑边与窗口跳动。"
       }
     }
   },
@@ -2058,6 +2130,10 @@ export default {
       "title": "命令面板",
       "desc": "在播放页面按下 S键 即可打开命令面板，快速访问功能与设置。"
     },
+    "executeMode": {
+      "title": "执行模式",
+      "desc": "在播放页按 \":\"，再敲一个字母（例如 n 或 v）即可立即执行对应命令。"
+    },
     "typeToSearch": {
       "title": "全局搜索",
       "desc": "在任意歌曲海报墙中按下任意字母或数字键，即可直接开始搜索当前列表。"
@@ -2160,6 +2236,9 @@ export default {
     "pause": "暂停",
     "transparentControls": "透明控制",
     "videoExport": "视频导出",
+    "loopOff": "关闭循环",
+    "loopAll": "列表循环",
+    "loopOne": "单曲循环",
   },
   "aiHelp": {
     "openButton": "遇到问题？",
@@ -2168,6 +2247,9 @@ export default {
     "docsTitle": "先查看 Folia 文档",
     "docsDescription": "查看使用说明、功能配置和常见问题排查指南。",
     "openDocs": "打开文档",
+    "discordTitle": "去 Discord 社区问问",
+    "discordDescription": "和其他用户、开发者一起排查问题，新版本发布也会先在这里说。",
+    "openDiscord": "加入",
     "askAiTitle": "仍未解决？询问 AI",
     "askAiDescription": "先描述你的具体问题，再粘贴这段提示词，让 AI 结合 Folia 文档和源码协助排查。",
     "usageHint": "用法：打开AI聊天软件，先描述你的具体问题，然后把这段提示词粘贴到问题后面一起发送(需要使用具有联网搜索能力的模型）。",

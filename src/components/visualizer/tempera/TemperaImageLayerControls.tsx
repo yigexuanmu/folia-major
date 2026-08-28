@@ -41,6 +41,7 @@ const sameImages = (a: TemperaLayerImage[], b: TemperaLayerImage[]) => (
     a.length === b.length && a.every((image, index) => (
         image.id === b[index].id
         && image.align === b[index].align
+        && image.verticalAlign === b[index].verticalAlign
         && image.scale === b[index].scale
         && image.opacity === b[index].opacity
     ))
@@ -127,6 +128,14 @@ const TemperaImageLayerControls: React.FC<TemperaImageLayerControlsProps> = ({
         setRemovedIds(current => (current.includes(id) ? current : [...current, id]));
     }, []);
 
+    const clearAll = useCallback(() => {
+        setDraft(current => ({ ...current, layerImages: [] }));
+        setRemovedIds(current => Array.from(new Set([
+            ...current,
+            ...draft.layerImages.map(image => image.id),
+        ])));
+    }, [draft.layerImages]);
+
     return (
         <div className="space-y-3">
             {/* The hint gets the panel's full width. Inside the button it had to share the row
@@ -137,11 +146,15 @@ const TemperaImageLayerControls: React.FC<TemperaImageLayerControlsProps> = ({
             <button
                 type="button"
                 onClick={open}
-                className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-left transition-colors hover:bg-white/10"
+                className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
+                    isDaylight
+                        ? 'border-black/10 bg-black/[0.04] hover:bg-black/[0.07]'
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
             >
                 {images.length === 0 ? (
                     <span
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-dashed border-white/15"
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-dashed ${isDaylight ? 'border-black/15' : 'border-white/15'}`}
                         style={{ color: 'var(--text-secondary)' }}
                     >
                         <ImagePlus size={16} className="opacity-60" />
@@ -151,7 +164,7 @@ const TemperaImageLayerControls: React.FC<TemperaImageLayerControlsProps> = ({
                         {images.slice(0, 4).map(image => (
                             <span
                                 key={image.id}
-                                className="h-12 w-12 overflow-hidden rounded-xl border border-white/15 bg-black/30"
+                                className={`h-12 w-12 overflow-hidden rounded-xl border ${isDaylight ? 'border-black/15 bg-black/10' : 'border-white/15 bg-black/30'}`}
                             >
                                 {thumbnails.get(image.id) && (
                                     <img
@@ -164,7 +177,7 @@ const TemperaImageLayerControls: React.FC<TemperaImageLayerControlsProps> = ({
                         ))}
                         {images.length > 4 && (
                             <span
-                                className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 bg-black/50 text-xs"
+                                className={`flex h-12 w-12 items-center justify-center rounded-xl border text-xs ${isDaylight ? 'border-black/15 bg-black/[0.06]' : 'border-white/15 bg-black/50'}`}
                                 style={{ color: 'var(--text-secondary)' }}
                             >
                                 +{images.length - 4}
@@ -194,6 +207,7 @@ const TemperaImageLayerControls: React.FC<TemperaImageLayerControlsProps> = ({
                 onAddFiles={files => void handleFiles(files)}
                 onPatch={patch}
                 onRemove={remove}
+                onClearAll={clearAll}
                 onDepthChange={layerImageDepth => setDraft(current => ({ ...current, layerImageDepth }))}
                 onFrequencyChange={layerImageFrequency => setDraft(current => ({ ...current, layerImageFrequency }))}
             />

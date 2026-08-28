@@ -1,13 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, CircleHelp, Command, CornerDownLeft, Loader2, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { SongResult, Theme } from '../../types';
-import type { CommandPaletteMatch, CommandPaletteCommand } from './types';
+import type { Theme } from '../../types';
+import type { CommandPaletteContext, CommandPaletteMatch, CommandPaletteCommand } from './types';
+import type { CommandPaletteSurface, CommandSurfaceRenderArgs } from './surfaces/types';
 import { getCommandDescription, getCommandTitle } from './commandText';
+import { isTextEntryTarget } from './useCommandPalette';
 import PinnedCommandRow from './PinnedCommandRow';
-import CommandPaletteQueueList from './CommandPaletteQueueList';
-import CommandPaletteVolumeControl from './CommandPaletteVolumeControl';
 
 // src/components/command-palette/CommandPalette.tsx
 // Full-screen command input overlay with autocomplete and keyboard execution.
@@ -17,9 +17,8 @@ type CommandPaletteProps = {
     activePreview: string | null;
     activeCommand: CommandPaletteCommand | null;
     availableCommands: CommandPaletteCommand[];
-    currentSong: SongResult | null;
+    context: CommandPaletteContext;
     isDaylight: boolean;
-    isMuted: boolean;
     isComposing: boolean;
     isExecuting: boolean;
     isOpen: boolean;
@@ -27,7 +26,6 @@ type CommandPaletteProps = {
     pinnedCommands: Array<CommandPaletteCommand | null>;
     query: string;
     theme: Theme;
-    volume: number;
     onActiveCommandChange: (command: CommandPaletteCommand | null) => void;
     onActiveIndexChange: (index: number) => void;
     onClose: () => void;
@@ -36,12 +34,23 @@ type CommandPaletteProps = {
     onExecuteActive: () => Promise<boolean>;
     onExecuteMatch: (index: number) => Promise<boolean>;
     onExecutePinnedCommand: (command: CommandPaletteCommand) => Promise<boolean>;
-    onMoveSongToEnd: (index: number) => void;
-    onMoveSongToNext: (index: number) => void;
     onQueryChange: (query: string) => void;
-    onRemoveSong: (index: number) => void;
-    onVolumeChange: (volume: number) => void;
-    onVolumePreview: (volume: number) => void;
+    /** Writes query and matchQuery together, bypassing the debounce. */
+    onQueryCommit: (query: string) => void;
+};
+
+// React.lazy identities must be stable across renders, so each surface descriptor keeps one.
+const surfaceComponentCache = new WeakMap<CommandPaletteSurface, React.ComponentType<any>>();
+
+const resolveSurfaceComponent = (surface: CommandPaletteSurface) => {
+    const cached = surfaceComponentCache.get(surface);
+    if (cached) {
+        return cached;
+    }
+
+    const component = React.lazy(surface.load);
+    surfaceComponentCache.set(surface, component);
+    return component;
 };
 
 const groupLabelKey: Record<string, string> = {
@@ -66,9 +75,8 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
     activePreview,
     activeCommand,
     availableCommands,
-    currentSong,
+    context,
     isDaylight,
-    isMuted,
     isComposing,
     isExecuting,
     isOpen,
@@ -76,7 +84,6 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
     pinnedCommands,
     query,
     theme,
-    volume,
     onActiveCommandChange,
     onActiveIndexChange,
     onClose,
@@ -85,17 +92,28 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
     onExecuteActive,
     onExecuteMatch,
     onExecutePinnedCommand,
-    onMoveSongToEnd,
-    onMoveSongToNext,
     onQueryChange,
-    onRemoveSong,
-    onVolumeChange,
-    onVolumePreview,
+    onQueryCommit,
 }) => {
     const { t } = useTranslation();
     const inputRef = useRef<HTMLInputElement | null>(null);
     const [idlePlaceholderIndex, setIdlePlaceholderIndex] = useState(() => Math.floor(Math.random() * IDLE_PLACEHOLDER_COUNT));
     const [isShowingAllCommands, setIsShowingAllCommands] = useState(false);
+    const surface = activeCommand?.surface ?? null;
+    const surfaceArgs = useMemo<CommandSurfaceRenderArgs>(() => ({
+        context,
+        query,
+        setQuery: onQueryCommit,
+        matches,
+        activeIndex,
+        setActiveIndex: onActiveIndexChange,
+        isExecuting,
+        isDaylight,
+        theme,
+        executeMatch: onExecuteMatch,
+        executeCommand: onExecutePinnedCommand,
+        close: onClose,
+    }), [activeIndex, context, isDaylight, isExecuting, matches, onActiveIndexChange, onClose, onExecuteMatch, onExecutePinnedCommand, onQueryCommit, query, theme]);
     const panelBg = isDaylight ? 'bg-white/70 text-zinc-950' : 'bg-zinc-950/70 text-white';
     const itemActiveBg = isDaylight ? 'bg-black/10' : 'bg-white/10';
     const itemIdleBg = isDaylight ? 'hover:bg-black/5' : 'hover:bg-white/5';
@@ -138,6 +156,9 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                     setIsShowingAllCommands(false);
                     return;
                 }
+                if (surface?.onEscape?.(surfaceArgs)) {
+                    return;
+                }
                 onClose();
                 return;
             }
@@ -154,12 +175,19 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                 return;
             }
 
-            if (event.key === 'Backspace' && query === '' && activeCommand) {
+            if (event.key === 'Backspace' && query === '' && activeCommand && !isTextEntryTarget(event.target)) {
                 event.preventDefault();
                 const firstKw = activeCommand.keywords[0] || '';
                 onActiveCommandChange(null);
                 onQueryChange(firstKw);
                 onActiveIndexChange(0);
+                return;
+            }
+
+            // Surfaces get first refusal on keys: a grid needs different arrow semantics than
+            // the default one-per-step list, and only the surface knows its own layout.
+            if (surface?.onKeyDown?.(event, surfaceArgs)) {
+                event.preventDefault();
                 return;
             }
 
@@ -183,7 +211,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [activeIndex, isOpen, isShowingAllCommands, matches.length, onActiveIndexChange, onClose, onExecuteActive, query, activeCommand, onActiveCommandChange, onQueryChange, isExecuting, isComposing]);
+    }, [activeIndex, activeCommand, isComposing, isExecuting, isOpen, isShowingAllCommands, matches.length, onActiveCommandChange, onActiveIndexChange, onClose, onExecuteActive, onQueryChange, query, surface, surfaceArgs]);
 
     return (
         <AnimatePresence>
@@ -254,11 +282,8 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                             )}
                             <input
                                 ref={inputRef}
-                                type={activeCommand?.id === 'playback-volume' ? 'number' : 'text'}
-                                inputMode={activeCommand?.id === 'playback-volume' ? 'decimal' : undefined}
-                                min={activeCommand?.id === 'playback-volume' ? 0 : undefined}
-                                max={activeCommand?.id === 'playback-volume' ? 100 : undefined}
-                                step={activeCommand?.id === 'playback-volume' ? 1 : undefined}
+                                type="text"
+                                {...(surface?.inputProps?.(surfaceArgs) ?? {})}
                                 value={query}
                                 onChange={(event) => {
                                     setIsShowingAllCommands(false);
@@ -268,7 +293,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                                 onCompositionEnd={(event) => onCompositionEnd(event.currentTarget.value)}
                                 placeholder={
                                     activeCommand
-                                        ? (activeCommand.placeholder || getCommandDescription(activeCommand, t))
+                                        ? (activeCommand.placeholder?.(context) || getCommandDescription(activeCommand, t))
                                         : t(`commandPalette.idlePlaceholders.${idlePlaceholderIndex}`, 'Type anything — there are plenty of commands to try')
                                 }
                                 autoComplete="off"
@@ -359,36 +384,18 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                                         );
                                     })}
                                 </div>
-                            ) : activeCommand?.id === 'playback-volume' ? (
-                                <CommandPaletteVolumeControl
-                                    isDaylight={isDaylight}
-                                    isMuted={isMuted}
-                                    query={query}
-                                    theme={theme}
-                                    volume={volume}
-                                    onQueryChange={onQueryChange}
-                                    onVolumeChange={onVolumeChange}
-                                    onVolumePreview={onVolumePreview}
-                                />
+                            ) : surface ? (
+                                <Suspense fallback={<div className="flex h-full items-center justify-center opacity-40"><Loader2 size={20} className="animate-spin" /></div>}>
+                                    {React.createElement(resolveSurfaceComponent(surface), {
+                                        ...surface.mapProps(surfaceArgs),
+                                        refocusInput: () => window.requestAnimationFrame(() => inputRef.current?.focus()),
+                                    })}
+                                </Suspense>
                             ) : matches.length === 0 ? (
                                 <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-12 text-center opacity-50">
                                     <Command size={26} />
                                     <div className="text-sm">{t('commandPalette.empty') || 'No matching command'}</div>
                                 </div>
-                            ) : activeCommand?.id === 'queue' ? (
-                                <CommandPaletteQueueList
-                                    activeIndex={activeIndex}
-                                    currentSong={currentSong}
-                                    isDaylight={isDaylight}
-                                    isExecuting={isExecuting}
-                                    matches={matches}
-                                    query={query}
-                                    onActiveIndexChange={onActiveIndexChange}
-                                    onExecuteMatch={onExecuteMatch}
-                                    onMoveSongToEnd={onMoveSongToEnd}
-                                    onMoveSongToNext={onMoveSongToNext}
-                                    onRemoveSong={onRemoveSong}
-                                />
                             ) : (
                                 matches.map((match, index) => {
                                     const isActive = index === activeIndex;
