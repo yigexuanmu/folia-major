@@ -72,6 +72,7 @@ export type SettingsModalState = {
 export const MINIMIZE_TO_TRAY_STORAGE_KEY = 'minimize_to_tray';
 export const VOICE_INPUT_PAUSE_STORAGE_KEY = 'voice_input_pause_enabled';
 export const PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_STORAGE_KEY = 'prevent_display_sleep_during_playback';
+export const MOD_SYSTEM_ENABLED_STORAGE_KEY = 'mod_system_enabled';
 export const SLEEP_TIMER_HOURS_STORAGE_KEY = 'sleep_timer_hours';
 export const SLEEP_TIMER_MINUTES_STORAGE_KEY = 'sleep_timer_minutes';
 export const GLOBAL_LYRIC_TIMELINE_OFFSET_STORAGE_KEY = 'global_lyric_timeline_offset_ms';
@@ -1336,6 +1337,26 @@ const readStoredLoopMode = (): 'off' | 'all' | 'one' => {
     return saved === 'all' || saved === 'one' ? saved : 'off';
 };
 
+export type StageTrackPillMode = 'auto' | 'always' | 'never';
+
+const readStoredStageTrackPillMode = (): StageTrackPillMode => {
+    if (typeof window === 'undefined') {
+        return 'auto';
+    }
+
+    const saved = localStorage.getItem('stage_track_pill_mode');
+    return saved === 'always' || saved === 'never' ? saved : 'auto';
+};
+
+const readStoredStageTrackPillTimeoutSec = (): number => {
+    if (typeof window === 'undefined') {
+        return 10;
+    }
+
+    const saved = Number(localStorage.getItem('stage_track_pill_timeout_sec'));
+    return Number.isFinite(saved) && saved >= 3 && saved <= 60 ? Math.round(saved) : 10;
+};
+
 const readStoredQueueAddBehavior = (): QueueAddBehavior => {
     if (typeof window === 'undefined') {
         return 'append';
@@ -1447,6 +1468,12 @@ export type SettingsUiState = {
     minimizeToTray: boolean;
     voiceInputPauseEnabled: boolean;
     preventDisplaySleepDuringPlayback: boolean;
+    /**
+     * Master switch for the experimental mod system. Off by default: while it is
+     * off the main process loads no mod at all and the mod commands stay out of
+     * the palette, so an unfinished apiVersion 1 is opt-in rather than ambient.
+     */
+    modSystemEnabled: boolean;
     sleepTimerEnabled: boolean;
     sleepTimerHours: number;
     sleepTimerMinutes: number;
@@ -1542,6 +1569,11 @@ export type SettingsUiState = {
     volume: number;
     isMuted: boolean;
     loopMode: 'off' | 'all' | 'one';
+    /** 歌词页左下角曲目卡片显示模式：auto=显示一段时间后隐藏，always=常驻，never=不显示 */
+    stageTrackPillMode: StageTrackPillMode;
+    /** auto 模式下的显示时长（秒），3-60 */
+    stageTrackPillTimeoutSec: number;
+    stageTrackPillOnHome: boolean;
     homeLayoutStyle: 'carousel' | 'grid';
     grid3dCardStyle: 'image' | 'card';
     showHomeTabPlaylist: boolean;
@@ -1559,7 +1591,7 @@ export type SettingsUiState = {
     setAudioQuality: (quality: AudioQuality) => void;
     setTransparentPlayerBackgroundFromSystem: (enabled: boolean) => void;
     handleTogglePlayerPageNativeBlur: (enable: boolean) => void;
-    setDesktopPreferenceSnapshot: (settings: { MINIMIZE_TO_TRAY?: unknown; HIDE_TASKBAR_ICON?: unknown; REMOTE_CONTROL_SKIP_TASKBAR?: unknown; VOICE_INPUT_PAUSE_ENABLED?: unknown; PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK?: unknown; wallpaper_mode?: unknown; }) => void;
+    setDesktopPreferenceSnapshot: (settings: { MINIMIZE_TO_TRAY?: unknown; HIDE_TASKBAR_ICON?: unknown; REMOTE_CONTROL_SKIP_TASKBAR?: unknown; VOICE_INPUT_PAUSE_ENABLED?: unknown; PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK?: unknown; MOD_SYSTEM_ENABLED?: unknown; wallpaper_mode?: unknown; }) => void;
     setStoredCappellaEmojiPack: (pack: StoredCappellaEmojiImage[]) => void;
     setCappellaCustomEmojiImages: (images: CappellaEmojiImage[]) => void;
     setIsLoadingCappellaCustomEmojiPack: (loading: boolean) => void;
@@ -1593,11 +1625,13 @@ export type SettingsUiState = {
     handleToggleAlwaysShowTrackSwitchButtons: (enable: boolean) => void;
     handleToggleAlwaysShowMainWindowTitlebar: (enable: boolean) => void;
     handleToggleTransparentPlayerBackground: (enable: boolean) => void;
+    handleWallpaperTransparentRefused: () => void;
     handleToggleAutoHidePlayerChrome: (enable: boolean) => void;
     handleToggleDisableVisualizerVignette: (disable: boolean) => void;
     handleToggleDisableVisualizerGeometricBackground: (disable: boolean) => void;
     handleToggleMinimizeToTray: (enable: boolean) => void;
     handleToggleVoiceInputPause: (enable: boolean) => void;
+    handleToggleModSystem: (enable: boolean) => void;
     handleTogglePreventDisplaySleepDuringPlayback: (enable: boolean) => void;
     handleToggleSleepTimer: (enable: boolean) => void;
     handleSetSleepTimerHours: (hours: number) => void;
@@ -1705,6 +1739,9 @@ export type SettingsUiState = {
     handleSetVolume: (val: number) => void;
     handleToggleMute: () => void;
     handleToggleLoopMode: () => void;
+    handleSetStageTrackPillMode: (mode: StageTrackPillMode) => void;
+    handleSetStageTrackPillTimeoutSec: (sec: number) => void;
+    handleToggleStageTrackPillOnHome: (enable: boolean) => void;
     handleSetHomeLayoutStyle: (style: 'carousel' | 'grid') => void;
     handleSetGrid3dCardStyle: (style: 'image' | 'card') => void;
     handleToggleHomeTabPlaylist: (show: boolean) => void;
@@ -1761,6 +1798,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     minimizeToTray: getStoredBoolean(MINIMIZE_TO_TRAY_STORAGE_KEY, false),
     voiceInputPauseEnabled: getStoredBoolean(VOICE_INPUT_PAUSE_STORAGE_KEY, false),
     preventDisplaySleepDuringPlayback: getStoredBoolean(PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_STORAGE_KEY, false),
+    modSystemEnabled: getStoredBoolean(MOD_SYSTEM_ENABLED_STORAGE_KEY, false),
     // A sleep timer is a one-shot action. Persist its preferred duration, never an armed state.
     sleepTimerEnabled: false,
     sleepTimerHours: readStoredSleepTimerHours(),
@@ -1853,6 +1891,9 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     volume: readStoredVolume(),
     isMuted: getStoredBoolean('player_is_muted', false),
     loopMode: readStoredLoopMode(),
+    stageTrackPillMode: readStoredStageTrackPillMode(),
+    stageTrackPillTimeoutSec: readStoredStageTrackPillTimeoutSec(),
+    stageTrackPillOnHome: getStoredBoolean('stage_track_pill_on_home', false),
     homeLayoutStyle: readStoredHomeLayoutStyle(),
     grid3dCardStyle: readStoredGrid3dCardStyle(),
     showHomeTabPlaylist: getStoredBoolean('show_home_tab_playlist', true),
@@ -1911,6 +1952,10 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         if (typeof settings.PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK === 'boolean') {
             patch.preventDisplaySleepDuringPlayback = settings.PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK;
             setStoredBoolean(PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_STORAGE_KEY, settings.PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK);
+        }
+        if (typeof settings.MOD_SYSTEM_ENABLED === 'boolean') {
+            patch.modSystemEnabled = settings.MOD_SYSTEM_ENABLED;
+            setStoredBoolean(MOD_SYSTEM_ENABLED_STORAGE_KEY, settings.MOD_SYSTEM_ENABLED);
         }
         if (typeof settings.HIDE_TASKBAR_ICON === 'boolean') {
             patch.hideTaskbarIcon = settings.HIDE_TASKBAR_ICON;
@@ -2103,6 +2148,14 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             text: i18n.t('notifications.' + (enable ? 'transparentBgOn' : 'transparentBgOff')),
         });
     },
+    // Main-process guard fired the refusal (classic Windows wallpaper mode cannot present a
+    // transparent wallpaper window): surface why the toggle did not take effect.
+    handleWallpaperTransparentRefused: () => {
+        notify(get, {
+            type: 'info',
+            text: i18n.t('notifications.transparentBgWallpaperUnsupported'),
+        });
+    },
     handleToggleDisableVisualizerVignette: (disable) => {
         setStoredBoolean('disable_visualizer_vignette', disable);
         set({ disableVisualizerVignette: disable });
@@ -2140,6 +2193,15 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             type: 'info',
             text: i18n.t('notifications.' + (enable ? 'voiceInputPauseOn' : 'voiceInputPauseOff')),
         });
+    },
+    // The main process owns the authoritative value: it decides whether any mod
+    // is loaded at all, so the switch is persisted there and only mirrored here.
+    handleToggleModSystem: (enable) => {
+        setStoredBoolean(MOD_SYSTEM_ENABLED_STORAGE_KEY, enable);
+        set({ modSystemEnabled: enable });
+        if (window.electron?.saveSettings) {
+            void window.electron.saveSettings('MOD_SYSTEM_ENABLED', enable);
+        }
     },
     handleTogglePreventDisplaySleepDuringPlayback: (enable) => {
         setStoredBoolean(PREVENT_DISPLAY_SLEEP_DURING_PLAYBACK_STORAGE_KEY, enable);
@@ -3238,6 +3300,25 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         }
         set({ loopMode: next });
     },
+    handleSetStageTrackPillMode: (mode) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('stage_track_pill_mode', mode);
+        }
+        set({ stageTrackPillMode: mode });
+    },
+    handleSetStageTrackPillTimeoutSec: (sec) => {
+        const next = Math.max(3, Math.min(60, Math.round(sec)));
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('stage_track_pill_timeout_sec', String(next));
+        }
+        set({ stageTrackPillTimeoutSec: next });
+    },
+    handleToggleStageTrackPillOnHome: (enable) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('stage_track_pill_on_home', String(enable));
+        }
+        set({ stageTrackPillOnHome: enable });
+    },
     handleSetHomeLayoutStyle: () => {
         if (typeof window !== 'undefined') {
             localStorage.setItem('home_layout_style', 'grid');
@@ -3308,6 +3389,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     minimizeToTray: state.minimizeToTray,
     voiceInputPauseEnabled: state.voiceInputPauseEnabled,
     preventDisplaySleepDuringPlayback: state.preventDisplaySleepDuringPlayback,
+    modSystemEnabled: state.modSystemEnabled,
     sleepTimerEnabled: state.sleepTimerEnabled,
     sleepTimerHours: state.sleepTimerHours,
     sleepTimerMinutes: state.sleepTimerMinutes,
@@ -3392,6 +3474,12 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     queueAddBehavior: state.queueAddBehavior,
     audioOutputDeviceId: state.audioOutputDeviceId,
     loopMode: state.loopMode,
+    stageTrackPillMode: state.stageTrackPillMode,
+    stageTrackPillTimeoutSec: state.stageTrackPillTimeoutSec,
+    stageTrackPillOnHome: state.stageTrackPillOnHome,
+    handleSetStageTrackPillMode: state.handleSetStageTrackPillMode,
+    handleSetStageTrackPillTimeoutSec: state.handleSetStageTrackPillTimeoutSec,
+    handleToggleStageTrackPillOnHome: state.handleToggleStageTrackPillOnHome,
     handleToggleCoverColorBg: state.handleToggleCoverColorBg,
     handleToggleStaticMode: state.handleToggleStaticMode,
     handleToggleDisableHomeDynamicBackground: state.handleToggleDisableHomeDynamicBackground,
@@ -3411,6 +3499,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleToggleDisableVisualizerGeometricBackground: state.handleToggleDisableVisualizerGeometricBackground,
     handleToggleMinimizeToTray: state.handleToggleMinimizeToTray,
     handleToggleVoiceInputPause: state.handleToggleVoiceInputPause,
+    handleToggleModSystem: state.handleToggleModSystem,
     handleTogglePreventDisplaySleepDuringPlayback: state.handleTogglePreventDisplaySleepDuringPlayback,
     handleToggleHideTaskbarIcon: state.handleToggleHideTaskbarIcon,
     handleToggleHideRemoteControlTaskbarIcon: state.handleToggleHideRemoteControlTaskbarIcon,

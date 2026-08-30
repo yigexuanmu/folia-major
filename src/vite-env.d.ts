@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+import type { ModExportProgress, ModFfmpegStatus, ModLogEntry, ModRuntimeInfo, ModRuntimeSnapshot } from './mods/types';
+
 declare global {
   const __COMMIT_HASH__: string;
   const __GIT_BRANCH__: string;
@@ -134,6 +136,7 @@ declare global {
 
   interface ElectronRemoteControlSnapshot {
     hasTrack: boolean;
+    trackKey: string | null;
     title: string | null;
     artist: string | null;
     coverUrl: string | null;
@@ -143,8 +146,15 @@ declare global {
     loopMode: 'off' | 'all' | 'one';
     canGoPrevious: boolean;
     canGoNext: boolean;
+    prevTrackKey: string | null;
     prevTrackTitle: string | null;
+    prevTrackArtist: string | null;
+    prevTrackCoverUrl: string | null;
+    nextTrackKey: string | null;
     nextTrackTitle: string | null;
+    nextTrackArtist: string | null;
+    nextTrackCoverUrl: string | null;
+    trackTransition: import('./types/remoteControl').RemoteTrackTransition | null;
     controlsDisabled: boolean;
     isStageActive: boolean;
     transparentModeEnabled: boolean;
@@ -588,6 +598,10 @@ declare global {
 
   interface Window {
     electron?: {
+      webUtils?: {
+        /** Resolves the OS path of a dropped File (File.path was removed in modern Electron). */
+        getPathForFile: (file: File) => string;
+      };
       /** Beat This! inference in the main process. Null when the weights or runtime are absent. */
       runBeatThis?: (
         chunks: Array<{ data: Float32Array; frames: number }>,
@@ -648,6 +662,7 @@ declare global {
       getSettings: () => Promise<any>;
       saveSettings: (key: string, value: any) => Promise<any>;
       onWallpaperModeChanged?: (callback: (settings: Record<string, unknown>) => void) => () => void;
+      onWallpaperTransparentRefused?: (callback: (settings: Record<string, unknown>) => void) => () => void;
       setPlaybackDisplaySleepBlockingActive: (active: boolean) => Promise<boolean>;
       setAppLocale: (localeKey: 'en' | 'zh-CN' | 'in') => Promise<string>;
       getCacheDirectory: () => Promise<ElectronCacheDirectoryResult>;
@@ -777,6 +792,20 @@ declare global {
       onStageExternalPlayRequest: (callback: (request: StageExternalPlayRequest) => void) => () => void;
       onStagePlayerControlRequest: (callback: (request: StagePlayerControlRequest) => void) => () => void;
       onStagePlayerQueueRequest: (callback: (request: StagePlayerQueueRequest) => void) => () => void;
+      mods?: {
+        listMods: () => Promise<{ mods: ModRuntimeInfo[]; ffmpeg: ModFfmpegStatus; directories: string[] }>;
+        setModEnabled: (modId: string, enabled: boolean) => Promise<{ ok: boolean; error?: string; mods: ModRuntimeInfo[] }>;
+        reloadMods: () => Promise<{ mods: ModRuntimeInfo[] }>;
+        cancelExport: () => Promise<{ ok: boolean }>;
+        invokeModCommand: (modId: string, commandId: string, params: Record<string, unknown>) => Promise<{ ok: boolean; result?: unknown; error?: string }>;
+        pushRuntimeSnapshot: (snapshot: ModRuntimeSnapshot) => Promise<{ ok: boolean }>;
+        getFfmpegStatus: () => Promise<{ ffmpeg: ModFfmpegStatus }>;
+        openModsDirectory: () => Promise<{ ok: boolean; directory?: string; error?: string }>;
+        installModFromZip: (zipPath: string) => Promise<{ ok: boolean; id?: string; error?: string }>;
+        onModsStateChanged: (callback: (mods: ModRuntimeInfo[]) => void) => () => void;
+        onExportProgress: (callback: (progress: ModExportProgress) => void) => () => void;
+        onModLog: (callback: (entry: ModLogEntry) => void) => () => void;
+      };
     };
   }
 }

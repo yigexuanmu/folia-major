@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
-import { useMotionValue, motion } from 'framer-motion';
+import { useMotionValue, motion, useMotionValueEvent } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft } from 'lucide-react';
 import { loadCachedOrFetchCover } from './services/coverCache';
@@ -38,6 +38,7 @@ import { createLyricsSetter } from './components/app/playback/createLyricsSetter
 import { createOnlineRecoveryController } from './components/app/playback/createOnlineRecoveryController';
 import { persistPlaybackCache } from './components/app/playback/persistPlaybackCache';
 import { buildAppOverlaysModel } from './components/app/overlays/buildAppOverlaysModel';
+import { resolveNextUpTrack } from './components/app/overlays/now-playing-toast/resolveNextUpTrack';
 import {
     createSearchAlbumCollection,
     createSearchArtistCollection,
@@ -93,7 +94,7 @@ import { useCollectionNavigationStore } from './stores/useCollectionNavigationSt
 import { useSettingsUiStore } from './stores/useSettingsUiStore';
 import { useOnlineProviderAccountStore } from './stores/useOnlineProviderAccountStore';
 import { useShallow } from 'zustand/react/shallow';
-import { clampMediaVolume } from './utils/appPlaybackHelpers';
+import { clampMediaVolume, toSafeRemoteUrl } from './utils/appPlaybackHelpers';
 import { getOnlineProviderIdForSong, getPlaybackSongKey, isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong, resolveNavidromePlaybackCarrier } from './utils/appPlaybackGuards';
 import { readLyricOffset, writeLyricOffset } from './utils/lyrics/lyricOffsetMemory';
 import { FALLBACK_AI_DUAL_THEME } from './services/themeSanitizer';
@@ -114,6 +115,8 @@ const ONLINE_AUDIO_URL_REFRESH_BUFFER_MS = 60 * 1000;
 const HOME_PROVIDER_REFRESH_COOLDOWN_MS = 5_000;
 const PLAYER_CHROME_HIDDEN_STORAGE_KEY = 'player_chrome_hidden';
 const LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC = 3;
+/** How many seconds before a track ends the now playing card previews the queue's next track. */
+const NEXT_UP_LEAD_SEC = 5;
 
 export default function App() {
     const { t } = useTranslation();
@@ -420,6 +423,9 @@ export default function App() {
         queueAddBehavior,
         audioOutputDeviceId,
         loopMode,
+        stageTrackPillMode,
+        stageTrackPillTimeoutSec,
+        stageTrackPillOnHome,
         handleToggleCoverColorBg,
         handleToggleStaticMode,
         handleToggleDisableHomeDynamicBackground,
@@ -439,6 +445,7 @@ export default function App() {
         handleToggleVoiceInputPause,
         preventDisplaySleepDuringPlayback,
         handleTogglePreventDisplaySleepDuringPlayback,
+        modSystemEnabled,
         wallpaperMode,
         handleToggleWallpaperMode,
         sleepTimerEnabled,
@@ -1584,6 +1591,89 @@ export default function App() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [displaySong?.id, lyricCurrentTime]);
 
+    /**
+     * The now playing card is allowed on screen right now.
+     *
+     * One definition for two readers - the overlay model, which mounts the card, and the track-end
+     * countdown below, which is only worth running while something can show its result. The lyrics
+     * page always allows it; the home page is opt-in, and that opt-in is the whole rule: how the app
+     * arrived at the home page does not enter into it, so a cold start that lands there and a walk
+     * back from the lyrics page behave the same.
+     */
+    const stageTrackPillOnScreen = stageTrackPillMode !== 'never'
+        && (currentView === 'player' || (currentView === 'home' && stageTrackPillOnHome));
+
+    /**
+     * Open the right-hand panel on its song card - what clicking the now playing card does once you
+     * are already on the lyrics page. Same two calls the command palette's "Panel: cover" makes, so
+     * the card and the command land in the same place.
+     */
+    const openSongCardPanel = useCallback(() => {
+        setPanelTab('cover');
+        setIsPanelOpen(true);
+    }, []);
+
+    /**
+     * The queue track a plain track-end would advance to, or null when nothing resolvable.
+     * Mirrors handleNextTrack's index rules so the preview is always the track that will actually play.
+     */
+    const nextUpTrack = useMemo(() => resolveNextUpTrack({
+        playQueue,
+        song: currentSong,
+        loopMode: effectiveLoopMode,
+        isFmMode,
+        isStageActive: isNowPlayingStageActive,
+        fallbackToQueueHead: true,
+    }), [playQueue, currentSong, effectiveLoopMode, isFmMode, isNowPlayingStageActive]);
+
+    /**
+     * The track a running blend is bringing in: the queue successor of the DISPLAYED song.
+     * The displayed picture is frozen on the outgoing track for the whole blend, while currentSong
+     * advances asynchronously at the arm — reading the successor of the displayed song is correct
+     * from the first frame and stays correct until settle. No queue-head fallback here: mid-blend a
+     * song missing from the queue means the queue moved under the blend, and guessing would announce
+     * a track that is not arriving.
+     */
+    const blendNextUpTrack = useMemo(() => (isShowingTail ? resolveNextUpTrack({
+        playQueue,
+        song: displaySong,
+        loopMode: effectiveLoopMode,
+        isFmMode,
+        isStageActive: isNowPlayingStageActive,
+    }) : null), [isShowingTail, displaySong, playQueue, effectiveLoopMode, isFmMode, isNowPlayingStageActive]);
+
+    /** True while the card previews the next track (plain track-end countdown, not the blend). */
+    const [countdownActive, setCountdownActive] = useState(false);
+    useMotionValueEvent(currentTime, 'change', (time) => {
+        const shouldPreview = stageTrackPillOnScreen
+            && nextUpTrack !== null
+            && Number.isFinite(displayDuration)
+            && displayDuration > 0
+            && displayDuration - time > 0
+            && displayDuration - time <= NEXT_UP_LEAD_SEC;
+        setCountdownActive(prev => (prev === shouldPreview ? prev : shouldPreview));
+    });
+
+    /**
+     * The track the card shows while announcing a switch.
+     * During a blend the arriving track comes from the queue successor of the displayed
+     * (outgoing) song — never from currentSong, which lags the arm by a few async frames and
+     * briefly made the card announce the OUTGOING song as "next".
+     */
+    const stageNextUpTrack = isShowingTail ? blendNextUpTrack : nextUpTrack;
+    const stageNextUp = useMemo(() => {
+        if (stageTrackPillMode === 'never' || !stageNextUpTrack) return null;
+        return {
+            title: stageNextUpTrack.name || '',
+            artist: getSongArtistLabel(stageNextUpTrack) || null,
+            // Same sanitising every other cover in the app goes through (see createCoverUrlResolver):
+            // upgrades the http: covers netease/kugou still hand out - blocked as mixed content in the
+            // packaged window - and keeps only the first of a comma-joined multi-value.
+            coverUrl: toSafeRemoteUrl(getSongCoverUrl(stageNextUpTrack)) ?? null,
+        };
+    }, [stageTrackPillMode, stageNextUpTrack]);
+    const stageIsNextUp = stageNextUp !== null && (isShowingTail || countdownActive);
+
     const displaySongArtist = useMemo(
         () => (displaySong ? getSongArtistLabel(displaySong) || null : null),
         [displaySong],
@@ -1816,6 +1906,8 @@ export default function App() {
         onExternalPlayRequest: handleStageExternalPlayRequest,
         onRemoteCycleLoopMode: handleToggleLoopMode,
         onRemoteTransitionSeek: seekDuringTransition,
+        publishTrackTransition: automixEnabled,
+        isTrackTransitionAudible: automix.isTransitionAudible,
         // Keyed on the displayed track, so the like state matches the song the remote is showing
         // while a blend is held rather than the one arriving underneath it.
         isLiked: (() => {
@@ -1916,7 +2008,9 @@ export default function App() {
         t: (key: string, fallback?: string) => t(key, fallback ?? ''),
     });
 
-    const usesCustomWindowChrome = isElectronWindow;
+    // Wallpaper mode removes normal window semantics (no minimize/maximize/close, no dragging, and
+    // click-through is managed by the main process), so the whole custom titlebar strip stays off.
+    const usesCustomWindowChrome = isElectronWindow && !wallpaperMode;
     const isPlayerPageTransparent = transparentPlayerBackground || enablePlayerPageNativeBlur;
     const shouldUseTransparentAppBackground = currentView === 'player' && isPlayerPageTransparent;
     const appStyle = useMemo(() => buildAppStyle({
@@ -2245,6 +2339,10 @@ export default function App() {
         t: (key: string, fallback?: string) => t(key, fallback ?? ''),
         setStatusMsg,
         currentSong,
+        // What is on screen, transitions included - surfaces that publish lyrics
+        // (the mod runtime snapshot) must send the rendered ones, not a guess
+        // rebuilt from the song's stored lyric state.
+        lyrics: displayLyrics,
         // The transport the listener can hear, like the main controls, the remote and the taskbar.
         // The raw state goes IDLE for the length of an arm while the outgoing deck is still playing,
         // and the palette read that as "paused": its Play command called toggle, which during a
@@ -2289,6 +2387,7 @@ export default function App() {
         toggleBrowserFullscreen,
         toggleRemoteControlWindow,
         toggleMainWindowAlwaysOnTop,
+        isWallpaperMode: wallpaperMode,
 
         setPanelTab,
         setIsPanelOpen,
@@ -2314,6 +2413,7 @@ export default function App() {
         setAlwaysShowMainWindowTitlebar: handleToggleAlwaysShowMainWindowTitlebar,
         voiceInputPauseEnabled,
         voiceInputPauseSupported: isElectronWindow && typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('win'),
+        modSystemEnabled,
         setVoiceInputPauseEnabled: handleToggleVoiceInputPause,
         preventDisplaySleepDuringPlayback,
         setPreventDisplaySleepDuringPlayback: handleTogglePreventDisplaySleepDuringPlayback,
@@ -2412,6 +2512,7 @@ export default function App() {
         playQueue,
         playSong,
         displayPlayerState,
+        displayLyrics,
         preventDisplaySleepDuringPlayback,
         randomVisualizerModePerSong,
         removeQueueSong,
@@ -2441,6 +2542,7 @@ export default function App() {
         visualizerBackgroundMode,
         visualizerMode,
         voiceInputPauseEnabled,
+        modSystemEnabled,
         volume,
         wallpaperMode,
     ]);
@@ -3326,6 +3428,23 @@ export default function App() {
         handleNextTrack,
         prevTrackLabel: t('ui.previousTrack'),
         nextTrackLabel: t('ui.nextTrack'),
+        // The HELD cover, to match `currentSong: displaySong` above it. The live one was the odd
+        // consumer out - every other surface fed from the frozen picture (media session, the
+        // electron bridge, the panel) already takes `displayCoverUrl` - and pairing it with the
+        // held song put the arriving track's cover under the outgoing track's title for the length
+        // of a blend. Worse at the start of one: the advance nulls `cachedCoverUrl` and the
+        // replacement is two async hops away, so a queue entry without its own `album.coverUrl`
+        // left the card on its placeholder icon while every other cover on screen was fine.
+        coverUrl: displayCoverUrl,
+        stageTrackPillMode,
+        stageTrackPillTimeoutSec,
+        stageNextUp,
+        stageIsNextUp,
+        stageTrackPillOnScreen,
+        openSongCardPanel,
+        stageTrackPillOpenPlayerLabel: t('ui.stageTrackPillOpenPlayer'),
+        stageTrackPillOpenSongCardLabel: t('ui.stageTrackPillOpenSongCard'),
+        automixTransitionAnimation: transitionAnimation && transitionMode === 'automix',
     }), [
         activePlaybackContext,
         audioSrc,
@@ -3342,6 +3461,15 @@ export default function App() {
         isFmMode,
         isNowPlayingStageActive,
         playQueue,
+        displayCoverUrl,
+        stageTrackPillMode,
+        stageTrackPillTimeoutSec,
+        stageNextUp,
+        stageIsNextUp,
+        stageTrackPillOnScreen,
+        openSongCardPanel,
+        transitionAnimation,
+        transitionMode,
         handleSearchResultAddToQueue,
         handleSearchResultAlbumOpen,
         handleSearchResultArtistOpen,
@@ -3733,9 +3861,6 @@ export default function App() {
             }}
         />
     );
-    // X11 wallpaper mode cannot use click-through:because it would let clicks raise other background window above Folia. Hide the toggle.
-    const isX11WallpaperMode = isElectronWindow && window.electron?.isLinuxX11 === true && wallpaperMode;
-
     return (
         <AppShell
             appStyle={appStyle}
@@ -3747,7 +3872,7 @@ export default function App() {
             isTitlebarRevealed={isTitlebarRevealed}
             alwaysShowMainWindowTitlebar={alwaysShowMainWindowTitlebar}
             isMainWindowClickThroughEnabled={isMainWindowClickThroughEnabled}
-            showMainWindowClickThroughToggle={!isX11WallpaperMode && (isMainWindowClickThroughEnabled ? isClickThroughToggleHotspotActive : isTitlebarRevealed)}
+            showMainWindowClickThroughToggle={isMainWindowClickThroughEnabled ? isClickThroughToggleHotspotActive : isTitlebarRevealed}
             isDaylight={isDaylight}
             onToggleMainWindowClickThrough={() => {
                 const nextEnabled = !isMainWindowClickThroughEnabled;
@@ -3887,12 +4012,25 @@ export default function App() {
             <AppOverlays model={appOverlaysModel} />
 
             {/* Not in the overlays model: it takes no state from this file and no click from anyone.
-                Mounted only under the same condition it draws on, so the lazy animejs chunk loads only
-                when the animation is actually wanted; the fallback is empty because it draws nothing
-                until a cue arrives anyway. */}
+                Mounted whenever the animation is switched on, so the lazy animejs chunk loads only
+                when it is wanted; the fallback is empty because it draws nothing until a cue arrives
+                anyway.
+
+                Stands down while the now playing card is on screen - there the blend is drawn on the
+                card's own border instead, and two pictures of the same transition is one too many -
+                but stands down by hiding, not by unmounting. A cue is announced and not replayed, and
+                which of the two renderers is up can change mid-blend (navigating between home and the
+                lyrics page, or the card's own setting), so unmounting this one meant the other side of
+                that handoff had nothing to draw for the rest of the transition. Staying subscribed
+                covers the card-goes-away direction; the card seeds itself from
+                `getActiveTransitionCue` for the other one. */}
             {transitionAnimation && transitionMode === 'automix' && (
                 <Suspense fallback={null}>
-                    <AutomixTransitionAnimation theme={theme} isDaylight={isDaylight} />
+                    <AutomixTransitionAnimation
+                        theme={theme}
+                        isDaylight={isDaylight}
+                        suppressed={Boolean(appOverlaysModel.nowPlayingToast?.transitionBorder)}
+                    />
                 </Suspense>
             )}
 
