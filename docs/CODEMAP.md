@@ -10,12 +10,12 @@
 | 区域 | 文件数 |
 | --- | --- |
 | components | 524 |
-| test/dev | 405 |
-| services | 121 |
+| test/dev | 406 |
+| services | 122 |
 | utils | 121 |
+| backend/electron | 65 |
 | hooks | 65 |
-| backend/electron | 62 |
-| stores | 31 |
+| stores | 32 |
 | 其他 | 20 |
 | types | 15 |
 | src (其他) | 13 |
@@ -28,7 +28,7 @@
 
 | 被依赖数 | 模块 |
 | --- | --- |
-| 507 | `src/types.ts` |
+| 509 | `src/types.ts` |
 | 63 | `src/utils/appPlaybackGuards.ts` |
 | 61 | `src/types/onlineMusic.ts` |
 | 56 | `src/components/command-palette/types.ts` |
