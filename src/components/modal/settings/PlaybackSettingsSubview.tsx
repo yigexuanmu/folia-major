@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { AudioLines, ChevronRight, Monitor, PlayCircle, RefreshCw, Settings2, Timer } from 'lucide-react';
+import { AudioLines, ChevronRight, ListFilter, Monitor, PlayCircle, RefreshCw, Settings2, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { LocalLyricsPriority, QueueAddBehavior, ReplayGainMode, Theme } from '../../../types';
-import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { useAudioOutputDevices } from '../../../hooks/useAudioOutputDevices';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { LYRIC_MATCH_SOURCES } from '../../../utils/lyrics/lyricMatchSources';
 import { getLyricProviderPreferenceLabel } from '../../../utils/lyrics/lyricSourceLabels';
 import TransitionSettingsSection from './TransitionSettingsSection';
+import { SettingsAnchor } from './navigation/SettingsAnchorContext';
+import SettingsSectionHeading from './navigation/SettingsSectionHeading';
+import { useLyricSettingsStore } from '../../../stores/useLyricSettingsStore';
+import { useAudioSettingsStore } from '../../../stores/useAudioSettingsStore';
+import { useSongUnlockSettingsStore } from '../../../stores/useSongUnlockSettingsStore';
 
 // src/components/modal/settings/PlaybackSettingsSubview.tsx
 // Playback behavior and output-device settings extracted from the global settings modal.
@@ -21,6 +25,7 @@ type PlaybackSettingsSubviewProps = {
     isDaylight: boolean;
     onAudioOutputDeviceChange: (deviceId: string) => Promise<boolean> | boolean;
     onOpenGlobalLyricOffsetSettings: () => void;
+    onOpenLyricFilterSettings: () => void;
     replayGainMode: ReplayGainMode;
     onReplayGainModeChange: (mode: ReplayGainMode) => void;
     settingsCardClass: string;
@@ -32,6 +37,7 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
     isDaylight,
     onAudioOutputDeviceChange,
     onOpenGlobalLyricOffsetSettings,
+    onOpenLyricFilterSettings,
     replayGainMode,
     onReplayGainModeChange,
     settingsCardClass,
@@ -41,32 +47,38 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
     const { t } = useTranslation();
     const {
         audioOutputDeviceId,
+        queueAddBehavior,
+        onQueueAddBehaviorChange,
+    } = useAudioSettingsStore(useShallow(state => ({
+        audioOutputDeviceId: state.audioOutputDeviceId,
+        queueAddBehavior: state.queueAddBehavior,
+        onQueueAddBehaviorChange: state.handleSetQueueAddBehavior,
+    })));
+    const {
         autoUseBestLyric,
         preferredAlternativeLyricSource,
         localLyricsPriority,
-        queueAddBehavior,
         globalLyricTimelineOffsetMs,
         onToggleAutoUseBestLyric,
         onPreferredAlternativeLyricSourceChange,
         onLocalLyricsPriorityChange,
-        onQueueAddBehaviorChange,
-        useSongUnlock,
-        songUnlockServers,
-        onToggleSongUnlock,
-        onToggleSongUnlockServer,
-    } = useSettingsUiStore(useShallow(state => ({
-        audioOutputDeviceId: state.audioOutputDeviceId,
+    } = useLyricSettingsStore(useShallow(state => ({
         autoUseBestLyric: state.autoUseBestLyric,
         preferredAlternativeLyricSource: state.preferredAlternativeLyricSource,
         localLyricsPriority: state.localLyricsPriority,
-        queueAddBehavior: state.queueAddBehavior,
-        useSongUnlock: state.useSongUnlock,
-        songUnlockServers: state.songUnlockServers,
         globalLyricTimelineOffsetMs: state.globalLyricTimelineOffsetMs,
         onToggleAutoUseBestLyric: state.handleToggleAutoUseBestLyric,
         onPreferredAlternativeLyricSourceChange: state.handleSetPreferredAlternativeLyricSource,
         onLocalLyricsPriorityChange: state.handleSetLocalLyricsPriority,
-        onQueueAddBehaviorChange: state.handleSetQueueAddBehavior,
+    })));
+    const {
+        useSongUnlock,
+        songUnlockServers,
+        onToggleSongUnlock,
+        onToggleSongUnlockServer,
+    } = useSongUnlockSettingsStore(useShallow(state => ({
+        useSongUnlock: state.useSongUnlock,
+        songUnlockServers: state.songUnlockServers,
         onToggleSongUnlock: state.handleToggleSongUnlock,
         onToggleSongUnlockServer: state.handleToggleSongUnlockServer,
     })));
@@ -160,11 +172,8 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
 
     return (
         <div className="space-y-5">
-            <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                    <PlayCircle size={14} />                    {t('options.queueSettings')}
-
-                </h3>
+            <SettingsAnchor anchorId="queueSettings" label={t('options.queueSettings')}>
+                <SettingsSectionHeading icon={PlayCircle} label={t('options.queueSettings')} />
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
                     <div className="space-y-1">
                         <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -199,7 +208,7 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                         })}
                     </div>
                 </div>
-            </section>
+            </SettingsAnchor>
 
             <TransitionSettingsSection
                 isDaylight={isDaylight}
@@ -207,10 +216,8 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                 theme={theme}
             />
 
-            <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                    <AudioLines size={14} /> {t('options.replayGainSettings')}
-                </h3>
+            <SettingsAnchor anchorId="replayGainSettings" label={t('options.replayGainSettings')}>
+                <SettingsSectionHeading icon={AudioLines} label={t('options.replayGainSettings')} />
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
                     <div className="space-y-1">
                         <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -238,12 +245,10 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                         ))}
                     </div>
                 </div>
-            </section>
+            </SettingsAnchor>
 
-            <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                    <Settings2 size={14} /> {t('options.lyrics')}
-                </h3>
+            <SettingsAnchor anchorId="lyrics" label={t('options.lyrics')}>
+                <SettingsSectionHeading icon={Settings2} label={t('options.lyrics')} />
                 <div className={`rounded-xl border overflow-hidden ${settingsCardClass}`}>
                     <div className="p-4 flex items-center justify-between gap-4">
                         <div className="space-y-1">
@@ -344,22 +349,38 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                             </div>
                         </div>
                     </button>
+                    <button
+                        type="button"
+                        onClick={onOpenLyricFilterSettings}
+                        className="w-full p-4 border-t text-left transition-colors hover:bg-white/8"
+                        style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}
+                    >
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                    <ListFilter size={14} />
+                                    {t('options.lyricFilterRegex')}
+                                </div>
+                                <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                                    {t('options.lyricFilterRegexDesc')}
+                                </div>
+                            </div>
+                            <ChevronRight size={18} className="shrink-0 opacity-60" style={{ color: 'var(--text-primary)' }} />
+                        </div>
+                    </button>
                 </div>
-            </section>
+            </SettingsAnchor>
 
-            <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                    <RefreshCw size={14} /> 歌曲解锁
-                </h3>
-                <div className={`rounded-xl border overflow-hidden ${settingsCardClass}`}>
-                    <div className="p-4 flex items-center justify-between gap-4">
+            <SettingsAnchor anchorId="songUnlock" label={t('options.songUnlock')}>
+                <SettingsSectionHeading icon={RefreshCw} label={t('options.songUnlock')} />
+                <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+                    <div className="flex items-center justify-between gap-4">
                         <div className="space-y-1">
-                            <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                                <RefreshCw size={14} />
-                                启用歌曲解锁
+                            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                {t('options.songUnlockEnable')}
                             </div>
                             <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                                当歌曲为 VIP/版权受限而无法播放时，自动尝试从其他平台（波点/酷我）寻找可播放音源。
+                                {t('options.songUnlockDesc')}
                             </div>
                         </div>
                         {renderToggle(useSongUnlock, () => onToggleSongUnlock(!useSongUnlock))}
@@ -367,13 +388,13 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                     {useSongUnlock && (
                         <div className="border-t divide-y" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
                             {songUnlockServers.map((server) => (
-                                <div key={server.key} className="p-4 flex items-center justify-between gap-4">
+                                <div key={server.key} className="pt-4 flex items-center justify-between gap-4">
                                     <div className="space-y-0.5">
                                         <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                            {server.key === 'netease' ? '网易云' : server.key === 'bodian' ? '波点音乐' : '酷我音乐'}
+                                            {t('options.songUnlockServer' + server.key.charAt(0).toUpperCase() + server.key.slice(1))}
                                         </div>
                                         <div className="text-[11px] opacity-50" style={{ color: 'var(--text-secondary)' }}>
-                                            {server.key === 'netease' ? '通过第三方 API' : server.key === 'bodian' ? '酷我子平台，320kbps' : '酷我移动端 API，128kbps'}
+                                            {t('options.songUnlockServerDesc' + server.key.charAt(0).toUpperCase() + server.key.slice(1))}
                                         </div>
                                     </div>
                                     {renderToggle(server.enabled, () => onToggleSongUnlockServer(server.key, !server.enabled))}
@@ -382,12 +403,9 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                         </div>
                     )}
                 </div>
-            </section>
-
-            <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                    <Monitor size={14} /> {t('options.audioOutputSettings')}
-                </h3>
+            </SettingsAnchor>
+            <SettingsAnchor anchorId="audioOutputSettings" label={t('options.audioOutputSettings')}>
+                <SettingsSectionHeading icon={Monitor} label={t('options.audioOutputSettings')} />
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
                     <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
@@ -450,7 +468,7 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                         </div>
                     )}
                 </div>
-            </section>
+            </SettingsAnchor>
         </div>
     );
 };

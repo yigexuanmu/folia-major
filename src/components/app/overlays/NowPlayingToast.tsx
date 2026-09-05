@@ -4,6 +4,7 @@ import { Music } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme } from '../../../types';
 import { useTransitionBorderCue } from './now-playing-toast/useTransitionBorderCue';
+import { usePlayerBottomBarBottomPx } from '../../../hooks/usePlayerBottomBarBottomPx';
 
 // src/components/app/overlays/NowPlayingToast.tsx
 // 歌词页左下角的 now playing 卡片（playing-toast 样式：圆角 2xl、44px 封面、底部滑入）。
@@ -11,12 +12,13 @@ import { useTransitionBorderCue } from './now-playing-toast/useTransitionBorderC
 // 显示模式：auto=显示 timeoutSec 秒后淡出（换歌重新计时），always=常驻，never=不渲染。
 // isNextUp=自动切歌预览（automix 混合或普通曲目结束倒计时）：强制显示下一首并挂
 // "接下来播放" 标签，切完后翻回 "正在播放"。
-// transitionBorder=automix 过渡动画和本卡片同时开着：屏幕正中那个全屏圆环让位，混音进度改画
-// 在卡片边框上（见 now-playing-toast/NowPlayingToastTransitionBorder.tsx）。混音期间卡片自己
-// 撑开不隐藏——描边挂在卡片里，卡片淡出了就没地方画了。
+// automix 混音期间边框上会长出一圈进度描边（见 now-playing-toast/NowPlayingToastTransitionBorder
+// .tsx）。开不开是「卡片描边」那个设置说了算，而这张卡片不读那个开关——useTransitionBorderCue
+// 读，一个开关只该有一个读的地方。混音期间卡片自己撑开不隐藏：描边挂在卡片里，卡片淡出了就没
+// 地方画了。
 
-// 着色器描边只有开了 transitionBorder 且真的在混音时才用到，懒加载让 @paper-design/shaders
-// 的 chunk 不进主包；混音开始前有几秒（arm 早于 fade）足够它加载完。
+// 着色器描边只有真的在混音时才用到，懒加载让 @paper-design/shaders 的 chunk 不进主包；
+// 混音开始前有几秒（arm 早于 fade）足够它加载完。
 const NowPlayingToastTransitionBorder = lazy(() => import('./now-playing-toast/NowPlayingToastTransitionBorder'));
 
 /** 卡片圆角，和下面的 rounded-2xl 对齐；描边要按它算圆角 */
@@ -42,8 +44,6 @@ type NowPlayingToastProps = {
     nextUp?: NowPlayingToastSong | null;
     /** 预览态：下一首内容 + 接下来播放标签 + 挂起 auto 隐藏计时 */
     isNextUp?: boolean;
-    /** automix 混音进度画在卡片边框上（替代全屏过渡动画） */
-    transitionBorder?: boolean;
     /** 描边取 accentColor，和全屏圆环同一个颜色 */
     theme?: Theme;
     /** 点卡片做什么；不给就还是个纯展示的卡片，不吃鼠标 */
@@ -60,7 +60,6 @@ const NowPlayingToast: React.FC<NowPlayingToastProps> = ({
     timeoutSec = 10,
     nextUp = null,
     isNextUp = false,
-    transitionBorder = false,
     theme,
     onActivate,
     activateLabel,
@@ -81,6 +80,7 @@ const NowPlayingToast: React.FC<NowPlayingToastProps> = ({
     // 所以拿到非空 cue 就意味着「过渡动画开着 + 模式是 automix」，不用再问一遍 prop。
     // 它同时参与下面的 holdOpen：混音期间卡片必须留在屏幕上，否则描边跟着卡片一起卸载，
     // 而全屏圆环已经让位了。
+    const bottomBarBottomPx = usePlayerBottomBarBottomPx();
     const transitionCue = useTransitionBorderCue();
 
     // 可见性状态机：never 不渲染；always 常驻；auto 换歌重新计时。
@@ -103,12 +103,15 @@ const NowPlayingToast: React.FC<NowPlayingToastProps> = ({
     // 描边要的是卡片的实际尺寸（内容撑出来的，没有固定宽高），所以量一下外层容器：
     // 它是 fixed 且没给宽度，会收缩到卡片大小，而且不会随 trackKey 重挂。
     // 描边本身是绝对定位、外扩一圈的兄弟节点，不参与这个尺寸。
-    // 提前量而不是等 cue 到：描边一到就要知道画布多大，等 ResizeObserver 回调会晚一帧。
+    //
+    // 卡片在场就一直量，不看那个设置：量的是提前量，描边一到就要知道画布多大，等 ResizeObserver
+    // 回调会晚一帧。挂个条件上去就等于把「卡片描边」那个开关又读了第二遍，而它已经有一个读的
+    // 地方了（useTransitionBorderCue）——同一个开关两个读点、两个时机，正是这块出过的那个 bug。
     const frameRef = useRef<HTMLDivElement | null>(null);
     const [cardSize, setCardSize] = useState({ width: 0, height: 0 });
     useEffect(() => {
         const frame = frameRef.current;
-        if (!transitionBorder || !frame || typeof ResizeObserver === 'undefined') return;
+        if (!frame || typeof ResizeObserver === 'undefined') return;
         const observer = new ResizeObserver(([entry]) => {
             // contentRect 而不是 getBoundingClientRect：外层这一圈在做 x 位移动画，
             // 后者会把 transform 算进去。
@@ -121,7 +124,7 @@ const NowPlayingToast: React.FC<NowPlayingToastProps> = ({
         });
         observer.observe(frame);
         return () => observer.disconnect();
-    }, [transitionBorder, visible]);
+    }, [visible]);
 
     return (
         <AnimatePresence>
@@ -132,9 +135,10 @@ const NowPlayingToast: React.FC<NowPlayingToastProps> = ({
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -16 }}
                     transition={{ duration: 0.35, ease: 'easeOut' }}
-                    // bottom-8 跟右下角面板开关按钮（UnifiedPanel 的 fixed bottom-8）对齐，
-                    // 两边底边落在同一条线上。
-                    className="pointer-events-none fixed bottom-8 left-6 z-40"
+                    // 底边跟右下角面板开关按钮和中间的进度条胶囊落在同一条基线上，
+                    // 由共享 MotionValue 直接驱动 bottom（默认 32，即原来的 bottom-8）。
+                    style={{ bottom: bottomBarBottomPx }}
+                    className="pointer-events-none fixed left-6 z-40"
                 >
                     {/* 描边排在卡片前面：卡片自己是 relative，绘制顺序上压在描边上头，所以
                         描边内侧那一半被卡片背景盖住，露在外面的是外侧 + 辉光。
