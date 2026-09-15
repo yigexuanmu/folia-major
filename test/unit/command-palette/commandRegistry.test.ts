@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { PlayerState, type SongResult } from '../../../src/types';
 import { COMMAND_PALETTE_COMMANDS, getAvailableCommandPaletteCommands, getCommandPaletteMatches, getQueueSongMatches } from '../../../src/components/command-palette/commandRegistry';
 import { sleepTimerSurface } from '../../../src/components/command-palette/surfaces/sleepTimerSurface';
+import { latticePosterTintSurface } from '../../../src/components/command-palette/surfaces/latticePosterTintSurface';
 import type { CommandPaletteContext } from '../../../src/components/command-palette/types';
+import { buildExecuteShortcutIndex, resolveExecuteShortcut } from '../../../src/components/command-palette/executeShortcuts';
 
 type CommandPaletteContextOverrides = {
     [Namespace in keyof CommandPaletteContext]?: Partial<CommandPaletteContext[Namespace]>;
@@ -13,7 +15,7 @@ type CommandPaletteContextOverrides = {
 const createContext = (overrides: CommandPaletteContextOverrides = {}): CommandPaletteContext => {
     const base: CommandPaletteContext = {
         // The palette's original and still most common surface; the home cases say so explicitly.
-        scope: { view: 'player', filter: null },
+        scope: { view: 'player', filter: null, grid: null },
         shared: {
             t: (_key: string, fallback?: string) => fallback ?? '',
             setStatusMsg: vi.fn(),
@@ -60,8 +62,11 @@ const createContext = (overrides: CommandPaletteContextOverrides = {}): CommandP
             runAutoMatchBestLyric: vi.fn(async () => true),
         },
         navigation: {
-            navigateToHome: vi.fn(),
-            navigateToPlayer: vi.fn(),
+        navigateToHome: vi.fn(),
+        navigateToPlayer: vi.fn(),
+        navigateToLattice: vi.fn(),
+            focusLatticeCurrentSong: vi.fn(() => true),
+            canFocusLatticeCurrentSong: true,
             setHomeViewTab: vi.fn(),
             toggleBrowserFullscreen: vi.fn(async () => true),
             toggleRemoteControlWindow: vi.fn(async () => true),
@@ -86,12 +91,32 @@ const createContext = (overrides: CommandPaletteContextOverrides = {}): CommandP
             subtitleContentMode: 'translation',
             cycleSubtitleContentMode: vi.fn(),
             toggleSubtitleOverlayBackground: vi.fn(),
+            playbackEntryView: 'player' as const,
+            setPlaybackEntryView: vi.fn(),
             startPlayerBottomBarPositioning: vi.fn(),
             canStartPlayerBottomBarPositioning: true,
             toggleAlwaysShowPlayerBackButton: vi.fn(),
+            toggleGridViewFullBleedCover: vi.fn(),
+            toggleGridViewSquareCards: vi.fn(),
+            canUseGridViewSquareCards: vi.fn(() => true),
+            toggleLatticeVignette: vi.fn(),
+            toggleLatticeAutoFocusOnSongChange: vi.fn(),
+            latticePosterTintEnabled: true,
+            latticePosterTintUseCustomColor: false,
+            latticePosterTintColor: '#161419',
+            latticePosterTintIntensity: 0.5,
+            setLatticePosterTintEnabled: vi.fn(),
+            setLatticePosterTintUseCustomColor: vi.fn(),
+            setLatticePosterTintColor: vi.fn(),
+            setLatticePosterTintIntensity: vi.fn(),
             toggleAlwaysShowTrackSwitchButtons: vi.fn(),
             toggleAutoPlayOnLaunch: vi.fn(),
+            toggleTranscodeFallback: vi.fn(),
             toggleAlwaysShowMainWindowTitlebar: vi.fn(),
+            canAutoScanLocalLibrary: vi.fn(() => false),
+            toggleLocalLibraryAutoScan: vi.fn(),
+            canReportNeteasePlayback: vi.fn(() => false),
+            toggleNeteaseScrobble: vi.fn(),
             voiceInputPauseSupported: false,
             modSystemEnabled: false,
             toggleVoiceInputPause: vi.fn(),
@@ -194,7 +219,9 @@ describe('command palette registry', () => {
         expect(match.command.id).toBe('settings-local-lyrics-priority');
         match.command.execute(match.input, context);
 
-        expect(context.settings.openSettings).toHaveBeenCalledWith('options', 'playback');
+        // The playback page is not the destination — the lyrics section inside it is, which is what
+        // an anchor-level command exists to reach.
+        expect(context.settings.openSettings).toHaveBeenCalledWith('options', 'playback', null, 'lyrics');
     });
 
     it('switches ReplayGain modes from the command palette', () => {
@@ -918,10 +945,11 @@ describe('personal FM withdraws the queue commands', () => {
         QUEUE_COMMAND_IDS.forEach(id => expect(ids).not.toContain(id));
     });
 
-    it('keeps the FM mode picker and transport reachable', () => {
+    it('keeps the FM controls and the guarded Lattice entry reachable', () => {
         const ids = availableIds(true);
         expect(ids).toContain('playback-fm-mode');
         expect(ids).toContain('playback-next');
+        expect(ids).toContain('navigate-lattice');
     });
 });
 
@@ -997,5 +1025,45 @@ describe('play and pause commands', () => {
     it('starts paused playback and leaves Pause alone', () => {
         expect(execute('playback-play', PlayerState.PAUSED)).toHaveBeenCalled();
         expect(execute('playback-pause', PlayerState.PAUSED)).not.toHaveBeenCalled();
+    });
+});
+
+
+describe('lattice focus command', () => {
+    it.each(['home', 'player', 'lattice'] as const)('gates focus to lattice from %s', view => {
+        const context = createContext({ scope: { view, filter: null } });
+        const ids = getAvailableCommandPaletteCommands(context).map(command => command.id);
+        expect(ids.includes('lattice-focus-current')).toBe(view === 'lattice');
+    });
+    it('uses c in execute mode only on lattice', () => {
+        const resolveInView = (view: 'player' | 'lattice') => resolveExecuteShortcut(
+            buildExecuteShortcutIndex(getAvailableCommandPaletteCommands(createContext({ scope: { view, filter: null } }))),
+            'c',
+        );
+        const playerResolution = resolveInView('player');
+        const latticeResolution = resolveInView('lattice');
+
+        expect(playerResolution.status === 'exact' && playerResolution.command.id).toBe('panel-cover');
+        expect(latticeResolution.status === 'exact' && latticeResolution.command.id).toBe('lattice-focus-current');
+    });
+    it('uses the registered wall action and is unavailable without a current queue song', async () => {
+        const focusLatticeCurrentSong = vi.fn(() => true);
+        const context = createContext({ scope: { view: 'lattice', filter: null }, navigation: { focusLatticeCurrentSong } });
+        const command = getAvailableCommandPaletteCommands(context).find(command => command.id === 'lattice-focus-current')!;
+        expect(await command.execute('', context)).toBe(true);
+        expect(focusLatticeCurrentSong).toHaveBeenCalledOnce();
+        expect(getAvailableCommandPaletteCommands(createContext({
+            scope: { view: 'lattice', filter: null }, navigation: { canFocusLatticeCurrentSong: false },
+        })).some(command => command.id === 'lattice-focus-current')).toBe(false);
+    });
+});
+
+describe('lattice poster tint command', () => {
+    it('opens the dedicated control surface and is searchable in Chinese', () => {
+        const [match] = getCommandPaletteMatches('海报叠色', createContext());
+
+        expect(match.command.id).toBe('lattice-poster-tint');
+        expect(match.command.requiresInput).toBe(true);
+        expect(match.command.surface).toBe(latticePosterTintSurface);
     });
 });

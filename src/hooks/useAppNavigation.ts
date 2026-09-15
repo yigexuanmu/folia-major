@@ -13,16 +13,21 @@ import {
 } from '../stores/useCollectionNavigationStore';
 import type { GridViewCollectionDescriptor } from '../components/app/home/gridViewCollectionAdapters';
 import { useAppViewStore } from '../stores/useAppViewStore';
+import type { AppView } from '../stores/useAppViewStore';
+import { usePlaybackStore } from '../stores/usePlaybackStore';
+import { usePlaybackEntryViewStore } from '../stores/usePlaybackEntryViewStore';
+import { setStatusMessage } from '../stores/useStatusMessageStore';
+import i18n from '../i18n/config';
 
 // src/hooks/useAppNavigation.ts
 
-type ViewState = 'home' | 'player';
+type ViewState = AppView;
 
 type LocalMusicNavigationState = {
     activeRow: 0 | 1 | 2 | 3;
     selectedGroup: LocalLibraryGroup | null;
     detailStack: LocalLibraryGroup[];
-    detailOriginView: ViewState | null;
+    detailOriginView: 'home' | 'player' | null;
     focusedFolderIndex: number;
     focusedAlbumIndex: number;
     focusedArtistIndex: number;
@@ -65,6 +70,15 @@ export const shouldReplacePlayerNavigation = (
     state: NavigationHistoryState | null,
 ): boolean => state?.view === 'player';
 
+export const resolvePlayerCapsuleNavigationTarget = (
+    view: ViewState,
+    playbackEntryView: 'player' | 'lattice',
+    isFmMode: boolean,
+): 'player' | 'lattice' | null => {
+    if (view === 'lattice') return null;
+    return playbackEntryView === 'lattice' && !isFmMode ? 'lattice' : 'player';
+};
+
 const getSearchHistorySnapshot = (): NavigationHistoryState['search'] => {
     const searchState = useSearchNavigationStore.getState();
     return searchState.isSearchOpen
@@ -86,11 +100,18 @@ const getCollectionHash = (collection: GridViewCollectionDescriptor) => (
 
 const LOCAL_MUSIC_LAST_ROW_KEY = 'folia_local_music_last_row';
 
+export const blockLatticeNavigationInFm = (): boolean => {
+    if (!usePlaybackStore.getState().isFmMode) return false;
+    setStatusMessage({ type: 'info', text: i18n.t('status.latticeUnavailableInFm') });
+    return true;
+};
+
 export function useAppNavigation() {
     // The view itself lives in useAppViewStore so that consumers far from here can read it
     // without being handed it; this hook stays the only writer.
     const currentView = useAppViewStore(state => state.view);
     const setCurrentView = useAppViewStore(state => state.setView);
+    const isFmMode = usePlaybackStore(state => state.isFmMode);
     const [focusedPlaylistIndex, setFocusedPlaylistIndex] = useState(0);
     const [navidromeFocusedAlbumIndex, setNavidromeFocusedAlbumIndex] = useState(0);
     const [pendingNavidromeSelection, setPendingNavidromeSelection] = useState<NavidromeViewSelection | null>(null);
@@ -213,6 +234,15 @@ export function useAppNavigation() {
         });
     }, [pushNavigationState]);
 
+    useEffect(() => {
+        if (!isFmMode || currentView !== 'lattice') return;
+        const collection = useCollectionNavigationStore.getState().snapshot;
+        const search = getSearchHistorySnapshot();
+        // FM owns and extends its queue dynamically, so replace a stale Lattice entry instead of
+        // leaving it in browser history where Back would immediately reopen an unsupported view.
+        pushNavigationState({ view: 'player', replace: true, hash: '#player', search, collection });
+    }, [currentView, isFmMode, pushNavigationState]);
+
     const navigateToHome = useCallback(() => {
         if (useAppViewStore.getState().view === 'home') {
             return;
@@ -228,6 +258,60 @@ export function useAppNavigation() {
             collection,
         });
     }, [pushNavigationState]);
+
+    const navigateToLattice = useCallback(() => {
+        if (blockLatticeNavigationInFm()) return;
+        if (useAppViewStore.getState().view === 'lattice') return;
+        useSearchNavigationStore.getState().hideSearchOverlay();
+        pushNavigationState({
+            view: 'lattice',
+            hash: '#lattice',
+        });
+    }, [pushNavigationState]);
+
+    /**
+     * Where starting a song lands. Reads the stored preference rather than each caller deciding,
+     * so every "play this" path agrees on one answer.
+     *
+     * Only redirects when the listener is arriving from somewhere else. Player and Lattice are both
+     * playback surfaces, and this also runs on auto-advance — moving someone from the one they are
+     * watching to the other because a track ended would be the setting reaching too far.
+     *
+     * FM falls back to the player silently: Lattice cannot show an FM queue, and the usual
+     * "unavailable in FM" toast would be noise when nobody asked to open it.
+     */
+    const navigateToPlaybackView = useCallback(() => {
+        const view = useAppViewStore.getState().view;
+        if (view === 'lattice') return;
+        const entryView = usePlaybackEntryViewStore.getState().playbackEntryView;
+        if (entryView === 'lattice' && view !== 'player' && !usePlaybackStore.getState().isFmMode) {
+            navigateToLattice();
+            return;
+        }
+        navigateToPlayer();
+    }, [navigateToLattice, navigateToPlayer]);
+
+    const navigateFromPlayerCapsule = useCallback(() => {
+        const target = resolvePlayerCapsuleNavigationTarget(
+            useAppViewStore.getState().view,
+            usePlaybackEntryViewStore.getState().playbackEntryView,
+            usePlaybackStore.getState().isFmMode,
+        );
+        if (target === 'lattice') {
+            navigateToLattice();
+        } else if (target === 'player') {
+            navigateToPlayer();
+        }
+    }, [navigateToLattice, navigateToPlayer]);
+
+    const navigateBackFromLattice = useCallback(() => {
+        const state = window.history.state as NavigationHistoryState | null;
+        if (state?.view === 'lattice' && getAppHistoryIndex(state) > 0) {
+            window.history.back();
+            return;
+        }
+        navigateToHome();
+    }, [navigateToHome]);
 
     const navigateDirectHome = useCallback((options?: { clearContext?: boolean; }) => {
         const clearContext = options?.clearContext ?? true;
@@ -344,7 +428,11 @@ export function useAppNavigation() {
         localMusicState,
         setLocalMusicState,
         navigateToPlayer,
+        navigateToPlaybackView,
+        navigateFromPlayerCapsule,
         navigateToHome,
+        navigateToLattice,
+        navigateBackFromLattice,
         navigateBackFromPlayer,
         navigateDirectHome,
         navigateToSearch,

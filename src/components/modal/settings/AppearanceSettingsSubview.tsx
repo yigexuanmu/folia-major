@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Monitor, Palette, Settings2, LayoutGrid, Download, Copy, Check, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Monitor, Palette, Settings2, LayoutGrid, PanelsTopLeft, Images, Download, Copy, Check, ChevronRight, AlertTriangle, KeyRound, Music2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import {
@@ -20,6 +20,9 @@ import { buildCurrentObsUrl } from '../../../services/obs/currentObsUrl';
 import { ObsCopyUrlButton } from '../../shared/ObsCopyUrlButton';
 import { resolveWebObsTarget, selectWebObsSource } from '../../../services/obs/webObsTarget';
 import { buildVisualSettingsConfig, resolveObsCopyHintKey } from '../../../services/obs/visualSettingsConfig';
+import LatticeSettingsSection from './LatticeSettingsSection';
+import GridViewSettingsSection from './GridViewSettingsSection';
+import NowPlayingCardSettingsSection from './NowPlayingCardSettingsSection';
 import { isThemeGenerationSource, type ThemeGenerationSource } from '../../../services/themePreferences';
 import { SettingsAnchor } from './navigation/SettingsAnchorContext';
 import SettingsSectionHeading from './navigation/SettingsSectionHeading';
@@ -51,6 +54,8 @@ type AppearanceSettingsSubviewProps = {
     onToggleSongThemeAutoSwitch: (enabled: boolean) => void;
     themeGenerationSource: ThemeGenerationSource;
     onChangeThemeGenerationSource: (source: ThemeGenerationSource) => void;
+    aiApiKeyStatus: 'loading' | 'configured' | 'missing';
+    onOpenAiSettings: () => void;
     onToggleTransparentPlayerBackground: (enabled: boolean) => void;
     onToggleAutoHidePlayerChrome: (enabled: boolean) => void;
     onSaveCustomTheme: (dualTheme: DualTheme) => void;
@@ -96,6 +101,8 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
     onToggleSongThemeAutoSwitch,
     themeGenerationSource,
     onChangeThemeGenerationSource,
+    aiApiKeyStatus,
+    onOpenAiSettings,
     onToggleTransparentPlayerBackground,
     onToggleAutoHidePlayerChrome,
     onSaveCustomTheme,
@@ -165,6 +172,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         showSubtitleTranslation: state.showSubtitleTranslation,
         subtitleContentMode: state.subtitleContentMode,
         subtitleOverlayBackground: state.subtitleOverlayBackground,
+        subtitleUpcomingLyricsBlur: state.subtitleUpcomingLyricsBlur,
         showHarmonySubtitle: state.showHarmonySubtitle,
         harmonySubtitleBackground: state.harmonySubtitleBackground,
         lyricsFontStyle: state.lyricsFontStyle,
@@ -181,6 +189,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         handleToggleShowSubtitleTranslation: state.handleToggleShowSubtitleTranslation,
         handleSetSubtitleContentMode: state.handleSetSubtitleContentMode,
         handleToggleSubtitleOverlayBackground: state.handleToggleSubtitleOverlayBackground,
+        handleToggleSubtitleUpcomingLyricsBlur: state.handleToggleSubtitleUpcomingLyricsBlur,
         handleSetSubtitleOverlayOpacity: state.handleSetSubtitleOverlayOpacity,
         handleToggleShowHarmonySubtitle: state.handleToggleShowHarmonySubtitle,
         handleToggleHarmonySubtitleBackground: state.handleToggleHarmonySubtitleBackground,
@@ -411,6 +420,9 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             if (has('subtitleOverlayBackground')) {
                 storeTypographySettings.handleToggleSubtitleOverlayBackground(Boolean(config.subtitleOverlayBackground));
             }
+            if (has('subtitleUpcomingLyricsBlur')) {
+                storeTypographySettings.handleToggleSubtitleUpcomingLyricsBlur(Boolean(config.subtitleUpcomingLyricsBlur));
+            }
             if (has('subtitleOverlayOpacity')) {
                 storeTypographySettings.handleSetSubtitleOverlayOpacity(config.subtitleOverlayOpacity);
             }
@@ -574,7 +586,88 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
 
     return (
         <div className="space-y-6">
-            {/* Section 1: Theme presets and edit options */}
+            {/* Section 1: Lyrics Animation & Player View */}
+            <SettingsAnchor anchorId="lyricsRenderer" label={t('options.lyricsRenderer')}>
+                <SettingsSectionHeading icon={Monitor} label={t('options.lyricsRenderer')} />
+                <div className="space-y-3">
+                    {storePlayerChromeSettings.enablePlayerPageNativeBlur && (
+                        <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-500 dark:text-amber-400">
+                            <AlertTriangle size={16} className="shrink-0 text-amber-500" />
+                            <span>{t('options.nativeBlurBackgroundNotice')}</span>
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        onClick={onOpenVisPlayground}
+                        className="group flex w-full items-center gap-3 rounded-xl border-2 border-transparent p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                        style={{
+                            color: 'var(--text-primary)',
+                            background: [
+                                `linear-gradient(color-mix(in srgb, var(--bg-color) ${isDaylight ? '96%' : '92%'}, ${lyricsStyleBorderStart}), color-mix(in srgb, var(--bg-color) ${isDaylight ? '96%' : '92%'}, ${lyricsStyleBorderStart})) padding-box`,
+                                `linear-gradient(120deg, ${lyricsStyleBorderStart}, ${lyricsStyleBorderEnd}) border-box`,
+                            ].join(', '),
+                        }}
+                    >
+                        <span
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
+                            style={{
+                                color: accentOutlineColor,
+                                borderColor: `${accentOutlineColor}55`,
+                                backgroundColor: `${accentOutlineColor}18`,
+                            }}
+                        >
+                            <Settings2 size={19} />
+                        </span>
+                        <span className="min-w-0 flex-1 space-y-1">
+                            <span className="block text-sm font-semibold">
+                                {t('options.lyricsAnimationAdjust')}
+                            </span>
+                            <span className="block text-xs opacity-55" style={{ color: 'var(--text-secondary)' }}>
+                                {t('options.lyricsRendererDesc')}
+                            </span>
+                        </span>
+                        <ChevronRight size={18} className="shrink-0 opacity-45 transition-transform group-hover:translate-x-0.5 group-hover:opacity-80" />
+                    </button>
+                    <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                    {t('options.transparentPlayerBackground')}
+                                </div>
+                                <div className="text-xs opacity-50 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
+                                    {t('options.transparentPlayerBackgroundDesc')}
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => onToggleTransparentPlayerBackground(!transparentPlayerBackground)}
+                                className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!transparentPlayerBackground ? toggleOffBackgroundClass : ''}`}
+                                style={{ backgroundColor: transparentPlayerBackground ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
+                            >
+                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${transparentPlayerBackground ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </button>
+                        </div>
+                        <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                    {t('options.autoHidePlayerChrome')}
+                                </div>
+                                <div className="text-xs opacity-50 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
+                                    {t('options.autoHidePlayerChromeDesc')}
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => onToggleAutoHidePlayerChrome(!autoHidePlayerChrome)}
+                                className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!autoHidePlayerChrome ? toggleOffBackgroundClass : ''}`}
+                                style={{ backgroundColor: autoHidePlayerChrome ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
+                            >
+                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${autoHidePlayerChrome ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </SettingsAnchor>
+
+            {/* Section 2: Theme presets and edit options */}
             <SettingsAnchor anchorId="themePresets" label={t('options.themePresets')}>
                 <SettingsSectionHeading icon={Palette} label={t('options.themePresets')} />
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
@@ -634,25 +727,47 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                            {(['ai', 'cover'] as ThemeGenerationSource[]).map(source => (
-                                <button
-                                    key={source}
-                                    type="button"
-                                    onClick={() => onChangeThemeGenerationSource(source)}
-                                    aria-pressed={themeGenerationSource === source}
-                                    className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all"
-                                    style={{
-                                        ...getAccentOptionStyle(themeGenerationSource === source),
-                                        color: 'var(--text-primary)',
-                                        backgroundColor: themeGenerationSource === source
-                                            ? (isDaylight ? `${accentOutlineColor}12` : `${accentOutlineColor}18`)
-                                            : (isDaylight ? 'rgba(24, 24, 27, 0.035)' : 'rgba(9, 9, 11, 0.5)'),
-                                    }}
-                                >
-                                    {t(source === 'cover' ? 'options.themeGenerationSourceCover' : 'options.themeGenerationSourceAi')}
-                                </button>
-                            ))}
+                            {(['ai', 'cover'] as ThemeGenerationSource[]).map(source => {
+                                const isAiDisabled = source === 'ai' && aiApiKeyStatus !== 'configured';
+                                return (
+                                    <button
+                                        key={source}
+                                        type="button"
+                                        onClick={() => onChangeThemeGenerationSource(source)}
+                                        aria-pressed={themeGenerationSource === source}
+                                        disabled={isAiDisabled}
+                                        className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                                        style={{
+                                            ...getAccentOptionStyle(themeGenerationSource === source),
+                                            color: 'var(--text-primary)',
+                                            backgroundColor: themeGenerationSource === source
+                                                ? (isDaylight ? `${accentOutlineColor}12` : `${accentOutlineColor}18`)
+                                                : (isDaylight ? 'rgba(24, 24, 27, 0.035)' : 'rgba(9, 9, 11, 0.5)'),
+                                        }}
+                                    >
+                                        {t(source === 'cover' ? 'options.themeGenerationSourceCover' : 'options.themeGenerationSourceAi')}
+                                    </button>
+                                );
+                            })}
                         </div>
+                        {aiApiKeyStatus === 'missing' && (
+                            <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5 text-xs">
+                                <KeyRound size={15} className="mt-0.5 shrink-0 text-amber-500" />
+                                <div className="space-y-1.5">
+                                    <p className="leading-relaxed text-amber-600 dark:text-amber-400">
+                                        {t('options.themeGenerationSourceAiUnavailable')}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={onOpenAiSettings}
+                                        className="font-semibold underline underline-offset-2 transition-opacity hover:opacity-75"
+                                        style={{ color: 'var(--text-primary)' }}
+                                    >
+                                        {t('options.configureAiApiKey')}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <div className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${settingsCardClass}`}>
                         <div className="space-y-1">
@@ -731,153 +846,25 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
                     )}
                 </div>
             </SettingsAnchor>
-
-            {/* Section 2: Lyrics Animation & Player View */}
-            <SettingsAnchor anchorId="lyricsRenderer" label={t('options.lyricsRenderer')}>
-                <SettingsSectionHeading icon={Monitor} label={t('options.lyricsRenderer')} />
-                <div className="space-y-3">
-                    {storePlayerChromeSettings.enablePlayerPageNativeBlur && (
-                        <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-500 dark:text-amber-400">
-                            <AlertTriangle size={16} className="shrink-0 text-amber-500" />
-                            <span>{t('options.nativeBlurBackgroundNotice')}</span>
-                        </div>
-                    )}
-                    <button
-                        type="button"
-                        onClick={onOpenVisPlayground}
-                        className="group flex w-full items-center gap-3 rounded-xl border-2 border-transparent p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                        style={{
-                            color: 'var(--text-primary)',
-                            background: [
-                                `linear-gradient(color-mix(in srgb, var(--bg-color) ${isDaylight ? '96%' : '92%'}, ${lyricsStyleBorderStart}), color-mix(in srgb, var(--bg-color) ${isDaylight ? '96%' : '92%'}, ${lyricsStyleBorderStart})) padding-box`,
-                                `linear-gradient(120deg, ${lyricsStyleBorderStart}, ${lyricsStyleBorderEnd}) border-box`,
-                            ].join(', '),
-                        }}
-                    >
-                        <span
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
-                            style={{
-                                color: accentOutlineColor,
-                                borderColor: `${accentOutlineColor}55`,
-                                backgroundColor: `${accentOutlineColor}18`,
-                            }}
-                        >
-                            <Settings2 size={19} />
-                        </span>
-                        <span className="min-w-0 flex-1 space-y-1">
-                            <span className="block text-sm font-semibold">
-                                {t('options.lyricsAnimationAdjust')}
-                            </span>
-                            <span className="block text-xs opacity-55" style={{ color: 'var(--text-secondary)' }}>
-                                {t('options.lyricsRendererDesc')}
-                            </span>
-                        </span>
-                        <ChevronRight size={18} className="shrink-0 opacity-45 transition-transform group-hover:translate-x-0.5 group-hover:opacity-80" />
-                    </button>
-                    <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="space-y-1">
-                                <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                                    {t('options.transparentPlayerBackground')}
-                                </div>
-                                <div className="text-xs opacity-50 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
-                                    {t('options.transparentPlayerBackgroundDesc')}
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => onToggleTransparentPlayerBackground(!transparentPlayerBackground)}
-                                className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!transparentPlayerBackground ? toggleOffBackgroundClass : ''}`}
-                                style={{ backgroundColor: transparentPlayerBackground ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
-                            >
-                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${transparentPlayerBackground ? 'translate-x-6' : 'translate-x-0'}`} />
-                            </button>
-                        </div>
-                        <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-4">
-                            <div className="space-y-1">
-                                <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                                    {t('options.autoHidePlayerChrome')}
-                                </div>
-                                <div className="text-xs opacity-50 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
-                                    {t('options.autoHidePlayerChromeDesc')}
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => onToggleAutoHidePlayerChrome(!autoHidePlayerChrome)}
-                                className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!autoHidePlayerChrome ? toggleOffBackgroundClass : ''}`}
-                                style={{ backgroundColor: autoHidePlayerChrome ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
-                            >
-                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${autoHidePlayerChrome ? 'translate-x-6' : 'translate-x-0'}`} />
-                            </button>
-                        </div>
-                        <div className="pt-2 border-t border-white/5 space-y-3">
-                            <div className="space-y-1">
-                                <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                                    {t('options.stageTrackPill')}
-                                </div>
-                                <div className="text-xs opacity-50 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
-                                    {t('options.stageTrackPillDesc')}
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                                {(['auto', 'always', 'never'] as const).map(pillMode => (
-                                    <button
-                                        key={pillMode}
-                                        onClick={() => onChangeStageTrackPillMode(pillMode)}
-                                        className="px-2 py-1.5 rounded-lg text-xs border transition-all"
-                                        style={getAccentOptionStyle(stageTrackPillMode === pillMode)}
-                                    >
-                                        {t(`options.stageTrackPillMode_${pillMode}`)}
-                                    </button>
-                                ))}
-                            </div>
-                            {stageTrackPillMode === 'auto' && (
-                                <div className="flex items-center justify-between gap-4 pt-1">
-                                    <div className="text-xs opacity-50" style={{ color: 'var(--text-secondary)' }}>
-                                        {t('options.stageTrackPillTimeout')}
-                                    </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <input
-                                            type="range"
-                                            min={3}
-                                            max={60}
-                                            step={1}
-                                            value={stageTrackPillTimeoutSec}
-                                            onChange={(e) => onChangeStageTrackPillTimeoutSec(Number(e.target.value))}
-                                            className="w-36 accent-current"
-                                        />
-                                        <span className="text-xs font-mono w-12 text-right" style={{ color: 'var(--text-primary)' }}>
-                                            {stageTrackPillTimeoutSec}s
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
-                            {stageTrackPillMode !== 'never' && (
-                                <div className="flex items-center justify-between gap-4 pt-1">
-                                    <div className="space-y-0.5 min-w-0">
-                                        <div className="text-xs" style={{ color: 'var(--text-primary)' }}>
-                                            {t('options.stageTrackPillOnHome')}
-                                        </div>
-                                        <div className="text-xs opacity-50 max-w-[300px]" style={{ color: 'var(--text-secondary)' }}>
-                                            {t('options.stageTrackPillOnHomeDesc')}
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => onToggleStageTrackPillOnHome(!stageTrackPillOnHome)}
-                                        className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!stageTrackPillOnHome ? toggleOffBackgroundClass : ''}`}
-                                        style={{ backgroundColor: stageTrackPillOnHome ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
-                                        aria-pressed={stageTrackPillOnHome}
-                                        aria-label={t('options.stageTrackPillOnHome')}
-                                    >
-                                        <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${stageTrackPillOnHome ? 'translate-x-6' : 'translate-x-0'}`} />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
+            {/* Section 3: Now playing card */}
+            <SettingsAnchor anchorId="stageTrackPill" label={t('options.stageTrackPill')}>
+                <SettingsSectionHeading icon={Music2} label={t('options.stageTrackPill')} />
+                <NowPlayingCardSettingsSection
+                    accentOutlineColor={accentOutlineColor}
+                    isDaylight={isDaylight}
+                    mode={stageTrackPillMode}
+                    timeoutSec={stageTrackPillTimeoutSec}
+                    showOnHome={stageTrackPillOnHome}
+                    settingsCardClass={settingsCardClass}
+                    toggleOffBackgroundClass={toggleOffBackgroundClass}
+                    theme={theme}
+                    onChangeMode={onChangeStageTrackPillMode}
+                    onChangeTimeoutSec={onChangeStageTrackPillTimeoutSec}
+                    onToggleShowOnHome={onToggleStageTrackPillOnHome}
+                />
             </SettingsAnchor>
 
-            {/* Section 3: Grid card style */}
+            {/* Section 4: Grid card style */}
             <SettingsAnchor anchorId="grid3dCardStyle" label={t('options.grid3dCardStyle')}>
                 <SettingsSectionHeading icon={LayoutGrid} label={t('options.grid3dCardStyle')} />
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
@@ -912,7 +899,28 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
                 </div>
             </SettingsAnchor>
 
-            {/* Section 4: Configurations Import/Export (New feature) */}
+            {/* Section 5: Queue collage */}
+            <SettingsAnchor anchorId="latticeSettings" label={t('options.latticeSettings')}>
+                <SettingsSectionHeading icon={PanelsTopLeft} label={t('options.latticeSettings')} />
+                <LatticeSettingsSection
+                    settingsCardClass={settingsCardClass}
+                    toggleOffBackgroundClass={toggleOffBackgroundClass}
+                    isDaylight={isDaylight}
+                    theme={theme}
+                />
+            </SettingsAnchor>
+
+            {/* Section 6: Folia card grid, sitting with the poster wall it shares its look with. */}
+            <SettingsAnchor anchorId="gridViewCardSettings" label={t('options.gridViewCardSettings')}>
+                <SettingsSectionHeading icon={Images} label={t('options.gridViewCardSettings')} />
+                <GridViewSettingsSection
+                    settingsCardClass={settingsCardClass}
+                    toggleOffBackgroundClass={toggleOffBackgroundClass}
+                    theme={theme}
+                />
+            </SettingsAnchor>
+
+            {/* Section 7: Configurations Import/Export (New feature) */}
             <SettingsAnchor anchorId="importExportTitle" label={t('options.importExportTitle')}>
                 <SettingsSectionHeading icon={Settings2} label={t('options.importExportTitle')} />
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>

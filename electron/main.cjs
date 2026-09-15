@@ -19,12 +19,22 @@ const { createVoiceInputPauseMonitor } = require('./voiceInputPause.cjs');
 const { createDisplaySleepBlocker } = require('./displaySleepBlocker.cjs');
 const { createLyricApi } = require('./lyricApi.cjs');
 const { createLocalCoverAssetStore, getLocalCoverAssetDirectory } = require('./localCoverAssets.cjs');
-const { getReleaseUrl, getUpdateProviderConfig, resolveReleaseChannel } = require('./updateChannels.cjs');
+const {
+  compareVersions,
+  getReleaseUrl,
+  getUpdateDiscoveryConfig,
+  getUpdateProviderConfig,
+  parseUpdateMetadataVersion,
+  resolveReleaseChannel,
+} = require('./updateChannels.cjs');
 const { resolveCacheLimit, selectEvictions } = require('./audioCachePrune.cjs');
 const { createAnalysisHost } = require('./analysis/host.cjs');
-const { createDebugHost } = require('./debug/debugHost.cjs');
+const { createDebugHost, runtimeLine } = require('./debug/debugHost.cjs');
+const { createCrashLog, installCrashHandlers } = require('./debug/crashLog.cjs');
 const { createModelStore } = require('./analysis/modelStore.cjs');
 const { resolveLinuxPasswordStore } = require('./linuxPasswordStore.cjs');
+const { createTranscodeService } = require('./transcode/service.cjs');
+const { TRANSCODE_PROTOCOL_SCHEME } = require('./transcode/protocol.cjs');
 const { sanitizeDualTheme: sanitizeGeneratedDualTheme } = require('../shared/themeSanitizer.cjs');
 const {
   buildOpenAICompatibleRequestBody,
@@ -61,6 +71,16 @@ const linuxGraphicsMode =
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'folia-cover',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+    },
+  },
+  {
+    scheme: TRANSCODE_PROTOCOL_SCHEME,
     privileges: {
       standard: true,
       secure: true,
@@ -166,6 +186,12 @@ if (process.platform === 'darwin' && process.arch === 'x64') {
 }
 
 const store = new Store({ projectName: 'Folia' });
+const transcodeService = createTranscodeService({
+  app,
+  protocol,
+  net: electronNet,
+  onCacheWrite: pruneMediaCache,
+});
 // KuGou credentials stay inside the main process and are encrypted lazily after Electron is ready.
 // The bridge refuses Linux's plaintext `basic_text` fallback and degrades to an in-memory session.
 const kugouApiBridge = createKugouApiBridge({ store, safeStorage });
@@ -515,6 +541,13 @@ async function relaunchForWallpaperModeChange(nextEnabled, expectedGeneration = 
       return;
     }
     if (nextEnabled) {
+      // A window whose level was ever touched through Electron's setAlwaysOnTop cannot
+      // present simple full screen correctly anymore (measured: content 33pt low, empty
+      // menu-bar strip above the wallpaper — sticky for the life of the window). Rebuild
+      // it so the entry runs on a fresh window, like the always-correct startup path.
+      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.__macAlwaysOnTopElectronTouched === true) {
+        await rebuildMainWindowForMacWallpaper();
+      }
       enterMacWallpaperMode();
     } else {
       exitMacWallpaperMode();
@@ -583,6 +616,24 @@ async function relaunchForWallpaperModeChange(nextEnabled, expectedGeneration = 
   }
 }
 
+// Rebuilds the main window before a mac wallpaper entry (or after a session exits) so the
+// wallpaper always runs on a window that has never had its level touched through Electron's
+// setAlwaysOnTop — such a window cannot present simple full screen correctly anymore
+// (measured: content presented 33pt below the window top). The playback handoff carries
+// audio/visualizer state across the renderer reload; if wallpaper mode was turned back on
+// before the new window is ready, the recreate path re-sinks it.
+async function rebuildMainWindowForMacWallpaper() {
+  try {
+    const handoff = await requestWindowPlaybackHandoff();
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+    recreateMainWindowWithTransparencyMode(isTransparentPlayerBackgroundEnabled(), handoff);
+  } catch (error) {
+    console.warn('[WallpaperMac] window rebuild for wallpaper failed:', error && error.message);
+  }
+}
+
 // Coalesce rapid UI toggles into one relaunch. The generation check also prevents a stale
 // handoff request from launching an older mode after the user changes the switch again.
 function scheduleWallpaperModeRelaunch(nextEnabled) {
@@ -634,9 +685,22 @@ let macWallpaperSavedState = null; // { bounds, resizable, movable, maximizable,
 let macWallpaperMouseDownAt = { at: 0, x: 0, y: 0 };
 let macWallpaperPendingDrag = null;
 let macWallpaperDragTimer = null;
+// Deferred-entry state: entering wallpaper mode while the window is in native (Space-based)
+// full screen must wait for the exit animation to land before sinking the window (see
+// deferMacWallpaperEnterUntilFullScreenExit). These timers/flags are single-flight and bounded
+// so they can never reschedule themselves off resize events (that looped once before).
+let macWallpaperPendingEnter = false; // posture deferred until a full-screen exit has landed
+let macWallpaperEnterPollElapsed = 0;
+let macWallpaperEnterPollTimer = null;
+let macWallpaperSettleTimer = null;
+let macWallpaperSettleAttempts = 0;
 const MAC_WALLPAPER_TAP_RETRY_DELAY_MS = 2000;
 const MAC_WALLPAPER_TAP_FAILURE_THRESHOLD = 3;
 const MAC_WALLPAPER_DRAG_FLUSH_MS = 16;
+const MAC_WALLPAPER_FULLSCREEN_EXIT_POLL_MS = 250;
+const MAC_WALLPAPER_FULLSCREEN_EXIT_MAX_WAIT_MS = 6000;
+const MAC_WALLPAPER_FRAME_SETTLE_DELAY_MS = 1000;
+const MAC_WALLPAPER_FRAME_SETTLE_MAX_ATTEMPTS = 4;
 
 function isMacWallpaperMode() {
   return process.platform === 'darwin' && isWallpaperModeEnabled();
@@ -697,7 +761,12 @@ function applyMacAmbientLevel() {
 
 // True full-bleed: a plain setBounds(display.bounds) is clamped to the workArea on macOS, so a
 // menu-bar strip and dock gap would leak the real wallpaper. Simple full screen covers the whole
-// display; the level is re-asserted afterwards because the presentation change rewrites it.
+// display. The caller re-asserts the ambient level afterwards (the presentation change rewrites
+// it). NOTE: simple full screen must be entered FIRST — setBounds(display.bounds) beforehand is
+// clamped by macOS to (0, menuBarHeight, displayW, displayH) (full height, bottom off-screen),
+// and the origin-shift animation into simple full screen can leave the web-contents view offset
+// by the menu-bar height inside the window (measured: the page paints full height, the screen
+// shows an empty menu-bar strip of the desktop behind it).
 function applyMacWallpaperFrame() {
   const controller = getMacWallpaperController();
   if (!controller || !mainWindow || mainWindow.isDestroyed()) {
@@ -710,23 +779,237 @@ function applyMacWallpaperFrame() {
       || current.y !== target.y
       || current.width !== target.width
       || current.height !== target.height;
-    if (frameChanged) {
-      if (isMacSimpleFullScreen(mainWindow)) {
-        mainWindow.setSimpleFullScreen(false);
-      }
-      mainWindow.setBounds(target, false);
-      if (!isMacSimpleFullScreen(mainWindow)) {
-        mainWindow.setSimpleFullScreen(true);
-      }
-    } else if (!isMacSimpleFullScreen(mainWindow)) {
+    if (!isMacSimpleFullScreen(mainWindow)) {
+      // Enters simple full screen in ONE animation straight from the current frame: Electron
+      // frames the window to the full display itself, so no workArea-clamped intermediate
+      // frame exists for the content view to get stuck on.
       mainWindow.setSimpleFullScreen(true);
     }
-    applyMacAmbientLevel();
+    if (frameChanged && isMacSimpleFullScreen(mainWindow)) {
+      // Only reached when the window was somehow already simple-full-screen at the wrong
+      // frame; re-framing it is safe (setBounds is not blocked in simple full screen).
+      mainWindow.setBounds(target, false);
+    }
     return true;
   } catch (error) {
     console.warn('[WallpaperMac] apply wallpaper frame failed:', error && error.message);
     return false;
   }
+}
+
+// Drops every deferred-entry / settle timer the entry may have left behind. Called from the
+// exit path (toggle off, rollback, window closed) so a cancelled entry can never sink the
+// window after the fact.
+function clearMacWallpaperDeferredState() {
+  macWallpaperPendingEnter = false;
+  macWallpaperEnterPollElapsed = 0;
+  if (macWallpaperEnterPollTimer) {
+    clearTimeout(macWallpaperEnterPollTimer);
+    macWallpaperEnterPollTimer = null;
+  }
+  if (macWallpaperSettleTimer) {
+    clearTimeout(macWallpaperSettleTimer);
+    macWallpaperSettleTimer = null;
+  }
+  macWallpaperSettleAttempts = 0;
+}
+
+// One bounded, timer-driven re-assert of the full-bleed frame after the wallpaper posture
+// lands: the simple-full-screen entry animates, and any residual clamping shows up a beat
+// later. Single-flight and capped so it can never loop (a resize-event-driven re-assert was
+// an infinite loop once — never schedule this off events).
+function scheduleMacWallpaperFrameSettleVerify() {
+  if (macWallpaperSettleTimer) {
+    clearTimeout(macWallpaperSettleTimer);
+    macWallpaperSettleTimer = null;
+  }
+  if (macWallpaperSettleAttempts >= MAC_WALLPAPER_FRAME_SETTLE_MAX_ATTEMPTS) {
+    return;
+  }
+  macWallpaperSettleTimer = setTimeout(() => {
+    macWallpaperSettleTimer = null;
+    if (!isMacWallpaperActive || macWallpaperPendingEnter || !mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+    if (mainWindow.isFullScreen()) {
+      return; // a full-screen transition owns the frame; nothing to settle
+    }
+    macWallpaperSettleAttempts += 1;
+    try {
+      const target = screen.getPrimaryDisplay().bounds;
+      const current = mainWindow.getBounds();
+      const frameMatches = current.x === target.x
+        && current.y === target.y
+        && current.width === target.width
+        && current.height === target.height;
+      if (!frameMatches) {
+        applyMacWallpaperFrame(); // no-op when the frame already matches
+        applyMacAmbientLevel(); // the presentation change rewrites the level
+        scheduleMacWallpaperFrameSettleVerify();
+      }
+    } catch (error) {
+      // ignore
+    }
+  }, MAC_WALLPAPER_FRAME_SETTLE_DELAY_MS);
+}
+
+// The wallpaper posture part of the entry: window locks, vibrancy drop, ambient level +
+// full-bleed frame, Dock auto-hide, interaction tap, stored flag + renderer notify. Runs
+// inline for an already-normal window, or exactly once after a full-screen exit has landed
+// (see enterMacWallpaperMode / deferMacWallpaperEnterUntilFullScreenExit) — never while the
+// exit animation is still in flight.
+function applyMacWallpaperPosture(controller) {
+  if (!controller || !isMacWallpaperActive || !mainWindow || mainWindow.isDestroyed()) {
+    return false;
+  }
+  try {
+    if (mainWindow.isFullScreen() || isMacSimpleFullScreen(mainWindow)) {
+      return false; // the full-screen exit has not landed yet; the caller retries later
+    }
+    if (!macWallpaperSavedState) {
+      // Deferred entry: capture the true normal state only now, once the full-screen exit
+      // restored the window's own frame (capturing earlier, while native-fullscreen, records
+      // the full-screen Space frame that exitMacWallpaperMode would then restore).
+      macWallpaperSavedState = {
+        bounds: mainWindow.getBounds(),
+        resizable: mainWindow.isResizable(),
+        movable: mainWindow.isMovable(),
+        maximizable: mainWindow.isMaximizable(),
+        nativeBlurEnabled: store.get('enable_player_page_native_blur') === true,
+      };
+    }
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    }
+    mainWindow.setResizable(false);
+    mainWindow.setMovable(false);
+    // Wallpaper geometry is dictated by the display; stop persisting window bounds while it
+    // spans the screen (same guard the Windows/X11 geometry windows use).
+    mainWindow.__wallpaperGeometry = true;
+    // vibrancy at the desktop layer renders behind the icons (the "wallpaper stuck" AppKit trap);
+    // drop it for the session and restore it on exit if the user had native blur on.
+    if (macWallpaperSavedState.nativeBlurEnabled) {
+      try {
+        mainWindow.setVibrancy(null);
+      } catch (error) {
+        // ignore
+      }
+    }
+    // Enter the full-bleed simple-full-screen frame BEFORE sinking the window: the
+    // all-spaces + FullScreenAuxiliary collection behavior applied by applyMacAmbientLevel
+    // makes macOS treat the window as a full-screen auxiliary surface whose content the
+    // system insets below the menu bar (measured: an empty menu-bar strip on top of the
+    // wallpaper) when it is set while the window is already in simple full screen.
+    applyMacWallpaperFrame();
+    applyMacAmbientLevel();
+    // Hide the Dock while the wallpaper is up when the decision says so (default: only a bottom
+    // Dock, overridable by an explicit user on/off). The window already spans the full display and
+    // a visible Dock draws above it either way.
+    if (shouldMacWallpaperAutohideDock(controller)) {
+      void controller.setDockAutohide(true);
+    }
+    isMacWallpaperInteractionEnabled = store.get(WALLPAPER_FORWARD_MOUSE_SETTING_KEY) !== false;
+    startMacWallpaperInteraction();
+    store.set(WALLPAPER_MODE_SETTING_KEY, true);
+    notifyMacWallpaperModeChanged();
+    scheduleMacWallpaperFrameSettleVerify();
+    return true;
+  } catch (error) {
+    console.warn('[WallpaperMac] enter wallpaper mode failed:', error && error.message);
+    try {
+      exitMacWallpaperMode();
+    } catch (exitError) {
+      // ignore
+    }
+    return false;
+  }
+}
+
+// Entering wallpaper mode while the window is in native (Space-based) full screen used to
+// sink the window while the exit animation was still in flight; Electron's simple-full-screen
+// frame then gets overridden by the tail of the native exit, leaving the window stuck at the
+// visible frame (a menu-bar strip of the real desktop shows through the translucent menu bar)
+// with the simple-full-screen flag already set and no later event to re-assert it — measured
+// on-device. The posture is therefore deferred until the exit has fully landed.
+// 'leave-full-screen' is the primary signal; a bounded poller is the fallback when the event
+// never arrives (e.g. an exit the system cancelled mid-flight).
+function deferMacWallpaperEnterUntilFullScreenExit() {
+  if (!isMacWallpaperActive || !mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  macWallpaperPendingEnter = true;
+  macWallpaperEnterPollElapsed = 0;
+  let leftFullScreenSeen = false;
+  let masksClearSince = 0; // timestamp once both full-screen kinds report off
+  const applyPosture = () => {
+    if (!macWallpaperPendingEnter || !isMacWallpaperActive || !mainWindow || mainWindow.isDestroyed()) {
+      return false;
+    }
+    if (mainWindow.isFullScreen() || isMacSimpleFullScreen(mainWindow)) {
+      return false;
+    }
+    macWallpaperPendingEnter = false;
+    if (macWallpaperEnterPollTimer) {
+      clearTimeout(macWallpaperEnterPollTimer);
+      macWallpaperEnterPollTimer = null;
+    }
+    macWallpaperEnterPollElapsed = 0;
+    const controller = getMacWallpaperController();
+    return applyMacWallpaperPosture(controller);
+  };
+  const onLeftFullScreen = () => {
+    if (!macWallpaperPendingEnter || !mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+    leftFullScreenSeen = true;
+    applyPosture();
+  };
+  mainWindow.once('leave-full-screen', onLeftFullScreen);
+  if (mainWindow.isFullScreen()) {
+    mainWindow.setFullScreen(false);
+  }
+  if (isMacSimpleFullScreen(mainWindow)) {
+    mainWindow.setSimpleFullScreen(false);
+  }
+  const poll = () => {
+    macWallpaperEnterPollTimer = null;
+    if (!macWallpaperPendingEnter || !isMacWallpaperActive || !mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+    const nativeOn = mainWindow.isFullScreen();
+    const simpleOn = isMacSimpleFullScreen(mainWindow);
+    if (nativeOn || simpleOn) {
+      masksClearSince = 0;
+    } else if (masksClearSince === 0) {
+      masksClearSince = Date.now();
+    }
+    // Apply once the exit has fully landed: the leave event, or masks clear AND stable for a
+    // beat (the native exit animation can outlive the mask flip by a few hundred ms — applying
+    // during it is exactly the stuck-frame state this deferral exists to avoid).
+    if (!nativeOn && !simpleOn) {
+      if (leftFullScreenSeen || Date.now() - masksClearSince >= 1000) {
+        applyPosture();
+      }
+    }
+    if (!macWallpaperPendingEnter) {
+      return; // the posture ran (or rolled back); stop polling
+    }
+    macWallpaperEnterPollElapsed += MAC_WALLPAPER_FULLSCREEN_EXIT_POLL_MS;
+    if (macWallpaperEnterPollElapsed >= MAC_WALLPAPER_FULLSCREEN_EXIT_MAX_WAIT_MS) {
+      // The exit never settled: do not sink the window mid-transition (the exact failure this
+      // deferral exists to avoid) — roll the mode back instead of leaving it half-entered.
+      console.warn('[WallpaperMac] full-screen exit did not settle, wallpaper mode rolled back');
+      macWallpaperPendingEnter = false;
+      try {
+        exitMacWallpaperMode();
+      } catch (error) {
+        // ignore
+      }
+      return;
+    }
+    macWallpaperEnterPollTimer = setTimeout(poll, MAC_WALLPAPER_FULLSCREEN_EXIT_POLL_MS);
+  };
+  macWallpaperEnterPollTimer = setTimeout(poll, MAC_WALLPAPER_FULLSCREEN_EXIT_POLL_MS);
 }
 
 function notifyMacWallpaperModeChanged() {
@@ -809,6 +1092,27 @@ function enterMacWallpaperMode() {
         mainWindow.show();
       }
     }
+    // Mark active BEFORE the mutating calls so a mid-setup throw is rolled back by
+    // exitMacWallpaperMode (which clears the flag and restores whatever it can).
+    isMacWallpaperActive = true;
+    setMainWindowClickThroughEnabled(false);
+    // Wallpaper mode owns the z-order (FFI level sink below the icons), so an always-on-top
+    // preference cannot survive the session. Flip the STORED flag only — calling Electron's
+    // setAlwaysOnTop here (or from the tray before the entry) poisons the simple-full-screen
+    // presentation of this window (measured: content presented 33pt low, empty menu-bar
+    // strip above the wallpaper).
+    if (mainWindowAlwaysOnTop) {
+      mainWindowAlwaysOnTop = false;
+      store.set(MAIN_WINDOW_ALWAYS_ON_TOP_SETTING_KEY, false);
+    }
+    if (mainWindow.isFullScreen() || isMacSimpleFullScreen(mainWindow)) {
+      // Leaving native (Space-based) full screen is async, and any geometry we set while the
+      // exit animation is in flight gets overwritten by it — leaving the window stuck at the
+      // visible frame (measured: menu-bar strip of real desktop above the wallpaper, no later
+      // event to re-assert). Defer the whole posture until the exit has fully landed.
+      deferMacWallpaperEnterUntilFullScreenExit();
+      return true;
+    }
     macWallpaperSavedState = {
       bounds: mainWindow.getBounds(),
       resizable: mainWindow.isResizable(),
@@ -816,64 +1120,7 @@ function enterMacWallpaperMode() {
       maximizable: mainWindow.isMaximizable(),
       nativeBlurEnabled: store.get('enable_player_page_native_blur') === true,
     };
-    // Mark active BEFORE the mutating calls so a mid-setup throw is rolled back by
-    // exitMacWallpaperMode (which clears the flag and restores whatever it can).
-    isMacWallpaperActive = true;
-    setMainWindowClickThroughEnabled(false);
-    if (mainWindow.isFullScreen()) {
-      // Leaving native (Space-based) full screen is async; the level/geometry we set now can be
-      // rewritten by the exit animation, so re-assert the ambient posture once it has landed.
-      const finishAfterFullScreenExit = () => {
-        if (!isMacWallpaperActive || !mainWindow || mainWindow.isDestroyed()) {
-          return;
-        }
-        applyMacAmbientLevel();
-        applyMacWallpaperFrame();
-      };
-      mainWindow.once('leave-full-screen', finishAfterFullScreenExit);
-      // Safety: if the leave event never fires (e.g. the animation was cancelled), do not leak
-      // the listener holding the window open.
-      const fullScreenExitTimeout = setTimeout(() => {
-        mainWindow.removeListener('leave-full-screen', finishAfterFullScreenExit);
-      }, 8000);
-      if (typeof fullScreenExitTimeout?.unref === 'function') {
-        fullScreenExitTimeout.unref();
-      }
-      mainWindow.setFullScreen(false);
-    }
-    if (isMacSimpleFullScreen(mainWindow)) {
-      mainWindow.setSimpleFullScreen(false);
-    }
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
-    }
-    mainWindow.setResizable(false);
-    mainWindow.setMovable(false);
-    // Wallpaper geometry is dictated by the display; stop persisting window bounds while it spans
-    // the screen (same guard the Windows/X11 geometry windows use).
-    mainWindow.__wallpaperGeometry = true;
-    // vibrancy at the desktop layer renders behind the icons (the "wallpaper stuck" AppKit trap);
-    // drop it for the session and restore it on exit if the user had native blur on.
-    if (macWallpaperSavedState.nativeBlurEnabled) {
-      try {
-        mainWindow.setVibrancy(null);
-      } catch (error) {
-        // ignore
-      }
-    }
-    applyMacAmbientLevel();
-    applyMacWallpaperFrame();
-    // Hide the Dock while the wallpaper is up when the decision says so (default: only a bottom
-    // Dock, overridable by an explicit user on/off). The window already spans the full display and
-    // a visible Dock draws above it either way.
-    if (shouldMacWallpaperAutohideDock(controller)) {
-      void controller.setDockAutohide(true);
-    }
-    isMacWallpaperInteractionEnabled = store.get(WALLPAPER_FORWARD_MOUSE_SETTING_KEY) !== false;
-    startMacWallpaperInteraction();
-    store.set(WALLPAPER_MODE_SETTING_KEY, true);
-    notifyMacWallpaperModeChanged();
-    return true;
+    return applyMacWallpaperPosture(controller);
   } catch (error) {
     console.warn('[WallpaperMac] enter wallpaper mode failed:', error && error.message);
     try {
@@ -881,6 +1128,26 @@ function enterMacWallpaperMode() {
     } catch (exitError) {
       // ignore
     }
+    return false;
+  }
+}
+
+// Electron's simple-full-screen entry sets APP-LEVEL AutoHideDock|AutoHideMenuBar options
+// (they apply whenever this app is frontmost) and its exit restores the value captured at
+// entry. When a window is destroyed while still in simple full screen (window close /
+// transparent-toggle rebuild), no exit runs and the bits survive; the next session then
+// captures them as "the value to restore", stranding macOS in auto-hide every time this app
+// is focused. After every wallpaper teardown, clear exactly those two bits. Only ever called
+// once the window is restored/gone — never during a full-screen transition, and never with
+// the FullScreen bit (clearing that mid-transition made an earlier fix loop).
+function clearMacWallpaperAutoHideLeftovers() {
+  const controller = getMacWallpaperController();
+  if (!controller || typeof controller.clearAutoHidePresentationOptions !== 'function') {
+    return false;
+  }
+  try {
+    return controller.clearAutoHidePresentationOptions();
+  } catch (error) {
     return false;
   }
 }
@@ -902,6 +1169,9 @@ function exitMacWallpaperMode() {
   macWallpaperPendingDrag = null;
   isMacWallpaperInteractionEnabled = false;
   macWallpaperTapFailures = 0;
+  // A deferred entry (full-screen exit still in flight) must not sink the window after a
+  // toggle-off / rollback / window close; stop its timers and pending latch.
+  clearMacWallpaperDeferredState();
   if (controller) {
     try {
       controller.stop();
@@ -922,9 +1192,13 @@ function exitMacWallpaperMode() {
       store.set(WALLPAPER_MODE_SETTING_KEY, false);
       notifyMacWallpaperModeChanged();
     }
+    // A destroyed window never ran Electron's simple-full-screen exit, so the app-level
+    // AutoHide bits it set on entry survive unless cleared here.
+    clearMacWallpaperAutoHideLeftovers();
     return wasActive;
   }
   if (!wasActive) {
+    clearMacWallpaperAutoHideLeftovers();
     return false;
   }
   try {
@@ -941,7 +1215,45 @@ function exitMacWallpaperMode() {
     } catch (error) {
       // ignore
     }
+    // Resolve the frame to restore BEFORE leaving simple full screen: Electron's simple-full-
+    // screen exit animates the window back to the frame that was current when it ENTERED —
+    // which is the clamped pre-wallpaper display frame (setBounds is clamped to the workArea
+    // on macOS), not the user's window. Restoring the bounds after the exit call races and
+    // loses to that animation, leaving the window at the clamped full-display frame (measured
+    // on-device: (0, menuBarHeight, displayW, displayH) — bottom off-screen). Pointing the
+    // exit at the real restore frame first (setBounds updates Electron's recorded original
+    // frame) makes the exit animation land exactly there.
+    let macWallpaperRestoreBounds = null;
+    if (macWallpaperSavedState && macWallpaperSavedState.bounds) {
+      // Entering wallpaper from native full screen records the full-display frame; macOS
+      // restores the real pre-fullscreen frame only for the window itself, so fall back to the
+      // persisted normal bounds when the saved frame looks like a full-display rect.
+      macWallpaperRestoreBounds = macWallpaperSavedState.bounds;
+      try {
+        const displayBounds = screen.getPrimaryDisplay().bounds;
+        const looksLikeFullDisplay = macWallpaperRestoreBounds.x === displayBounds.x
+          && macWallpaperRestoreBounds.y === displayBounds.y
+          && macWallpaperRestoreBounds.width === displayBounds.width
+          && macWallpaperRestoreBounds.height === displayBounds.height;
+        if (looksLikeFullDisplay) {
+          const storedNormal = getStoredWindowState();
+          if (storedNormal.bounds && !storedNormal.isMaximized) {
+            macWallpaperRestoreBounds = storedNormal.bounds;
+          }
+        }
+      } catch (error) {
+        // ignore
+      }
+    }
     if (isMacSimpleFullScreen(mainWindow)) {
+      if (macWallpaperRestoreBounds) {
+        try {
+          // Updates Electron's recorded original frame so its exit animation lands here.
+          mainWindow.setBounds(macWallpaperRestoreBounds, false);
+        } catch (error) {
+          // ignore
+        }
+      }
       try {
         mainWindow.setSimpleFullScreen(false);
       } catch (error) {
@@ -966,28 +1278,6 @@ function exitMacWallpaperMode() {
           // ignore
         }
       }
-      if (macWallpaperSavedState.bounds) {
-        // Entering wallpaper from native full screen records the full-display frame; macOS
-        // restores the real pre-fullscreen frame only for the window itself, so fall back to the
-        // persisted normal bounds when the saved frame looks like a full-display rect.
-        let restoreBounds = macWallpaperSavedState.bounds;
-        try {
-          const displayBounds = screen.getPrimaryDisplay().bounds;
-          const looksLikeFullDisplay = restoreBounds.x === displayBounds.x
-            && restoreBounds.y === displayBounds.y
-            && restoreBounds.width === displayBounds.width
-            && restoreBounds.height === displayBounds.height;
-          if (looksLikeFullDisplay) {
-            const storedNormal = getStoredWindowState();
-            if (storedNormal.bounds && !storedNormal.isMaximized) {
-              restoreBounds = storedNormal.bounds;
-            }
-          }
-        } catch (error) {
-          // ignore
-        }
-        mainWindow.setBounds(restoreBounds, false);
-      }
     } else {
       mainWindow.setResizable(true);
       mainWindow.setMovable(true);
@@ -996,6 +1286,9 @@ function exitMacWallpaperMode() {
       } catch (error) {
         // ignore
       }
+    }
+    if (macWallpaperRestoreBounds) {
+      mainWindow.setBounds(macWallpaperRestoreBounds, false);
     }
     // Restore the geometry guard only after the saved bounds are back, so the restore-induced
     // move/resize events cannot persist an intermediate geometry.
@@ -1008,6 +1301,9 @@ function exitMacWallpaperMode() {
     macWallpaperSavedState = null;
     store.set(WALLPAPER_MODE_SETTING_KEY, false);
     notifyMacWallpaperModeChanged();
+    // Runs after Electron's simple-full-screen exit restored its (possibly stale) capture;
+    // this is the last word on the app-level AutoHide bits.
+    clearMacWallpaperAutoHideLeftovers();
   }
   return true;
 }
@@ -1035,6 +1331,9 @@ function rebindMacWallpaperSessionToCurrentWindow() {
     macWallpaperDragTimer = null;
   }
   macWallpaperPendingDrag = null;
+  // The replacement window starts clean; drop any deferred-entry/settle timers the destroyed
+  // window's session may still carry.
+  clearMacWallpaperDeferredState();
   try {
     if (mainWindow.isMinimized()) {
       mainWindow.restore();
@@ -1075,14 +1374,16 @@ function rebindMacWallpaperSessionToCurrentWindow() {
         // ignore
       }
     }
-    applyMacAmbientLevel();
+    // Frame first, then ambient — same order the posture uses (see applyMacWallpaperPosture).
     applyMacWallpaperFrame();
+    applyMacAmbientLevel();
     if (shouldMacWallpaperAutohideDock(controller)) {
       void controller.setDockAutohide(true);
     }
     // Re-arm the tap against the replacement window. When interactivity was already disabled
     // this degrades gracefully instead of failing the rebind.
     startMacWallpaperInteraction();
+    scheduleMacWallpaperFrameSettleVerify();
     return true;
   } catch (error) {
     console.warn('[WallpaperMac] re-sink wallpaper after window swap failed:', error && error.message);
@@ -1351,6 +1652,10 @@ const mainLocale = {
     dialogImportMessage: '不能直接导入系统目录或常用用户目录。\n请选择一个专门存放音乐的文件夹。',
     dialogChooseOther: '选择其他文件夹',
     dialogCancel: '取消',
+    crashTitle: 'Folia 遇到了问题',
+    crashMessage: '程序发生了一次崩溃，日志已保存。把它发给开发者能帮助定位问题。',
+    crashOpenFolder: '打开日志所在文件夹',
+    crashClose: '关闭',
   },
   en: {
     trayShowWindow: 'Show Window',
@@ -1368,6 +1673,10 @@ const mainLocale = {
     dialogImportMessage: 'Cannot directly import system or common user directories.\nPlease choose a dedicated music folder.',
     dialogChooseOther: 'Choose Another Folder',
     dialogCancel: 'Cancel',
+    crashTitle: 'Folia ran into a problem',
+    crashMessage: 'The app crashed and a log has been saved. Sending it to the developer helps track the problem down.',
+    crashOpenFolder: 'Open Log Folder',
+    crashClose: 'Close',
   },
   in: {
     trayShowWindow: 'Tampilkan Jendela',
@@ -1385,6 +1694,10 @@ const mainLocale = {
     dialogImportMessage: 'Folder sistem atau folder pengguna umum tidak dapat diimpor langsung.\nPilih folder khusus untuk menyimpan musik.',
     dialogChooseOther: 'Pilih Folder Lain',
     dialogCancel: 'Batal',
+    crashTitle: 'Folia mengalami masalah',
+    crashMessage: 'Aplikasi mengalami crash dan log telah disimpan. Mengirimkannya ke pengembang membantu menemukan masalahnya.',
+    crashOpenFolder: 'Buka Folder Log',
+    crashClose: 'Tutup',
   },
 };
 
@@ -1452,6 +1765,26 @@ function getMainLocaleKey() {
 function getMainLocale() {
   return mainLocale[getMainLocaleKey()];
 }
+
+// Crash reporting. Installed here rather than at the end of the file because everything below it
+// runs before `ready`, and a startup failure is exactly the crash a user cannot diagnose alone.
+// Writes to `logs` beside the executable where that is writable — see resolveCrashLogDir for the
+// platforms where it is not, and where the reports land instead.
+const crashLog = createCrashLog({
+  app,
+  dialog,
+  shell,
+  getLocale: getMainLocale,
+  onLine: runtimeLine,
+});
+installCrashHandlers({
+  app,
+  crashLog,
+  // 壁纸模式对渲染进程崩溃有自己的恢复路径：Linux 的 windowtolayer watchdog 会重启进程回到普通
+  // 窗口，Windows / macOS 就地 reload 页面。两处都只认 reason === 'crashed'，这里跟着它们走。
+  // 崩溃文件照写，只是不弹窗——桌面正在自己恢复，弹出来的框用户除了关掉别无选择。
+  isRendererCrashRecovered: (details) => details?.reason === 'crashed' && isWallpaperModeEnabled(),
+});
 
 
 let mainWindow = null;
@@ -2102,6 +2435,11 @@ function applyMainWindowAlwaysOnTop() {
   }
 
   mainWindow.setAlwaysOnTop(mainWindowAlwaysOnTop, 'screen-saver');
+  // Electron's setAlwaysOnTop poisons this window's later simple-full-screen presentation
+  // (measured on-device: content presented 33pt below the window top, empty menu-bar strip
+  // above the wallpaper — sticky for the life of the window). Mark it so the mac wallpaper
+  // entry rebuilds the window instead of sinking a poisoned one.
+  mainWindow.__macAlwaysOnTopElectronTouched = true;
   if (mainWindowAlwaysOnTop && typeof mainWindow.moveTop === 'function') {
     mainWindow.moveTop();
   }
@@ -2244,10 +2582,11 @@ function refreshTrayMenu() {
       checked: isWallpaperModeEnabled(),
       click: () => {
         const nextEnabled = !isWallpaperModeEnabled();
-        if (nextEnabled) {
-          setMainWindowClickThroughEnabled(false);
-          setMainWindowAlwaysOnTop(false);
-        }
+        // NOTE: no Electron window calls here. Calling setAlwaysOnTop/setIgnoreMouseEvents
+        // on the window right before the entry poisons the upcoming simple-full-screen
+        // presentation (measured on-device: the content is presented 33pt low, leaving an
+        // empty menu-bar strip above the wallpaper). The wallpaper entry asserts click-
+        // through and the always-on-top state itself (state-only flip + level sink).
         store.set(WALLPAPER_MODE_SETTING_KEY, nextEnabled);
         refreshTrayMenu();
         scheduleWallpaperModeRelaunch(nextEnabled);
@@ -2760,9 +3099,6 @@ function normalizeUpdateChannelSelection(value) {
 }
 
 function getUpdateCheckSupportReason() {
-  if (process.platform !== 'win32') {
-    return 'system';
-  }
   return getCurrentReleaseChannel().updateEnabled ? null : 'channel';
 }
 
@@ -2788,11 +3124,23 @@ function getDevUpdatePreviewVersion() {
 
 function isAutoUpdaterSupported() {
   return (
+    process.platform === 'win32' &&
     isUpdateCheckSupported() &&
     app.isPackaged &&
     process.env.ELECTRON_DEV !== 'true' &&
     process.env.NODE_ENV !== 'development'
   );
+}
+
+function getAutoUpdateSupportReason() {
+  if (!getCurrentReleaseChannel().updateEnabled) {
+    return 'channel';
+  }
+  return process.platform === 'win32' ? null : 'system';
+}
+
+function isPackagedUpdateRuntime() {
+  return app.isPackaged && process.env.ELECTRON_DEV !== 'true' && process.env.NODE_ENV !== 'development';
 }
 
 const updateState = {
@@ -2817,6 +3165,8 @@ function getUpdateStatus() {
     platform: process.platform,
     updateCheckEnabled: getUpdateCheckEnabled(),
     autoUpdateEnabled: getAutoUpdateEnabled(),
+    autoUpdateSupported: isDevPreview || isAutoUpdaterSupported(),
+    autoUpdateSupportReason: isDevPreview ? null : getAutoUpdateSupportReason(),
     lastSeenVersion: store.get(LAST_SEEN_UPDATE_VERSION_SETTING_KEY) || null,
     updateSeen: Boolean(
       availableVersion &&
@@ -3006,9 +3356,13 @@ async function checkForUpdates({ manual = false } = {}) {
     return getUpdateStatus();
   }
 
-  if (!isAutoUpdaterSupported()) {
+  if (!isPackagedUpdateRuntime()) {
     setUpdateState({ status: 'idle', error: null, downloadProgress: null });
     return getUpdateStatus();
+  }
+
+  if (!isAutoUpdaterSupported()) {
+    return checkForManualUpdateAvailability();
   }
 
   try {
@@ -3026,6 +3380,66 @@ async function checkForUpdates({ manual = false } = {}) {
       lastCheckedAt: Date.now(),
       downloadProgress: null,
     });
+  }
+
+  return getUpdateStatus();
+}
+
+async function checkForManualUpdateAvailability() {
+  const releaseChannel = getCurrentReleaseChannel();
+  const discovery = getUpdateDiscoveryConfig(releaseChannel, FOLIA_GITHUB_REPOSITORY);
+  if (!discovery) {
+    setUpdateState({ status: 'unsupported', error: null, availableVersion: null, downloadProgress: null });
+    return getUpdateStatus();
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  setUpdateState({ status: 'checking', error: null, downloadProgress: null });
+
+  try {
+    // Keep the startup check off the app's default session so refreshing proxy state cannot
+    // interrupt playback, provider requests, or other live connections.
+    const ses = session.fromPartition('folia-update-check');
+    await ses.setProxy({ mode: 'system' });
+    await ses.forceReloadProxyConfig();
+    const response = await ses.fetch(discovery.url, {
+      headers: {
+        Accept: 'text/yaml, text/plain',
+        'User-Agent': `Folia/${app.getVersion()}`,
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Update metadata request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const metadata = await response.text();
+    const latestVersion = parseUpdateMetadataVersion(metadata);
+    if (!latestVersion) {
+      throw new Error('Update metadata did not include a version.');
+    }
+
+    const hasUpdate = compareVersions(latestVersion, app.getVersion()) > 0;
+    setUpdateState({
+      status: hasUpdate ? 'available' : 'latest',
+      availableVersion: hasUpdate ? latestVersion : null,
+      updateUrl: hasUpdate
+        ? getReleaseUrl(releaseChannel.id, latestVersion, FOLIA_RELEASES_URL)
+        : FOLIA_RELEASES_URL,
+      error: null,
+      lastCheckedAt: Date.now(),
+      downloadProgress: null,
+    });
+  } catch (error) {
+    setUpdateState({
+      status: 'error',
+      error: error instanceof Error ? error.message : String(error),
+      lastCheckedAt: Date.now(),
+      downloadProgress: null,
+    });
+  } finally {
+    clearTimeout(timeout);
   }
 
   return getUpdateStatus();
@@ -3077,7 +3491,7 @@ function scheduleStartupUpdateCheck() {
     return;
   }
 
-  if (!isAutoUpdaterSupported()) {
+  if (!isPackagedUpdateRuntime()) {
     setUpdateState({ status: 'idle', error: null });
     return;
   }
@@ -3412,31 +3826,62 @@ async function readAudioCacheEntry(cacheKey) {
 }
 
 /**
- * Drops the least recently played files until the cache fits under `limitBytes`.
- *
- * Run after every write, which is the only moment the cache can grow, so there is nowhere for it
- * to exceed the ceiling unobserved. Which files go is decided in audioCachePrune.cjs.
+ * Lists original cached files for shared pruning and storage statistics.
  */
-async function pruneAudioCache(limitBytes) {
-  if (resolveCacheLimit(limitBytes) === Infinity) return;
-
+async function listAudioCacheEntries() {
   const audioDirectory = getAudioCacheDirectory();
   try {
     const names = (await fsp.readdir(audioDirectory)).filter((name) => name.endsWith('.bin'));
-    const entries = await Promise.all(names.map(async (name) => {
+    return Promise.all(names.map(async (name) => {
       const stat = await fsp.stat(path.join(audioDirectory, name));
       return { name, size: stat.size, usedAt: stat.mtimeMs };
     }));
+  } catch {
+    return [];
+  }
+}
 
-    for (const name of selectEvictions(entries, limitBytes)) {
-      const base = path.join(audioDirectory, name.replace(/\.bin$/, ''));
-      await Promise.allSettled([
-        fsp.rm(`${base}.bin`, { force: true }),
-        fsp.rm(`${base}.json`, { force: true }),
-      ]);
+async function removeAudioCacheEntry(name) {
+  if (!/^[a-zA-Z0-9_-]+\.bin$/.test(String(name || ''))) return;
+  const base = path.join(getAudioCacheDirectory(), name.replace(/\.bin$/, ''));
+  await Promise.allSettled([
+    fsp.rm(`${base}.bin`, { force: true }),
+    fsp.rm(`${base}.json`, { force: true }),
+  ]);
+}
+
+/** Prunes original and transcoded audio as one media-cache budget. */
+async function pruneMediaCache(limitBytes, protectedTranscodeEntry = null) {
+  const resolvedLimit = resolveCacheLimit(limitBytes);
+  if (resolvedLimit === Infinity) return;
+
+  try {
+    const [audioEntries, transcodeEntries] = await Promise.all([
+      listAudioCacheEntries(),
+      transcodeService.listCacheEntries(),
+    ]);
+    let entries = [
+      ...audioEntries.map(entry => ({ ...entry, name: `audio:${entry.name}` })),
+      ...transcodeEntries.map(entry => ({ ...entry, name: `transcode:${entry.name}` })),
+    ];
+    // Entries the renderer is streaming are unevictable but still spend the budget: a fully
+    // buffered media element stops touching its file, so LRU alone would drop it mid-playback.
+    const protectedNames = new Set(transcodeService.getPinnedCacheKeys().map(key => `transcode:${key}`));
+    if (protectedTranscodeEntry) protectedNames.add(`transcode:${protectedTranscodeEntry.cacheKey}`);
+    const protectedEntries = entries.filter(entry => protectedNames.has(entry.name));
+    let protectedBytes = protectedEntries.reduce((total, entry) => total + entry.size, 0);
+    if (protectedTranscodeEntry && !protectedEntries.some(entry => entry.name === `transcode:${protectedTranscodeEntry.cacheKey}`)) {
+      protectedBytes += protectedTranscodeEntry.size;
+    }
+    entries = entries.filter(entry => !protectedNames.has(entry.name));
+    const effectiveLimit = protectedBytes > 0 ? Math.max(1, resolvedLimit - protectedBytes) : resolvedLimit;
+
+    for (const name of selectEvictions(entries, effectiveLimit)) {
+      if (name.startsWith('audio:')) await removeAudioCacheEntry(name.slice('audio:'.length));
+      else if (name.startsWith('transcode:')) await transcodeService.removeCacheEntry(name.slice('transcode:'.length));
     }
   } catch (error) {
-    console.warn('[AudioCache] Failed to prune cache directory', error);
+    console.warn('[AudioCache] Failed to prune media cache directories', error);
   }
 }
 
@@ -3458,52 +3903,32 @@ async function writeAudioCacheEntry(cacheKey, data, mimeType, limitBytes) {
     }), 'utf-8'),
   ]);
 
-  await pruneAudioCache(limitBytes);
+  await pruneMediaCache(limitBytes);
 }
 
 async function getAudioCacheUsageBytes() {
-  const audioDirectory = getAudioCacheDirectory();
-
   try {
-    const entries = await fsp.readdir(audioDirectory, { withFileTypes: true });
-    let total = 0;
-
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.bin')) {
-        continue;
-      }
-
-      const stat = await fsp.stat(path.join(audioDirectory, entry.name));
-      total += stat.size;
-    }
-
-    return total;
+    const [audioEntries, transcodeEntries] = await Promise.all([
+      listAudioCacheEntries(),
+      transcodeService.listCacheEntries(),
+    ]);
+    return [...audioEntries, ...transcodeEntries].reduce((total, entry) => total + entry.size, 0);
   } catch {
     return 0;
   }
 }
 
 async function getAudioCacheStats() {
-  const audioDirectory = getAudioCacheDirectory();
-
   try {
-    const entries = await fsp.readdir(audioDirectory, { withFileTypes: true });
-    let totalSize = 0;
-    let totalCount = 0;
-
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.bin')) {
-        continue;
-      }
-
-      const stat = await fsp.stat(path.join(audioDirectory, entry.name));
-      totalSize += stat.size;
-      totalCount += 1;
-    }
+    const [audioEntries, transcodeEntries] = await Promise.all([
+      listAudioCacheEntries(),
+      transcodeService.listCacheEntries(),
+    ]);
+    const entries = [...audioEntries, ...transcodeEntries];
 
     return {
-      size: totalSize,
-      count: totalCount,
+      size: entries.reduce((total, entry) => total + entry.size, 0),
+      count: entries.length,
     };
   } catch {
     return {
@@ -3515,7 +3940,10 @@ async function getAudioCacheStats() {
 
 async function clearAudioCacheDirectory() {
   try {
-    await fsp.rm(getAudioCacheDirectory(), { recursive: true, force: true });
+    await Promise.all([
+      fsp.rm(getAudioCacheDirectory(), { recursive: true, force: true }),
+      transcodeService.clearCache(),
+    ]);
   } catch (error) {
     console.warn('[AudioCache] Failed to clear cache directory', error);
   }
@@ -4810,6 +5238,13 @@ app.whenReady().then(async () => {
   setupFileSystemAccessPermissionHandlers();
   setupCorsBypassHandlers();
   localCoverAssetStore.registerProtocolHandler(protocol, electronNet);
+  // Transcode fallback is an optional degradation path; a failure preparing it must never keep
+  // the rest of this handler, createWindow() included, from running.
+  try {
+    await transcodeService.initialize();
+  } catch (error) {
+    console.warn('[TranscodeFallback] Initialization failed; playback fallback is unavailable', error);
+  }
 
   session.defaultSession.on('file-system-access-restricted', (event, details, callback) => {
     if (details.isDirectory) {
@@ -4952,8 +5387,10 @@ app.whenReady().then(async () => {
       }
       macWallpaperGeometryTimer = setTimeout(() => {
         macWallpaperGeometryTimer = null;
-        if (isMacWallpaperActive && mainWindow && !mainWindow.isDestroyed()) {
+        // A deferred entry owns the frame until the full-screen exit lands; do not race it.
+        if (isMacWallpaperActive && !macWallpaperPendingEnter && mainWindow && !mainWindow.isDestroyed()) {
           applyMacWallpaperFrame();
+          applyMacAmbientLevel();
         }
       }, 200);
     };
@@ -5022,6 +5459,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  transcodeService.dispose();
   isAppQuitting = true;
   clearPendingWindowPlaybackHandoffRequests();
   if (modSystem) {
@@ -5270,7 +5708,7 @@ ipcMain.handle('save-settings', (event, key, value) => {
       downloadProgress: null,
     });
 
-    if (getUpdateCheckEnabled() && isAutoUpdaterSupported()) {
+    if (getUpdateCheckEnabled() && isPackagedUpdateRuntime() && isUpdateCheckSupported()) {
       checkForUpdates().catch((error) => {
         setUpdateState({
           status: 'error',
@@ -5485,6 +5923,14 @@ ipcMain.handle('get-audio-cache-stats', async () => {
 ipcMain.handle('clear-audio-cache', async () => {
   await clearAudioCacheDirectory();
   return true;
+});
+
+ipcMain.handle('transcode-fallback-request', async (_event, request) => {
+  return transcodeService.request(request);
+});
+
+ipcMain.handle('transcode-fallback-cancel', (_event, requestId) => {
+  return transcodeService.cancel(requestId);
 });
 
 ipcMain.handle('get-cover-cache', async (event, cacheKey) => {

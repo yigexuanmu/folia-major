@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
-import { motion, useMotionValueEvent } from 'framer-motion';
+import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft } from 'lucide-react';
 import { loadCachedOrFetchCover } from './services/coverCache';
@@ -19,7 +19,11 @@ import AutomixModelReminder from './components/modal/AutomixModelReminder';
 // Lazy so animejs (~38KB gz) stays out of the bootstrap chunk: this overlay only ever draws when the
 // animation switch is on AND the mode is automix, both off by default, so it is mounted only then.
 const AutomixTransitionAnimation = lazy(() => import('./components/app/overlays/AutomixTransitionAnimation'));
+const Lattice = lazy(() => import('./components/app/lattice/Lattice'));
 import { UserGuideModal } from './components/modal/UserGuideModal';
+import { PlaybackEntryViewPrompt } from './components/modal/playback-entry-view/PlaybackEntryViewPrompt';
+import { LatticeFmNotice } from './components/modal/playback-entry-view/LatticeFmNotice';
+import { usePlaybackEntryViewPromptGate } from './hooks/usePlaybackEntryViewPromptGate';
 import { USER_GUIDE_AUTO_OPEN_VERSION } from './components/modal/userGuideContent';
 import { useAppDialogsModel } from './components/app/dialogs/useAppDialogsModel';
 import { useHomeModel } from './components/app/home/useHomeModel';
@@ -40,6 +44,7 @@ import { createOnlineRecoveryController } from './components/app/playback/create
 import { persistPlaybackCache } from './components/app/playback/persistPlaybackCache';
 import { useAppOverlaysModel } from './components/app/overlays/useAppOverlaysModel';
 import { resolveNextUpTrack } from './components/app/overlays/now-playing-toast/resolveNextUpTrack';
+import { shouldShowNowPlayingToast } from './components/app/overlays/now-playing-toast/nowPlayingToastVisibility';
 import {
     createSearchAlbumCollection,
     createSearchArtistCollection,
@@ -64,11 +69,13 @@ import { useElectronPlaybackBridge } from './hooks/useElectronPlaybackBridge';
 import { useElectronDisplaySleepBlocker } from './hooks/useElectronDisplaySleepBlocker';
 import { useSleepTimer } from './hooks/useSleepTimer';
 import { useElectronNeteaseApiStatus } from './hooks/useElectronNeteaseApiStatus';
+import { useLocalLibraryAutoScan } from './hooks/useLocalLibraryAutoScan';
 import { useElectronVideoExportController } from './hooks/useElectronVideoExportController';
 import { useElectronWindowPlaybackHandoff } from './hooks/useElectronWindowPlaybackHandoff';
 import { useMediaSessionBridge } from './hooks/useMediaSessionBridge';
 import { usePlayerChromeAutoHide } from './hooks/usePlayerChromeAutoHide';
 import { usePlaybackAudioBridge } from './hooks/usePlaybackAudioBridge';
+import { useTranscodeFallback } from './hooks/useTranscodeFallback';
 import { useAutomixDecks, type AutomixDeckId } from './services/automix/useAutomixDecks';
 import { usePlaybackInteractionBridge } from './hooks/usePlaybackInteractionBridge';
 import { usePersonalFmModeController } from './hooks/usePersonalFmModeController';
@@ -76,6 +83,7 @@ import { PERSONAL_FM_MODE_COMMAND_ID } from './components/command-palette/comman
 import { usePlaybackUiEffects } from './hooks/usePlaybackUiEffects';
 import { useLibraryPlaybackController } from './hooks/useLibraryPlaybackController';
 import { useNavidromeScrobbleReporter } from './hooks/useNavidromeScrobbleReporter';
+import { useNeteaseScrobbleReporter } from './hooks/useNeteaseScrobbleReporter';
 import { usePlaybackQueueController } from './hooks/usePlaybackQueueController';
 import { usePlaybackTransportController } from './hooks/usePlaybackTransportController';
 import { useLocalLibraryCatalog } from './hooks/useLocalLibraryCatalog';
@@ -231,6 +239,8 @@ export default function App() {
     // UI State
     const statusMsg = useStatusMessage();
     useElectronNeteaseApiStatus(t);
+    // Watches the imported local folders and rescans them when their contents change.
+    useLocalLibraryAutoScan();
 
     // Auto-close the player panel when leaving the player view
     // (Effect moved to after useAppNavigation where currentView is defined)
@@ -277,6 +287,8 @@ export default function App() {
             setLastSeenGuideVersion(__APP_VERSION__);
         }
     }, [lastSeenGuideVersion, setLastSeenGuideVersion, setIsUserGuideModalOpen]);
+
+    usePlaybackEntryViewPromptGate();
 
     useEffect(() => initializeSyncCoordinator(), []);
 
@@ -425,11 +437,13 @@ export default function App() {
     const {
         globalLyricTimelineOffsetMs,
         lyricFilterPattern,
+        lyricFilterEnabled,
         lyricStaffPolicy,
         lyricStaffMinDwellSeconds,
         lyricStaffAbsorbMode,
         lyricStaffPattern,
         handleSetLyricFilterPattern,
+        handleSetLyricFilterEnabled,
         handleSetLyricStaffPolicy,
         handleSetLyricStaffMinDwellSeconds,
         handleSetLyricStaffAbsorbMode,
@@ -476,13 +490,13 @@ export default function App() {
     });
 
     const setLyrics = useMemo(
-        () => createLyricsSetter(setLyricsState, lyricFilterPattern, currentSongFullRef, {
+        () => createLyricsSetter(setLyricsState, lyricFilterEnabled ? lyricFilterPattern : '', currentSongFullRef, {
             policy: lyricStaffPolicy,
             minDwellSeconds: lyricStaffMinDwellSeconds,
             absorbMode: lyricStaffAbsorbMode,
             pattern: lyricStaffPattern,
         }),
-        [lyricFilterPattern, lyricStaffPolicy, lyricStaffMinDwellSeconds, lyricStaffAbsorbMode, lyricStaffPattern],
+        [lyricFilterEnabled, lyricFilterPattern, lyricStaffPolicy, lyricStaffMinDwellSeconds, lyricStaffAbsorbMode, lyricStaffPattern],
     );
     // 保存过滤设置后要用新设置重新铺一遍当前歌词，而此时闭包里的 setLyrics 还是旧的。
     const setLyricsRef = useRef(setLyrics);
@@ -648,7 +662,11 @@ export default function App() {
         localMusicState,
         setLocalMusicState,
         navigateToPlayer,
+        navigateToPlaybackView,
+        navigateFromPlayerCapsule,
         navigateToHome,
+        navigateToLattice,
+        navigateBackFromLattice,
         navigateBackFromPlayer,
         navigateDirectHome,
         navigateToSearch,
@@ -657,6 +675,12 @@ export default function App() {
         pushCollection,
         backCollection,
     } = useAppNavigation();
+    const reduceLatticeMotion = useReducedMotion();
+    const [hasLatticeExited, setHasLatticeExited] = useState(currentView !== 'lattice');
+
+    useEffect(() => {
+        if (currentView === 'lattice') setHasLatticeExited(false);
+    }, [currentView]);
 
     usePlayerBottomBarOffset(playerBottomBarOffset);
     usePlayerBottomBarPositioningEntry(navigateToPlayer);
@@ -946,7 +970,7 @@ export default function App() {
         setLyrics,
         setIsLyricsLoading,
         setLikedSongIds,
-        navigateToPlayer,
+        navigateToPlaybackView,
         persistLastPlaybackCache,
         restoreCachedThemeForSong,
         interruptStagePlaybackForMainTransition,
@@ -976,8 +1000,9 @@ export default function App() {
         [navigateToCollection],
     );
     const handleSaveLyricFilterPattern = useMemo(() => createLyricFilterPatternSaver({
-        currentPattern: lyricFilterPattern,
+        currentEffectivePattern: lyricFilterEnabled ? lyricFilterPattern : '',
         handleSetLyricFilterPattern,
+        handleSetLyricFilterEnabled,
         handleSetLyricStaffPolicy,
         handleSetLyricStaffMinDwellSeconds,
         handleSetLyricStaffAbsorbMode,
@@ -986,7 +1011,9 @@ export default function App() {
         setLyrics: setLyricsStable,
     }), [
         lyricFilterPattern,
+        lyricFilterEnabled,
         handleSetLyricFilterPattern,
+        handleSetLyricFilterEnabled,
         handleSetLyricStaffPolicy,
         handleSetLyricStaffMinDwellSeconds,
         handleSetLyricStaffPattern,
@@ -1035,12 +1062,13 @@ export default function App() {
         clearQueue,
     } = usePlaybackQueueController({
         isNowPlayingStageActive,
+        shouldNavigateToPlayerOnTrackChange: currentView !== 'lattice',
         localSongs,
         localLibraryCatalog,
         userId: user?.id,
         setLyrics,
         setIsLyricsLoading,
-        navigateToPlayer,
+        navigateToPlaybackView,
         navigateToSearch,
         persistLastPlaybackCache,
         restoreCachedThemeForSong,
@@ -1232,12 +1260,15 @@ export default function App() {
      *
      * One definition for two readers - the overlay model, which mounts the card, and the track-end
      * countdown below, which is only worth running while something can show its result. The lyrics
-     * page always allows it; the home page is opt-in, and that opt-in is the whole rule: how the app
-     * arrived at the home page does not enter into it, so a cold start that lands there and a walk
-     * back from the lyrics page behave the same.
+     * player and Lattice pages always allow it; the home page is opt-in, and that opt-in is the
+     * whole rule: how the app arrived at the home page does not enter into it, so a cold start that
+     * lands there and a walk back from another page behave the same.
      */
-    const stageTrackPillOnScreen = stageTrackPillMode !== 'never'
-        && (currentView === 'player' || (currentView === 'home' && stageTrackPillOnHome));
+    const stageTrackPillOnScreen = shouldShowNowPlayingToast({
+        mode: stageTrackPillMode,
+        view: currentView,
+        showOnHome: stageTrackPillOnHome,
+    });
 
     /**
      * Open the right-hand panel on its song card - what clicking the now playing card does once you
@@ -1352,6 +1383,20 @@ export default function App() {
         updateCacheSize,
     });
 
+    const handleTranscodeFallback = useTranscodeFallback({
+        audioSrc,
+        localSongs,
+        currentTime,
+        pendingResumeTimeRef,
+        shouldAutoPlayRef: shouldAutoPlay,
+        getRecoveryTarget: automix.getRecoveryTarget,
+        replaceRecoverySource: automix.replaceRecoverySource,
+        clearFailedWarmSource: automix.clearFailedWarmSource,
+        abortTransition: automix.abortTransition,
+        handleTailEnded: automix.handleTailEnded,
+        skipAfterPlaybackFailure,
+    });
+
     // Now the writer exists, point the automix settle path at it. A track that blends out never fires
     // `ended`, so this is the only place its assets get cached; the cover is derived from the exit
     // song's own metadata inside `cacheSongAssetsFor` rather than from the now-arriving track's view.
@@ -1387,6 +1432,11 @@ export default function App() {
         pauseDuringTransition: handlePauseDuringTransition,
     });
     useNavidromeScrobbleReporter({
+        audioRef,
+        currentSong,
+        activeDeck: automix.activeDeck,
+    });
+    useNeteaseScrobbleReporter({
         audioRef,
         currentSong,
         activeDeck: automix.activeDeck,
@@ -1726,6 +1776,7 @@ export default function App() {
 
         navigateToHome,
         navigateToPlayer,
+        navigateToLattice,
         toggleBrowserFullscreen,
         toggleRemoteControlWindow,
         toggleMainWindowAlwaysOnTop,
@@ -1735,6 +1786,7 @@ export default function App() {
         toggleDaylightMode,
         cycleLyricStaffPolicy: () => handleSaveLyricFilterPattern({
             pattern: lyricFilterPattern,
+            filterEnabled: lyricFilterEnabled,
             staffPolicy: nextLyricStaffPolicy(lyricStaffPolicy),
             staffMinDwellSeconds: lyricStaffMinDwellSeconds,
             staffAbsorbMode: lyricStaffAbsorbMode,
@@ -1742,6 +1794,7 @@ export default function App() {
         }),
         cycleLyricStaffAbsorbMode: () => handleSaveLyricFilterPattern({
             pattern: lyricFilterPattern,
+            filterEnabled: lyricFilterEnabled,
             staffPolicy: lyricStaffPolicy,
             staffMinDwellSeconds: lyricStaffMinDwellSeconds,
             staffAbsorbMode: nextLyricStaffAbsorbMode(lyricStaffAbsorbMode),
@@ -2078,6 +2131,7 @@ export default function App() {
         onlineProviderPlatform,
         playSong,
         navigateToPlayer,
+        navigateToLattice,
         refreshOnlineProviderPlaylists: refreshActiveProviderPlaylists,
         user,
         playlists,
@@ -2126,6 +2180,7 @@ export default function App() {
 
     const playerPanelModel = usePlayerPanelModel({
         navigateToHome,
+        navigateToLattice,
         handleDirectHomeFromPanel,
         currentSong: playerDisplayCurrentSong,
         handleAlbumSelect: handlePlayerPanelAlbumSelect,
@@ -2205,6 +2260,7 @@ export default function App() {
         togglePlay,
         toggleLoop,
         navigateToPlayer,
+        navigateFromPlayerCapsule,
         shouldHidePlayerProgressBar,
         onSeekMainAudio: seekMainAudio,
         onStagePlayerSeek: publishStagePlayerPlaybackUpdate,
@@ -2349,6 +2405,14 @@ export default function App() {
             }}
             onPause={(e) => {
                 if (!automix.isActiveDeck(e.currentTarget)) return;
+                // A deck whose source failed fires `pause` immediately AFTER `error` - Chromium
+                // clears the play state as part of failing the load - and that is not the listener
+                // pausing. Read as one, it dropped the transport to PAUSED and spent the autoplay
+                // intent, and the transcode fallback then read that PAUSED back as "the listener
+                // paused during recovery" and cancelled the resume: the track was transcoded, the
+                // source re-pointed, and the deck left silent until play was pressed by hand.
+                // What happens to a failed source belongs to the error path below.
+                if (e.currentTarget.error) return;
                 shouldAutoPlay.current = false;
                 if (!e.currentTarget.ended) {
                     setPlayerState(PlayerState.PAUSED);
@@ -2454,20 +2518,14 @@ export default function App() {
                 currentTime.set(0); // Ensure currentTime is reset when new audio loads
             }}
             onError={(e) => {
-                if (!automix.isActiveDeck(e.currentTarget)) {
-                    automix.handleTailEnded();
-                    return;
-                }
-
-                if (!audioSrc) {
-                    return;
-                }
-
                 const audioElement = e.currentTarget;
+                const isActiveDeck = automix.isActiveDeck(audioElement);
                 const reportedDuration = Number.isFinite(audioElement.duration) && audioElement.duration > 0
                     ? audioElement.duration
                     : duration;
                 const isLocalTailDecodeError = Boolean(
+                    isActiveDeck &&
+                    audioElement.error?.code === MediaError.MEDIA_ERR_DECODE &&
                     isLocalPlaybackSong(currentSong) &&
                     Number.isFinite(reportedDuration) &&
                     reportedDuration > 0 &&
@@ -2492,6 +2550,17 @@ export default function App() {
                     }
 
                     void handleNextTrack({ allowStopOnMissing: true, shouldNavigateToPlayer: false });
+                    return;
+                }
+
+                if (handleTranscodeFallback(audioElement)) return;
+
+                if (!isActiveDeck) {
+                    automix.handleTailEnded();
+                    return;
+                }
+
+                if (!audioSrc) {
                     return;
                 }
 
@@ -2581,13 +2650,53 @@ export default function App() {
                 </motion.div>
             </div>
 
+            <AnimatePresence
+                initial={false}
+                onExitComplete={() => setHasLatticeExited(useAppViewStore.getState().view !== 'lattice')}
+            >
+                {currentView === 'lattice' && (
+                    <motion.div
+                        key="lattice"
+                        className="absolute inset-0 z-10 pointer-events-auto"
+                        initial={false}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: reduceLatticeMotion ? 0 : 0.62, ease: 'easeIn' }}
+                    >
+                        <Suspense fallback={<div className="absolute inset-0 bg-[#070707]" />}>
+                            <Lattice
+                                controls={{ playback: commandPaletteContext.playback, loopMode: effectiveLoopMode,
+                                    invokeCommandById: commandPalette.invokeCommandById, canInvokeCommandById: commandPalette.canInvokeCommandById,
+                                    isStageActive: isNowPlayingStageActive, disabled: isNowPlayingControlDisabled }}
+                                lyrics={commandPaletteContext.shared.lyrics}
+                                lyricSource={visualizerRendererModel}
+                                lyricKeywordColoringEnabled={visualizerRendererModel.visualizerTunings.monet.keywordColoringEnabled}
+                                currentSong={displaySong}
+                                playerState={displayPlayerState}
+                                currentTime={currentTime}
+                                playbackDuration={displayDuration}
+                                canTogglePlayback={canToggleCurrentPlayback}
+                                queue={playQueue}
+                                isDaylight={isDaylight}
+                                onBack={navigateBackFromLattice}
+                                onOpenPlayer={navigateToPlayer}
+                                onPlaySong={(song, queue) => {
+                                    void playSong(song, queue, false, { shouldNavigateToPlayer: false });
+                                }}
+                                onTogglePlayback={togglePlay}
+                                onSeek={seekMainAudio}
+                            />
+                        </Suspense>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* --- VISUALIZER (Background Layer & Main Click Target) --- */}
             <div
                 className="absolute inset-0 z-0"
                 onClick={handleContainerClick}
             >
                 <PlayerBottomBarLayoutContext.Provider value={currentView === 'player'}>
-                    <VisualizerRenderer {...visualizerRendererModel} />
+                    {currentView !== 'lattice' && hasLatticeExited && <VisualizerRenderer {...visualizerRendererModel} />}
                 </PlayerBottomBarLayoutContext.Provider>
             </div>
 
@@ -2668,6 +2777,8 @@ export default function App() {
 
             <AppDialogs model={appDialogsModel} />
             <UserGuideModal theme={theme} />
+            <PlaybackEntryViewPrompt theme={theme} />
+            <LatticeFmNotice />
         </AppShell>
     );
 }

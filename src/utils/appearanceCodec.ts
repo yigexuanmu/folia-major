@@ -324,6 +324,7 @@ const decompressLatentBackground = (o: any): any => ({
 const compressMonet = (t: any): any => ({
     kce: t.keywordColoringEnabled,
     msd: t.showDescription,
+    mav: t.showAudioVisualization,
     mas: t.audioStyle,
     mfs: t.fontScale,
     mps: t.portraitSource,
@@ -334,6 +335,7 @@ const compressMonet = (t: any): any => ({
 const decompressMonet = (o: any): any => ({
     keywordColoringEnabled: o.kce !== undefined ? o.kce : DEFAULT_MONET_TUNING.keywordColoringEnabled,
     showDescription: o.msd !== undefined ? o.msd : DEFAULT_MONET_TUNING.showDescription,
+    showAudioVisualization: o.mav !== undefined ? o.mav : DEFAULT_MONET_TUNING.showAudioVisualization,
     audioStyle: o.mas || DEFAULT_MONET_TUNING.audioStyle,
     fontScale: o.mfs !== undefined ? o.mfs : DEFAULT_MONET_TUNING.fontScale,
     portraitSource: o.mps || DEFAULT_MONET_TUNING.portraitSource,
@@ -468,6 +470,7 @@ export const compressConfig = (config: any): string => {
     if (config.showSubtitleTranslation !== undefined) minified.sst = config.showSubtitleTranslation;
     if (config.subtitleContentMode !== undefined) minified.scm = config.subtitleContentMode;
     if (config.subtitleOverlayBackground !== undefined) minified.sob = config.subtitleOverlayBackground;
+    if (config.subtitleUpcomingLyricsBlur !== undefined) minified.sulb = config.subtitleUpcomingLyricsBlur;
     if (config.subtitleOverlayOpacity !== undefined) minified.soo = config.subtitleOverlayOpacity;
     if (config.showHarmonySubtitle !== undefined) minified.shs = config.showHarmonySubtitle;
     if (config.harmonySubtitleBackground !== undefined) minified.hsb = config.harmonySubtitleBackground;
@@ -590,6 +593,7 @@ export const decompressConfig = (str: string): any => {
         if (parsed.sst !== undefined) decompressed.showSubtitleTranslation = parsed.sst;
         if (parsed.scm !== undefined) decompressed.subtitleContentMode = parsed.scm;
         if (parsed.sob !== undefined) decompressed.subtitleOverlayBackground = parsed.sob;
+        if (parsed.sulb !== undefined) decompressed.subtitleUpcomingLyricsBlur = parsed.sulb;
         if (parsed.soo !== undefined) decompressed.subtitleOverlayOpacity = parsed.soo;
         if (parsed.shs !== undefined) decompressed.showHarmonySubtitle = parsed.shs;
         if (parsed.hsb !== undefined) decompressed.harmonySubtitleBackground = parsed.hsb;
@@ -637,7 +641,7 @@ export const decompressConfig = (str: string): any => {
             'theme', 'visualizerMode', 'randomVisualizerModePerSong', 'visualizerBackgroundMode', 'backgroundOpacity',
             'useCoverColorBg', 'disableVisualizerGeometricBackground', 'disableVisualizerVignette', 'staticMode',
             'visualizerOpacity', 'hidePlayerTranslationSubtitle', 'showSubtitleTranslation', 'subtitleContentMode',
-            'subtitleOverlayBackground', 'subtitleOverlayOpacity',
+            'subtitleOverlayBackground', 'subtitleUpcomingLyricsBlur', 'subtitleOverlayOpacity',
             'showHarmonySubtitle', 'harmonySubtitleBackground',
             'lyricsFontStyle', 'lyricsFontScale', 'lyricsFontWeight', 'lyricsFontFallbackFamilies',
             'subtitleFontInheritsLyrics', 'subtitleFontScale', 'subtitleFontStyle', 'subtitleFontWeight', 'subtitleFontFamily',

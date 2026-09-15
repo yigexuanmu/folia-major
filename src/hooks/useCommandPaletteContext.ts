@@ -1,8 +1,10 @@
+import { useLatticeControlsStore } from '../stores/useLatticeControlsStore';
 import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { selectDisplayLyrics, selectDisplayPlayerState, usePlaybackStore } from '../stores/usePlaybackStore';
 import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';
 import { setIsPanelOpen, setPanelTab, useAppViewStore } from '../stores/useAppViewStore';
+import { useGridSurfaceStore } from '../stores/useGridSurfaceStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { CommandPaletteContext } from '../components/command-palette/types';
 import {
@@ -29,6 +31,7 @@ import { useSleepTimerStore } from '../stores/useSleepTimerStore';
 import { useTypographySettingsStore } from '../stores/useTypographySettingsStore';
 import { useVisualizerSettingsStore } from '../stores/useVisualizerSettingsStore';
 import { useLyricSegmentationStore } from '../stores/useLyricSegmentationStore';
+import { useLatticeSettingsStore } from '../stores/useLatticeSettingsStore';
 import type { LyricSegmentationActions } from '../components/app/playback/createLyricSegmentationActions';
 
 // src/hooks/useCommandPaletteContext.ts
@@ -115,6 +118,12 @@ export const useCommandPaletteContext = (
         sleepTimerMinutes: state.sleepTimerMinutes,
         sleepTimerDeadlineMs: state.sleepTimerDeadlineMs,
     })));
+    const latticeSignals = useLatticeSettingsStore(useShallow(state => ({
+        latticePosterTintEnabled: state.latticePosterTintEnabled,
+        latticePosterTintUseCustomColor: state.latticePosterTintUseCustomColor,
+        latticePosterTintColor: state.latticePosterTintColor,
+        latticePosterTintIntensity: state.latticePosterTintIntensity,
+    })));
     const audioSignals = useAudioSettingsStore(useShallow(state => ({
         volume: state.volume,
         isMuted: state.isMuted,
@@ -131,11 +140,16 @@ export const useCommandPaletteContext = (
     const lyricStaffAbsorbMode = useLyricSettingsStore(state => state.lyricStaffAbsorbMode);
     const personalFmSelection = usePersonalFmModeStore(state => state.selection);
     // Which surface the palette is opening over; commands that only apply to one of them gate on it.
+    const latticeFocusAction = useLatticeControlsStore(state => state.focusCurrentSong);
     const view = useAppViewStore(state => state.view);
     // Whoever currently reads typed characters. Identity only changes when a grid takes or gives up
     // the keyboard, so it does not rebuild the context per keystroke — the query itself never
     // travels through here, the palette's own input holds it.
     const commandFilter = useAppViewStore(state => state.commandFilter);
+    // The track grid's own actions. Same shape as the filter above: the handle's identity is stable
+    // for as long as one grid owns the screen, and everything that changes per render is read back
+    // through its getState, not rebuilt here.
+    const gridSurface = useGridSurfaceStore(state => state.gridSurface);
     // Subscribed, not read through getState: the segmentation surface and the panel chip both show
     // whether the current song has a saved split, so the context has to be rebuilt when it changes.
     const lyricSegmentationRecord = useLyricSegmentationStore(state => state.record);
@@ -170,7 +184,7 @@ export const useCommandPaletteContext = (
             & typeof ambient;
         return {
             shared: buildSharedCommandContext(stableDeps),
-            scope: { view, filter: commandFilter },
+            scope: { view, filter: commandFilter, grid: gridSurface },
             search: buildSearchCommandContext(stableDeps),
             playback: buildPlaybackCommandContext(stableDeps),
             navigation: buildNavigationCommandContext(stableDeps),
@@ -183,8 +197,8 @@ export const useCommandPaletteContext = (
         ...valueDeps,
         ambient,
         settingsSignals, chromeSignals, desktopSignals, automixSignals,
-        sleepTimerSignals, audioSignals, visualizerSignals,
-        lyricStaffPolicy, lyricStaffAbsorbMode, personalFmSelection, view, commandFilter, canAddCurrentSongToPlaylist,
-        lyricSegmentationRecord, lyricSegmentationActions,
+        sleepTimerSignals, latticeSignals, audioSignals, visualizerSignals,
+        lyricStaffPolicy, lyricStaffAbsorbMode, personalFmSelection, view, commandFilter, gridSurface, canAddCurrentSongToPlaylist,
+        lyricSegmentationRecord, lyricSegmentationActions, latticeFocusAction,
     ]);
 };

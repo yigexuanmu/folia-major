@@ -60,13 +60,18 @@ design/
 models/
 build/windowtolayer
 build/windowtolayer-COPYING
+build/ffmpeg/
+# The transcode fallback's dev slot: same binary as build/ffmpeg/<os>-<arch>, staged here so
+# `npm run dev:electron` runs the audio-only runtime the release ships instead of system PATH.
+# `ffmpeg-8.1.2/` is the mod exporters' slot and is a full build the developer supplies.
+ffmpeg-audio/
+ffmpeg-8.1.2/
 .windowtolayer-src/
 # Local reference clone of upstream main used for pollution review; never ship.
 original/
 # Local upstream implementation references used during investigation; never ship.
 reference/
-# Bundled local ffmpeg source tree + binaries for the mod export pipeline; users
-# provide their own ffmpeg (env var FOLIA_FFMPEG_PATH or ffmpeg-8.1.2 next to app).
+# Optional developer override for FFmpeg; packaged builds fetch their pinned runtime.
 # Local hand-made zip bundles of mods (drag-drop install test files); never ship.
 mods/*.zip
 

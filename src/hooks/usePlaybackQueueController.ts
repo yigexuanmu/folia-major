@@ -36,6 +36,7 @@ import { currentTime } from '../stores/motionSignals';
 import { setIsPanelOpen, setPanelTab } from '../stores/useAppViewStore';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';
+import { showLatticeFmNotice, usePlaybackEntryViewStore } from '../stores/usePlaybackEntryViewStore';
 import { useStableActionSurface } from './useStableCallbacks';
 
 // src/hooks/usePlaybackQueueController.ts
@@ -65,12 +66,13 @@ type SearchDeps = {
 type UsePlaybackQueueControllerParams = {
 
     isNowPlayingStageActive: boolean;
+    shouldNavigateToPlayerOnTrackChange: boolean;
     localSongs: LocalSong[];
     localLibraryCatalog: LocalLibraryDisplayCatalog;
     userId?: MediaId;
     setLyrics: (nextLyrics: any) => void;
     setIsLyricsLoading: SetState<boolean>;
-    navigateToPlayer: () => void;
+    navigateToPlaybackView: () => void;
     navigateToSearch: (args: {
         query: string;
         sourceTab: SearchSource;
@@ -140,12 +142,13 @@ type StagePlayerQueueDiffDraft = {
 // Owns queue navigation, online playback loading, and search-triggered playback.
 export function usePlaybackQueueController({
     isNowPlayingStageActive,
+    shouldNavigateToPlayerOnTrackChange,
     localSongs,
     localLibraryCatalog,
     userId,
     setLyrics,
     setIsLyricsLoading,
-    navigateToPlayer,
+    navigateToPlaybackView,
     navigateToSearch,
     persistLastPlaybackCache,
     restoreCachedThemeForSong,
@@ -444,10 +447,14 @@ export function usePlaybackQueueController({
         clearPendingUnavailableSkip();
         setStatusMsg(prev => prev?.persistent ? null : prev);
         const shouldNavigateToPlayer = options.shouldNavigateToPlayer ?? true;
+        const wasFmMode = usePlaybackStore.getState().isFmMode;
         setIsFmMode(isFmCall);
-        if (isFmCall && !isFmMode) {
+        if (isFmCall && !wasFmMode) {
             setPanelTab('queue');
             setIsPanelOpen(true);
+            if (usePlaybackEntryViewStore.getState().playbackEntryView === 'lattice') {
+                showLatticeFmNotice();
+            }
         }
 
         const playbackRequestId = ++playbackRequestIdRef.current;
@@ -592,7 +599,7 @@ export function usePlaybackQueueController({
         void persistLastPlaybackCache({ ...resolvedSong, onlineLyricsState: onlineLyricsState ?? undefined }, resolvedQueue);
 
         if (shouldNavigateToPlayer) {
-            navigateToPlayer();
+            navigateToPlaybackView();
         }
         setPlayerState(PlayerState.IDLE);
 
@@ -676,7 +683,7 @@ export function usePlaybackQueueController({
         isFmMode,
         lastAudioRecoverySourceRef,
         localSongs,
-        navigateToPlayer,
+        navigateToPlaybackView,
         onPlayLocalSong,
         onPlayNavidromeSong,
         pendingResumeTimeRef,
@@ -835,7 +842,7 @@ export function usePlaybackQueueController({
             return;
         }
 
-        const shouldNavigateToPlayer = options?.shouldNavigateToPlayer ?? true;
+        const shouldNavigateToPlayer = options?.shouldNavigateToPlayer ?? shouldNavigateToPlayerOnTrackChange;
         // Which track to step from. During a blend the queue has already advanced, so `currentSong`
         // is the one ARRIVING while the listener is still hearing - and pressing next about - the
         // one that is finishing. Stepping from the internal one is off by a song: "next" jumps over
@@ -885,7 +892,7 @@ export function usePlaybackQueueController({
         } else if (options?.allowStopOnMissing) {
             stopAtQueueEnd();
         }
-    }, [audioRef, currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, setPlayQueue, setPlayerState]);
+    }, [audioRef, currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, setPlayQueue, setPlayerState, shouldNavigateToPlayerOnTrackChange]);
 
     const handlePrevTrack = useCallback(() => {
         if (isNowPlayingStageActive) return;
@@ -907,9 +914,11 @@ export function usePlaybackQueueController({
         }
 
         if (prevIndex >= 0) {
-            void playSong(playQueue[prevIndex], playQueue, isFmMode);
+            void playSong(playQueue[prevIndex], playQueue, isFmMode, {
+                shouldNavigateToPlayer: shouldNavigateToPlayerOnTrackChange,
+            });
         }
-    }, [currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong]);
+    }, [currentSong, endHeldTransition, getDisplaySong, isFmMode, isNowPlayingStageActive, loopMode, playQueue, playSong, shouldNavigateToPlayerOnTrackChange]);
 
     const skipAfterPlaybackFailure = useCallback(() => {
         clearPendingUnavailableSkip();

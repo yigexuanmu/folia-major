@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AudioLines, ChevronRight, ListFilter, Monitor, PlayCircle, RefreshCw, Settings2, Timer } from 'lucide-react';
+import { AudioLines, ChevronRight, ListFilter, Monitor, PlayCircle, Radio, RefreshCw, Settings2, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { LocalLyricsPriority, QueueAddBehavior, ReplayGainMode, Theme } from '../../../types';
@@ -13,6 +13,8 @@ import SettingsSectionHeading from './navigation/SettingsSectionHeading';
 import { useLyricSettingsStore } from '../../../stores/useLyricSettingsStore';
 import { useAudioSettingsStore } from '../../../stores/useAudioSettingsStore';
 import { useSongUnlockSettingsStore } from '../../../stores/useSongUnlockSettingsStore';
+import { useOnlineProviderAccountStore } from '../../../stores/useOnlineProviderAccountStore';
+import { isNeteaseScrobbleReady } from '../../../services/onlineMusic/playbackReportGate';
 
 // src/components/modal/settings/PlaybackSettingsSubview.tsx
 // Playback behavior and output-device settings extracted from the global settings modal.
@@ -47,13 +49,26 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
     const { t } = useTranslation();
     const {
         audioOutputDeviceId,
+        enableTranscodeFallback,
+        neteaseScrobbleEnabled,
         queueAddBehavior,
+        onToggleTranscodeFallback,
+        onToggleNeteaseScrobble,
         onQueueAddBehaviorChange,
     } = useAudioSettingsStore(useShallow(state => ({
         audioOutputDeviceId: state.audioOutputDeviceId,
+        enableTranscodeFallback: state.enableTranscodeFallback,
+        neteaseScrobbleEnabled: state.neteaseScrobbleEnabled,
         queueAddBehavior: state.queueAddBehavior,
+        onToggleTranscodeFallback: state.handleToggleTranscodeFallback,
+        onToggleNeteaseScrobble: state.handleToggleNeteaseScrobble,
         onQueueAddBehaviorChange: state.handleSetQueueAddBehavior,
     })));
+    // Subscribed to rather than read once: the panel has to grey out the moment the NetEase account
+    // signs out. `isNeteaseScrobbleReady` is the same predicate the command palette gates on, so the
+    // two can never disagree about whether the toggle may be flipped.
+    useOnlineProviderAccountStore(state => state.accounts.netease?.status);
+    const canReportNeteasePlayback = isNeteaseScrobbleReady();
     const {
         autoUseBestLyric,
         preferredAlternativeLyricSource,
@@ -98,11 +113,15 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
     const accentOutlineColor = theme?.accentColor || (isDaylight ? '#44403c' : '#f4f4f5');
     const toggleOffBackgroundClass = isDaylight ? 'bg-zinc-300/90' : 'bg-white/10';
 
-    const renderToggle = (checked: boolean, onChange: () => void) => (
+    // `disabled` rather than a `pointer-events-none` wrapper: that only stops the mouse, leaving the
+    // button in the tab order and still operable with Enter or Space. Same shape as the one in
+    // DesktopSettingsSubview.
+    const renderToggle = (checked: boolean, onChange: () => void, disabled?: boolean) => (
         <button
             type="button"
             onClick={onChange}
-            className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${checked ? '' : toggleOffBackgroundClass}`}
+            disabled={disabled}
+            className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 disabled:cursor-not-allowed disabled:opacity-40 ${checked ? '' : toggleOffBackgroundClass}`}
             style={{ backgroundColor: checked ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
             aria-pressed={checked}
         >
@@ -206,6 +225,32 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                                 </button>
                             );
                         })}
+                    </div>
+                </div>
+            </SettingsAnchor>
+
+            <SettingsAnchor anchorId="scrobbleSettings" label={t('options.scrobbleSettings')}>
+                <SettingsSectionHeading icon={Radio} label={t('options.scrobbleSettings')} />
+                <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                {t('options.neteaseScrobble')}
+                            </div>
+                            <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                                {t('options.neteaseScrobbleDesc')}
+                            </div>
+                            {!canReportNeteasePlayback && (
+                                <div className="text-[11px] max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                                    {t('options.neteaseScrobbleSignInHint')}
+                                </div>
+                            )}
+                        </div>
+                        {renderToggle(
+                            neteaseScrobbleEnabled,
+                            () => onToggleNeteaseScrobble(!neteaseScrobbleEnabled),
+                            !canReportNeteasePlayback,
+                        )}
                     </div>
                 </div>
             </SettingsAnchor>
@@ -407,6 +452,19 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
             <SettingsAnchor anchorId="audioOutputSettings" label={t('options.audioOutputSettings')}>
                 <SettingsSectionHeading icon={Monitor} label={t('options.audioOutputSettings')} />
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+                    {window.electron?.requestTranscodeFallback && (
+                        <div className="flex items-start justify-between gap-3 border-b border-current/10 pb-4">
+                            <div className="space-y-1">
+                                <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                    {t('options.transcodeFallback')}
+                                </div>
+                                <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                                    {t('options.transcodeFallbackDesc')}
+                                </div>
+                            </div>
+                            {renderToggle(enableTranscodeFallback, () => onToggleTranscodeFallback(!enableTranscodeFallback))}
+                        </div>
+                    )}
                     <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
                             <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
