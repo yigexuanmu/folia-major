@@ -1,2 +1,8 @@
+allowBuilds:
+  '@google/genai': false
+  electron-winstaller: false
+  koffi: true
+  onnxruntime-node: true
+  protobufjs: false
 minimumReleaseAgeExclude:
   - '@yakult-green-tea/qq-music-api@2.3.0'
