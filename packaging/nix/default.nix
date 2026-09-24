@@ -109,7 +109,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = [
     nodejs
-    pnpm.configHook
+    pnpmConfigHook
     copyDesktopItems
     makeWrapper
   ];
