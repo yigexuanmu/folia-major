@@ -41,7 +41,7 @@
   wayland,
   libxkbcommon,
   zlib,
-
+  pnpmConfigHook,
   # pass src override for flake builds (e.g. self)
   src ? null,
 }:
@@ -76,7 +76,7 @@ let
     ];
     # build.rs generates wayland protocol bindings with protogen.py, which pipes
     # the output through rustfmt
-    nativeBuildInputs = [ python3 rustfmt ];
+    nativeBuildInputs = [ python3 rustfmt pnpmConfigHook ];
   };
 
   runtimeLibs = lib.makeLibraryPath [
