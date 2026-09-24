@@ -76,7 +76,7 @@ let
     ];
     # build.rs generates wayland protocol bindings with protogen.py, which pipes
     # the output through rustfmt
-    nativeBuildInputs = [ python3 rustfmt pnpmConfigHook ];
+    nativeBuildInputs = [ python3 rustfmt ];
   };
 
   runtimeLibs = lib.makeLibraryPath [
@@ -109,7 +109,8 @@ stdenv.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = [
     nodejs
-    pkg.pnpmConfigHook
+    pnpm
+    pnpmConfigHook
     copyDesktopItems
     makeWrapper
   ];
