@@ -33,6 +33,8 @@ export const SETTINGS_ANCHOR_DEFINITIONS = {
     transitionSettings: { section: 'playback', labelKey: 'options.transitionSettings' },
     replayGainSettings: { section: 'playback', labelKey: 'options.replayGainSettings' },
     lyrics: { section: 'playback', labelKey: 'options.lyrics' },
+    // fork 私房菜：歌曲解锁（VIP 绕过），渲染在 PlaybackSettingsSubview 内
+    songUnlock: { section: 'playback', labelKey: 'options.songUnlock' },
     audioOutputSettings: { section: 'playback', labelKey: 'options.audioOutputSettings' },
 
     // InteractionSettingsSubview
