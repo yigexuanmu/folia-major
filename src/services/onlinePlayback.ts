@@ -3,7 +3,7 @@ import { saveToCache } from './db';
 import { PrefetchedSongData, isUrlValid, updatePrefetchedAudioUrl } from './prefetchService';
 import { isPureMusicLyricText } from '../utils/lyrics/pureMusic';
 import { migrateLyricDataRenderHints } from '../utils/lyrics/renderHints';
-import { loadOnlineLyricsState, markOnlineLyricsPureMusic, resolveOnlineLyrics, saveOnlineLyricsState } from '../utils/onlineLyricsState';
+import { loadOnlineLyricsState, markOnlineLyricsPureMusic, resolveOnlineLyrics, resolveOnlineLyricsPureMusic, saveOnlineLyricsState } from '../utils/onlineLyricsState';
 import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
 import { createSafeObjectUrl } from '../utils/blobGuards';
 import type { AudioQualityPreference, MediaId } from '../types/onlineMusic';
@@ -15,6 +15,7 @@ import { getProviderSongMetadata } from './onlineMusic/songMetadata';
 import { getUnlockAudioSource } from './songUnlockService';
 import { useLyricSettingsStore } from '../stores/useLyricSettingsStore';
 import { useSongUnlockSettingsStore } from '../stores/useSongUnlockSettingsStore';
+import { saveLyricCacheSongMetadata } from './lyricExport/lyricCacheMetadata';
 
 export async function loadOnlineSongAudioSource(
     song: SongResult,
@@ -108,11 +109,7 @@ export async function loadOnlineSongLyrics(
         || Boolean(onlineLyricsState?.hasOnlineOverride);
     if (preferredCachedLyrics && (hasAuthoritativeLyricsSelection || !initialSettingsLyricSettings.autoUseBestLyric)) {
         const cachedText = preferredCachedLyrics.lines.map(line => line.fullText).join('\n');
-        onPureMusicChange?.(
-            onlineLyricsState?.lyricsSource === 'online' && typeof onlineLyricsState.matchedIsPureMusic === 'boolean'
-                ? onlineLyricsState.matchedIsPureMusic
-                : isPureMusicLyricText(cachedText)
-        );
+        onPureMusicChange?.(resolveOnlineLyricsPureMusic(onlineLyricsState, cachedText));
         onLyrics(preferredCachedLyrics);
         onDone();
         return;
@@ -142,6 +139,7 @@ export async function loadOnlineSongLyrics(
             );
             onLyrics(effectiveLyrics);
             saveToCache(lyricCacheKey, prefetched.lyrics);
+            saveLyricCacheSongMetadata(song);
             onDone();
             return;
         }
@@ -258,5 +256,6 @@ export async function loadOnlineSongLyrics(
 
     onLyrics(resolvedLyrics);
     saveToCache(lyricCacheKey, resolvedLyrics);
+    saveLyricCacheSongMetadata(song);
     onDone();
 }

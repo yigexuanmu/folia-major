@@ -1,6 +1,8 @@
 import type { MotionValue } from 'framer-motion';
 import type { TemperaTuning, Theme } from '../../../types';
 import {
+    destroyPixiContainerChildren,
+    destroyPixiDisplayTree,
     setPixiDisplayTreeVisibility,
     unloadPixiDisplayTree,
 } from '../pixiDisplayResources';
@@ -399,13 +401,14 @@ export class TemperaPixiRuntime {
     }
 
     private drawOverlay(width: number, height: number) {
-        this.overlayContainer.removeChildren().forEach(child => child.destroy({ children: true }));
+        // 画框与擦除块都是自建 context 的 Graphics，逐节点销毁才会连 GPU 批数据一起放掉。
+        destroyPixiContainerChildren(this.overlayContainer);
         // The wipe block lives in the overlay so it sweeps above the scene during cuts.
         this.wipeGraphics = new this.pixi.Graphics();
         this.wipeGraphics.visible = false;
         this.overlayContainer.addChild(this.wipeGraphics);
 
-        if (!this.options.tuning.showDecor) return;
+        if (!this.options.tuning.showCornerMarks) return;
         const g = new this.pixi.Graphics();
         const primary = this.pixi.Color.shared.setValue(this.options.theme.primaryColor).toNumber();
         const paddingX = Math.max(28, width * 0.045);
@@ -446,7 +449,7 @@ export class TemperaPixiRuntime {
         });
         this.credits?.filters.forEach(filter => filter.destroy());
         this.credits = null;
-        this.creditsContainer.removeChildren().forEach(child => child.destroy({ children: true }));
+        destroyPixiContainerChildren(this.creditsContainer);
     }
 
     private clearScenes() {
@@ -487,7 +490,8 @@ export class TemperaPixiRuntime {
             shot.textLayer.filters = null;
         });
         scene.postProcessFilters.forEach(filter => filter.destroy());
-        scene.container.destroy({ children: true });
+        // 逐节点销毁：destroy({ children: true }) 会留下每个 Graphics 自建的 GraphicsContext 与它的 GPU 缓冲。
+        destroyPixiDisplayTree(scene.container);
     }
 
     /**
@@ -924,7 +928,7 @@ export class TemperaPixiRuntime {
             child.filters = null;
         });
         view.filters.forEach(filter => filter.destroy());
-        view.container.destroy({ children: true });
+        destroyPixiDisplayTree(view.container);
     }
 
     /** Frees a staged scene and poster that will never be adopted. */
@@ -1020,6 +1024,10 @@ export class TemperaPixiRuntime {
             this.sceneCache.forEach(scene => {
                 scene.shots.forEach(shot => shot.images.applyPool(tuning.layerImages));
             });
+            // The corner marks live only in the overlay, so toggling them needs no scene rebuild.
+            if (previous.showCornerMarks !== tuning.showCornerMarks && this.lastWidth > 0 && this.lastHeight > 0) {
+                this.drawOverlay(this.lastWidth, this.lastHeight);
+            }
         }
         if (this.options.paused) this.renderOnce();
     }

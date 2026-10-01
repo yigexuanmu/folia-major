@@ -29,6 +29,7 @@ import { getSonnetTexturePool } from './sonnetTexturePool';
 import { snapResolutionToTexturePool } from '../pixiTextureBudget';
 import {
     destroySonnetContainerChildren,
+    destroySonnetDisplayTree,
     unloadSonnetDisplayTree,
 } from './sonnetPixiResources';
 import {
@@ -397,7 +398,8 @@ export class SonnetPixiRuntime {
             shot.haloLayer.filters = null;
         });
         scene.postProcessFilters.forEach(filter => filter.destroy());
-        scene.container.destroy({ children: true });
+        // 逐节点销毁：destroy({ children: true }) 会留下每个 Graphics 自建的 GraphicsContext 与它的 GPU 缓冲。
+        destroySonnetDisplayTree(scene.container);
     }
 
     /**
@@ -655,9 +657,13 @@ export class SonnetPixiRuntime {
                 }
 
                 // Animate Chromatic Aberration separation and merging
-                if (glyph.caCyan && glyph.caRed && glyph.caOffset) {
-                    glyph.caCyan.visible = glyphVisible && !this.options.tuning.showOnlyText;
-                    glyph.caRed.visible = glyphVisible && !this.options.tuning.showOnlyText;
+                if (glyph.caWrapper && glyph.caCyan && glyph.caRed && glyph.caOffset) {
+                    const ca = glyph.caWrapper;
+                    ca.visible = glyphVisible && !this.options.tuning.showOnlyText;
+                    ca.alpha = coreAlpha;
+                    ca.scale.copyFrom(glyph.display.scale);
+                    ca.position.copyFrom(glyph.display.position);
+                    ca.rotation = rotation;
                     // Starts separated (impact), and gently merges to a very subtle base offset
                     const mergeEased = easeSonnetInOut(glyphProgress);
                     const currentOffset = glyph.caOffset * (1 - mergeEased * 0.8) * this.mod('caScale'); // 1.0 -> 0.2

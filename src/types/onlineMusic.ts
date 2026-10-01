@@ -180,9 +180,20 @@ export type QrLoginState =
     | { state: 'expired' }
     | { state: 'error'; message?: string };
 
+// 扫码登录失败的几种形态，决定登录弹窗要不要给出「复制诊断信息」入口。
+// 没扫码就过期属于正常情况，不算失败；扫过码却过期，多半是手机端确认被拒。
+export type QrLoginFailureKind =
+    | 'start-error'
+    | 'check-error'
+    | 'expired-after-scan'
+    | 'account-refresh-failed';
+
 export type ProviderErrorCode =
     | 'auth-required'
     | 'unsupported'
+    // 集合设为不公开，当前这条读取路径没资格读它。与 `unsupported`（这个后端或 provider 没有这项能力）
+    // 分开，界面才能只在这种情况下给出「不是公开歌单」的解释。
+    | 'not-public'
     | 'unavailable'
     | 'not-playable'
     | 'network'
@@ -260,11 +271,16 @@ export interface OnlineAuthProvider {
     // 二维码的有效期。声明了它，UI 才会自己计时并在到点时停止轮询、给出重试；
     // 不声明就沿用原本的做法——只认后端报出的过期状态。
     getQrTtlMs?(): number;
+    // 扫码登录失败后附进诊断报告的 provider 专属信息，每项一行、已格式化好。
+    // 只能返回可以公开贴出来的内容：不含 cookie、token、IP 或账号信息。
+    getQrLoginDiagnostics?(): Promise<string[]>;
 }
 
 export interface OnlineLibraryProvider {
     getUserPlaylists(userId: MediaId, limit: number, offset: number): Promise<ProviderPage<ProviderCollection>>;
     getLikedSongIds?(userId: MediaId): Promise<MediaId[]>;
+    /** Full liked-track records, used when a provider needs more than the song id (e.g. KuGou fileId). */
+    getLikedSongs?(userId: MediaId): Promise<UnifiedSong[]>;
     getUserAlbums?(userId: MediaId, limit: number, offset: number): Promise<ProviderPage<ProviderCollection>>;
     getCloudCollection?(user?: ProviderUser): Promise<ProviderCollection | null>;
 }
@@ -304,7 +320,11 @@ export interface OnlineRecommendationProvider {
 
 export interface OnlineMutationProvider {
     canAddToPlaylist?(playlist: ProviderCollection): boolean;
-    likeSong?(song: MediaId | SongResult, liked: boolean): Promise<void>;
+    likeSong?(
+        song: MediaId | SongResult,
+        liked: boolean,
+        context?: { likedFileId?: MediaId },
+    ): Promise<void>;
     updatePlaylistTracks?(
         operation: 'add' | 'del',
         playlist: MediaId | ProviderCollection,
