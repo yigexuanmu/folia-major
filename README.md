@@ -45,6 +45,4 @@ nix shell github:yigexuanmu/folia-major -c folia-major
 # home.packages = [ inputs.folia-major.packages.${system}.default ];
 ```
 
-> `pnpm-deps` 的固定输出哈希随生成 store 的 pnpm 版本变化，所以 `flake.nix` 用固定修订输入 `nixpkgs-js` 单独钉住 pnpm / nodejs / `fetchPnpmDeps`，不跟随调用方 nixpkgs（否则 nixos-unstable 一滚动就失配）。升级该修订、改动 `pnpm-lock.yaml` 或 `pnpm-workspace.yaml` 后，用构建报错里的 `got: sha256-…` 覆盖 `packaging/nix/default.nix` 里的 `hash`。
-
 AGPL-3.0 · 仅供个人学习，请通过官方平台支持正版音乐。
