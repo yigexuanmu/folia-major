@@ -1,125 +1,15 @@
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/b5d0e863-48be-497b-b0e9-4bd8d8ce9bf0" alt="Folia" width="100%" />
-</p>
-
-<div align="center">
-
 # Folia (个人 fork)
 
 **Lyrics Reimagined // 辞曲新境**
 
-基于 [chthollyphile/folia-major](https://github.com/chthollyphile/folia-major) 的个性化分支，在保留上游完整功能的基础上，加了一些自己的私房菜。
-
-[![GitHub release](https://img.shields.io/github/v/release/yigexuanmu/folia-major?label=release)](https://github.com/yigexuanmu/folia-major/releases)
-[![License](https://img.shields.io/github/license/yigexuanmu/folia-major)](https://github.com/yigexuanmu/folia-major/blob/main/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/yigexuanmu/folia-major?style=social)](https://github.com/yigexuanmu/folia-major/stargazers)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D24-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-
-[上游仓库](https://github.com/chthollyphile/folia-major)
-
-</div>
-
-## 简介
-
-Folia 是一个以全屏沉浸式歌词播放为核心的在线音乐播放器，支持网易云、酷狗、Navidrome 和本地音乐库，通过智能歌词匹配、AI 生成配色主题以及多种全屏歌词动画提供独特的听歌体验。提供基于 Electron 的 Windows / macOS / Linux 桌面端与基于 Node.js 的 Web 版本。
-
-本 fork 在完整同步上游功能的同时，加了点自己的私房菜：
-
-## 私房菜
-
-这里是一些基于个人使用习惯做的改动，不定期更新，随缘维护：
-
-## 展示
-
-![visualizer](./img/visualizer.png)
-
-### 演示视频
-
-https://github.com/user-attachments/assets/af806cf1-f67f-4b88-b2e7-57db507e9e81
-
-https://github.com/user-attachments/assets/fd27f4f0-64b9-4c57-8c3b-10df767f934b
-
-https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
-
-### 部分主题预览
-
-<table>
-  <tr>
-    <td width="50%">
-      <img src="./img/preview-fume.png" alt="Fume 主题预览" />
-    </td>
-    <td width="50%">
-      <img src="./img/preview-lumi.png" alt="Lumi 主题预览" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><strong>浮名</strong></td>
-    <td align="center"><strong>流光</strong></td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="./img/preview-cad.png" alt="Cad 主题预览" />
-    </td>
-    <td width="50%">
-      <img src="./img/preview-pat.png" alt="Pat 主题预览" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><strong>心象</strong></td>
-    <td align="center"><strong>云阶</strong></td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="./img/preview-cappella.jpg" alt="群唱 主题预览" />
-    </td>
-    <td width="50%">
-      <img src="./img/preview-tilt.png" alt="Tilt 主题预览" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><strong>群唱</strong></td>
-    <td align="center"><strong>倾诉</strong></td>
-  </tr>
-    <tr>
-    <td width="50%">
-      <img src="./img/preview-diorama.png" alt="镜台 主题预览" />
-    </td>
-    <td width="50%">
-      <img src="./img/preview-pendolo.png" alt="时计 主题预览" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><strong>镜台</strong></td>
-    <td align="center"><strong>时计</strong></td>
-  </tr>
-</table>
-
-不同的歌词动画具有不同的排版氛围和可调参数，让全屏歌词拥有如同文字PV般的丰富视觉效果，同时又能兼顾响应式布局，自动适配不同窗口尺寸。
-
-## 核心能力
-
-| 模块 | 说明 |
-| --- | --- |
-| 在线搜索与播放 | 搜索歌曲、歌手或专辑后即可播放，并自动加载相关封面与歌词。 |
-| 本地音乐支持 | 可导入本地音频文件，在本地安全保存索引信息，不上传文件内容。详细用法见 [本地音乐库管理](docs/local-library-management.md)。 |
-| 智能歌词匹配 | 本地歌曲可自动匹配在线歌词与封面，也支持手动修正匹配结果。 |
-| 本地歌词文件识别 | 自动加载同目录同名 `.lrc`、`.vtt`、`.ttml`、`.qrc`、`.yrc`、`.krc` 歌词文件，或歌词文件内嵌 LRC 歌词。适配 LDDC 生成的增强型逐字歌词格式。 |
-| Now Playing 接入 | 支持通过本机 [Now Playing](https://github.com/Widdit/now-playing-service/) 服务接入外部播放器的歌曲、时间轴与歌词信息，并驱动 Folia 的舞台视图与全屏歌词渲染。 |
-| AI 主题生成 | 基于歌曲情绪与歌词内容生成沉浸式背景与视觉参数。 |
-| 多端体验 | 提供 Web 部署方式，同时支持桌面端打包分发。 |
-| 模组系统（实验性） | 桌面版可通过 Folium 模组添加歌词动画、背景、播放页图层、命令等，并从 [模组市场](https://folium-compound.vercel.app) 安装官方认证的模组。详见 [模组系统](#模组系统folium-v1x)。 |
-| 播放音源兜底 | 遇到无法直接播放的歌曲时，会尝试从其他平台找可用的音源（可在 设置 → 播放 中开关）。 |
-| Nix 打包 | 提供 flake 构建，支持 `nix run` / `nix shell` / NixOS / Home Manager 安装，见 [Nix 安装](#nix-安装)。 |
-| Linux 打包目标 | Linux 桌面端打包目标为 `dir`，方便直接使用产物。 |
+[chthollyphile/folia-major](https://github.com/chthollyphile/folia-major) 的 fork。以全屏沉浸式歌词为核心，支持网易云、酷狗、Navidrome 与本地音乐库，提供 Electron 桌面端与 Web 版；本 fork 完整同步上游功能并持续跟踪上游稳定 release，差异只在下面的私房菜。
 
 ## 获取方式
 
 ### 直接下载
 
-- **Windows / macOS / Linux**: 最新安装包请前往 [Releases 页面](https://github.com/yigexuanmu/folia-major/releases/latest) 下载。
-
-> [!IMPORTANT]
-> 如果国内网络从 GitHub Releases 下载较慢，可以使用 [夸克网盘](https://pan.quark.cn/s/6e4c6fa3bc6f) 或 [百度云](https://pan.baidu.com/s/1f0x3g-8PMcNCO-TJ5z1rPw?pwd=flia) 下载。网盘链接仅提供 Windows 与 Apple silicon 的正式版安装包.
+- **Windows / macOS / Linux**：安装包见 [Releases](https://github.com/yigexuanmu/folia-major/releases/latest)。
+- **Linux**：也可解压 `folia-major-<版本>-linux-x64.tar.gz` 直接运行。
 
 ### Nix 安装
 
@@ -140,8 +30,6 @@ nix shell github:yigexuanmu/folia-major -c folia-major
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
-  # 可选：复用你的 nixpkgs
-  inputs.folia-major.inputs.nixpkgs.follows = "nixpkgs";
 }
 # environment.systemPackages = [ inputs.folia-major.packages.${system}.default ];
 
@@ -157,82 +45,32 @@ nix shell github:yigexuanmu/folia-major -c folia-major
 > `pnpm-lock.yaml` 或 `pnpm-workspace.yaml` 后，用构建报错里的 `got: sha256-…` 覆盖
 > `packaging/nix/default.nix` 中的 `hash` 即可。
 
-## 模组系统（Folium v1.x）
+## 私房菜
 
-> [!NOTE]
-> 模组系统是实验性功能，仅桌面版可用，默认关闭，需要在「设置 → 实验室 → 模组系统」中开启。
+按个人使用习惯做的一些改动，其余功能、界面与行为与上游保持一致。
 
-Folium 是 Folia 的模组平台。模组可以添加新的歌词动画模式和背景类型、在播放页上叠加内容、给进度条加按钮和标记、注册命令与设置分区、在歌词显示前改写歌词，也可以通过 Node 入口调用 ffmpeg 等本地能力。模组以可信代码运行，每个模组在启用前都要在原生窗口中确认，文件变化后需要重新确认。
-
-- **模组市场**：[folium-compound.vercel.app](https://folium-compound.vercel.app) 提供官方模组和经过审查的社区模组，下载 zip 后拖进模组面板即可安装。
-- **官方认证**：市场里的模组都带有 Folium 签名，安装后显示「官方认证」；没有签名的第三方模组显示「未验证」，同样可以使用。
-- **开发与贡献**：[模组开发与贡献指南](docs/folium/contributing.md)，从写第一个模组、本地调试，到提交到模组市场、审查与签名、发布更新。
-- **API 参考**：[Folium API 参考](docs/folium/api.md)，由契约文件生成的完整接口文档，按注册表、上下文、事件、服务等分类查询。
-- **平台规范**：[Folium 规范](mods/README.md)，包括清单字段、权限、注册表语义、事件、安全模型与版本策略。
-- **示范模组**：仓库的 [`mods/`](mods/) 目录，覆盖歌词动画、调参、进度条、播放页图层与透明视频导出。
-
-## Sync Server
-
-Folia 提供了可选的官方同步服务端 `sync-server`，用于在多个设备之间同步外观设置与 AI 主题库。服务端由用户自行托管，适合希望跨设备同步配色主题的用户。
-
-支持以下部署方式：
-
-- **Cloudflare Workers / D1**：免服务器运维的 Serverless 部署，推荐使用。
-  [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/chthollyphile/folia-major/tree/main/sync-server)
-- **Docker**：镜像与 Compose 入口见 [Docker 部署目录](deploy/docker/README.md)。
-- **Node.js 自托管**：使用 SQLite，适合本地或不方便使用 Docker 的环境。
-
-详细的环境变量、Token 配置与部署步骤请参阅 [Sync-Server 部署指南](https://folia-site.cielaniska.top/guide/deploy-sync)。部署完成后，在 Folia 的“存储设置”中填写服务端地址和 `SYNC_TOKEN` 即可启用同步。
+| 项 | 说明 |
+| --- | --- |
+| 播放可用性增强 | 曲目无法直接播放时自动尝试其他来源，入口在 设置 → 播放。 |
+| Linux 壁纸模式 | 打包 windowtolayer，桌面壁纸模式开箱可用。 |
+| Nix 打包 | 仓库自带 flake，支持 `nix run` / `nix shell` / NixOS / Home Manager。 |
+| 桌面端发行 | 自带 `Build All & Release` 工作流，产出 Windows / macOS / Linux 安装包。 |
 
 ## 本地开发
 
 ```bash
-# npm
-npm ci
-npm run dev
-
-# 或 pnpm
-pnpm install --frozen-lockfile
-pnpm dev
-
-# 类型检查
-npm run typecheck
-
-# 桌面端构建
-npm run build
-npx electron-builder --win --publish never   # Windows
-npx electron-builder --mac --publish never   # macOS
-npx electron-builder --linux --publish never # Linux
+npm ci                 # 或 pnpm install --frozen-lockfile
+npm run dev            # 开发服务器
+npm run typecheck      # 类型检查
+npm run test:unit      # 单元测试
+npm run build          # 构建 web 资源
+npx electron-builder --linux --publish never   # 桌面端打包（--win / --mac 同理）
 ```
-
-## 与上游的关系
-
-本仓库为 [chthollyphile/folia-major](https://github.com/chthollyphile/folia-major) 的 fork，会持续跟踪并合并上游更新。除上述「私房菜」外，其余功能、界面与行为与上游保持一致。
 
 ## 免责声明
 
-本项目在 AI 的广泛协助下开发，因此仍可能存在细微或不易察觉的问题。若给你带来不便，敬请理解。
-
-本项目主要用于展示播放动效、界面设计与相关工程实现。应用中涉及的在线音乐流媒体、歌词、专辑封面及其他内容，其版权均归对应权利人所有。
-
-本仓库及其源代码仅供个人学习、技术交流与非营利测试使用。请勿将其用于商业盈利用途。若因对在线资源的传播、加工或再分发而引发版权纠纷或其他责任，均由使用者自行承担，项目开发者不承担相关责任。
-
-请始终尊重数字版权，并在条件允许时通过官方平台支持正版音乐。
-
-## 致谢
-
-特别感谢以下项目和资源：
-
-- [chenmozhijin/LDDC](https://github.com/chenmozhijin/LDDC)
-- [NeteaseCloudMusicApiEnhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced)
-- [chenglou/pretext](https://github.com/chenglou/pretext)
-- [MakcRe/KuGouMusicApi](https://github.com/MakcRe/KuGouMusicApi)
-- [paper-design/shaders](https://github.com/paper-design/shaders)
-- [yakult-green-tea/qq-music-api](https://github.com/yakult-green-tea/qq-music-api)
-
-本项目接入了 [Apple Music-like Lyrics TTML 逐词歌词库](https://github.com/amll-dev/amll-ttml-db) 以提供高质量的歌词文件，感谢此歌词库的作者和贡献者们。
-
+仅供个人学习、技术交流与非营利测试，请勿商用。应用内涉及的在线音乐、歌词与封面版权归对应权利人所有，请通过官方平台支持正版音乐。
 
 ## 许可证
 
-本项目基于 `AGPL-3.0` 许可证开源，详情见 [LICENSE](LICENSE)。
+`AGPL-3.0`，详见 [LICENSE](LICENSE)。
