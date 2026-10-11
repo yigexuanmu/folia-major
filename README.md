@@ -149,6 +149,14 @@ nix shell github:yigexuanmu/folia-major -c folia-major
 # home.packages = [ inputs.folia-major.packages.${system}.default ];
 ```
 
+> **关于 `pnpm-deps` 哈希与工具链**：`flake.nix` 额外用输入 `nixpkgs-js` 钉住 pnpm / nodejs
+> 与 `fetchPnpmDeps` 的实现版本。`pnpm` 的固定输出哈希取决于生成 store 的 pnpm 版本，
+> 因此它不能跟随调用方的 nixpkgs —— 否则 `nixos-unstable` 每次滚动更新 pnpm，
+> `folia-major-pnpm-deps` 的哈希就会失配，`nix build` 直接失败（历史上已发生多次）。
+> `nixpkgs-js` 是固定修订，不跟随，所以哈希与你的 nixpkgs 无关。升级该修订、改动
+> `pnpm-lock.yaml` 或 `pnpm-workspace.yaml` 后，用构建报错里的 `got: sha256-…` 覆盖
+> `packaging/nix/default.nix` 中的 `hash` 即可。
+
 ## 模组系统（Folium v1.x）
 
 > [!NOTE]
