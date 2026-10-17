@@ -2,6 +2,8 @@
 
 [chthollyphile/folia-major](https://github.com/chthollyphile/folia-major) 的 fork。以全屏沉浸式歌词为核心，支持网易云、酷狗、Navidrome 与本地音乐库，提供 Electron 桌面端与 Web 版；本 fork 完整同步上游功能并持续跟踪上游稳定 release，差异只在下面的私房菜。
 
+更新随缘
+
 ## 私房菜
 
 按个人使用习惯做的一些改动，其余功能、界面与行为与上游保持一致。
