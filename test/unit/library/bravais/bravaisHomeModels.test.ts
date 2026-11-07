@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { LibraryDirectoryNode } from '@/library/core/contracts/directory';
-import type { LibraryHomeCard } from '@/library/core/contracts/homeModel';
+import type { LibraryDirectoryNode } from '@/library/core/directory/directory.contract';
+import type { LibraryHomeCard } from '@/library/core/home/homeModel.contract';
 import { getWallSlot } from '@/components/wall/wallSlots';
 import {
     createHomeItemCache,
+    cycleHomeSeamTab,
     cycleHomeTab,
     projectDirectoryRows,
+    projectHomeSeamTabs,
     projectHomeShortcuts,
     projectHomeWallItems,
     resolveHomeWallMode,
@@ -152,6 +154,20 @@ describe('projectHomeShortcuts', () => {
         expect(projectHomeShortcuts([card('rec', 'playlist'), card('al', 'album')], { source: 'online', hiddenIds: new Set(), isDirect })).toEqual([]);
     });
 
+    it('puts an extra provider radio next to the Personal FM, once, and leaves other scene cards out', () => {
+        const cards = [
+            card('personal_fm', 'radio', { name: 'FM' }),
+            card('scene-1', 'radio', { raw: { personalFm: { mode: 'SCENE_RCMD', scene: '1' } } }),
+            card('station-1', 'radio', { name: 'Radio One', raw: { personalFm: { mode: 'DEFAULT', scene: null, station: 'radio' } } }),
+            card('station-2', 'radio', { raw: { personalFm: { mode: 'DEFAULT', scene: null, station: 'radio2' } } }),
+        ];
+        const shortcuts = projectHomeShortcuts(cards, { source: 'online', hiddenIds: new Set(), isDirect });
+        expect(shortcuts.map(entry => [entry.special, entry.label, entry.itemKey])).toEqual([
+            ['personal-fm', 'FM', 'card:radio:personal_fm'],
+            ['fm-station', 'Radio One', 'card:radio:station-1'],
+        ]);
+    });
+
     it('leaves out hidden ones and reads the identity per source', () => {
         const cards = [card('liked', 'playlist', { raw: { isLiked: true } }), card('cloud', 'cloud')];
         expect(projectHomeShortcuts(cards, { source: 'online', hiddenIds: new Set(['liked']), isDirect }).map(entry => entry.special)).toEqual(['cloud']);
@@ -251,6 +267,45 @@ describe('select-all and tabs', () => {
         const tabs = [{ key: 'radio' }, { key: 'albums' }, { key: 'local' }] as const;
         expect(cycleHomeTab(tabs, 'playlist', -1)).toBe('local');
         expect(cycleHomeTab(tabs, 'playlist', 1)).toBe('radio');
+    });
+
+    // 宿主交来的扩展页签（模组的首页页面）：排在原生页签后面，选中态以宿主为准，F6 也把它们排进来（与网格的 Tab 一致）。
+    const nativeTabs = [
+        { key: 'playlist', label: 'Playlists' },
+        { key: 'radio', label: 'Radio', disabledReason: 'no' },
+        { key: 'local', label: 'Local' },
+    ] as const;
+    const extra = (id: string, active = false) => ({ id, label: id.toUpperCase(), active });
+
+    it('projects contributed pages after native tabs and lets an open page take the selection', () => {
+        expect(projectHomeSeamTabs(nativeTabs, 'local')).toEqual([
+            { key: 'playlist', label: 'Playlists', active: false, disabled: false },
+            { key: 'radio', label: 'Radio', active: false, disabled: true },
+            { key: 'local', label: 'Local', active: true, disabled: false },
+        ]);
+        const closed = projectHomeSeamTabs(nativeTabs, 'local', [extra('mod:a'), extra('mod:b')]);
+        expect(closed.filter(tab => tab.active).map(tab => tab.key)).toEqual(['local']);
+        expect(closed.slice(3)).toEqual([
+            { key: 'mod:a', label: 'MOD:A', active: false, disabled: false },
+            { key: 'mod:b', label: 'MOD:B', active: false, disabled: false },
+        ]);
+        const open = projectHomeSeamTabs(nativeTabs, 'local', [extra('mod:a'), extra('mod:b', true)]);
+        expect(open.filter(tab => tab.active).map(tab => tab.key)).toEqual(['mod:b']);
+    });
+
+    it('cycles F6 through native tabs and contributed pages, starting from the open page', () => {
+        const extras = [extra('mod:a'), extra('mod:b')];
+        expect(cycleHomeSeamTab(nativeTabs, 'local', extras, 1)).toBe('mod:a');
+        expect(cycleHomeSeamTab(nativeTabs, 'playlist', extras, -1)).toBe('mod:b');
+        expect(cycleHomeSeamTab(nativeTabs, 'playlist', extras, 1)).toBe('local');
+        // 页面开着时从它算起，而不是从底下的原生页签。
+        const open = [extra('mod:a', true), extra('mod:b')];
+        expect(cycleHomeSeamTab(nativeTabs, 'playlist', open, 1)).toBe('mod:b');
+        expect(cycleHomeSeamTab(nativeTabs, 'playlist', open, -1)).toBe('local');
+        expect(cycleHomeSeamTab(nativeTabs, 'playlist', [extra('mod:a', false), extra('mod:b', true)], 1)).toBe('playlist');
+        // 没有扩展页签时与 cycleHomeTab 相同。
+        expect(cycleHomeSeamTab(nativeTabs, 'local', [], 1)).toBe('playlist');
+        expect(cycleHomeSeamTab([{ key: 'playlist' }], 'playlist', [], 1)).toBeNull();
     });
 });
 

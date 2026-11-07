@@ -100,7 +100,7 @@ stdenv.mkDerivation (finalAttrs: {
     # 该哈希只对 flake 里 nixpkgs-js 固定的 pnpm/nodejs（见 flake.nix）成立，与调用方
     # nixpkgs 无关。升级 nixpkgs-js、改动 pnpm-lock.yaml 或 pnpm-workspace.yaml 后，
     # 用 nix build 报错里的 "got: sha256-..." 覆盖此值即可。
-    hash = "sha256-6pqbTzFu6g8i13TabooSTNkRcPWPMf7/1kdMd81nzn4=";
+    hash = "sha256-0QTfNTqejIJwyE81Svx2uGdnAueAffdiuJ/wj1no67o=";
   };
 
   env.SKIP_NATIVE_BUILD = "true";

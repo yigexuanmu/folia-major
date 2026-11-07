@@ -1,17 +1,26 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const cachedAudioMock = vi.hoisted(() => vi.fn());
 const songCacheMock = vi.hoisted(() => vi.fn());
 const sourceMock = vi.hoisted(() => vi.fn());
 const lyricsMock = vi.hoisted(() => vi.fn());
+const otherArtistNameMock = vi.hoisted(() => vi.fn());
 const autoMatchMock = vi.hoisted(() => vi.fn());
+const prefersOwnWordByWordMock = vi.hoisted(() => vi.fn(() => false));
 const loadLyricsStateMock = vi.hoisted(() => vi.fn());
 const saveLyricsStateMock = vi.hoisted(() => vi.fn());
 const isUrlValidMock = vi.hoisted(() => vi.fn(() => true));
 const updatePrefetchedAudioUrlMock = vi.hoisted(() => vi.fn());
+const previewAudioMock = vi.hoisted(() => vi.fn((_url: string) => false));
+const unlockSourceMock = vi.hoisted(() => vi.fn());
+const unlockSettings = vi.hoisted(() => ({
+    enabled: false,
+    servers: [{ key: 'netease', enabled: true }, { key: 'bodian', enabled: true }],
+}));
 
 vi.mock('@/services/onlineMusic/resourceCache', () => ({
     getCachedSongAudioBlob: cachedAudioMock,
+    getCachedSongReplayGain: vi.fn(async () => undefined),
     getSongCacheWithLegacyMigration: songCacheMock,
 }));
 
@@ -19,7 +28,26 @@ vi.mock('@/services/onlineMusic/omni', () => ({
     omni: {
         getAudioSource: sourceMock,
         getLyrics: lyricsMock,
+        getAlternateArtistName: otherArtistNameMock,
+        resolveAudioQuality: (_providerId: string, preference: string) => preference,
+        isPreviewAudioSource: (url: string) => previewAudioMock(url),
+        prefersOwnWordByWordLyrics: prefersOwnWordByWordMock,
     },
+}));
+
+afterEach(() => prefersOwnWordByWordMock.mockReturnValue(false));
+
+vi.mock('@/stores/useSongUnlockSettingsStore', () => ({
+    useSongUnlockSettingsStore: {
+        getState: () => ({ useSongUnlock: unlockSettings.enabled, songUnlockServers: unlockSettings.servers }),
+    },
+}));
+
+// The rule that says which failures are worth asking an alternate source stays the real one: only
+// the lookup itself is stubbed, so a failure the rule passes over is seen as such.
+vi.mock('@/services/songUnlockService', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/services/songUnlockService')>()),
+    getUnlockAudioSource: (...args: unknown[]) => unlockSourceMock(...args),
 }));
 
 vi.mock('@/stores/useLyricSettingsStore', () => ({
@@ -58,6 +86,10 @@ import { loadOnlineSongAudioSource, loadOnlineSongLyrics } from '@/services/onli
 import { markOnlineLyricsPureMusic } from '@/utils/onlineLyricsState';
 import type { SongResult } from '@/types';
 import { OnlineProviderError } from '@/types/onlineMusic';
+import { useOnlineProviderAccountStore } from '@/stores/useOnlineProviderAccountStore';
+import { resetOnlineRequestCooldowns } from '@/services/onlineMusic/failure/onlineRequestCooldown';
+import { OnlineRequestTimeout } from '@/services/onlineMusic/failure/onlineRequestLimit';
+import { clearCachedSongAudioDistrust, distrustCachedSongAudio } from '@/services/playbackRecovery/mediaCacheGuard';
 
 // test/unit/onlinePlayback.test.ts
 
@@ -75,12 +107,50 @@ describe('online audio ReplayGain plumbing', () => {
         vi.clearAllMocks();
         cachedAudioMock.mockResolvedValue(null);
         isUrlValidMock.mockReturnValue(true);
+        resetOnlineRequestCooldowns();
+        useOnlineProviderAccountStore.setState({ accounts: {} });
     });
 
-    it.each(['preview-only', 'region-restricted', 'auth-required'] as const)('preserves %s for the queue and does not cache audio', async reason => {
-        sourceMock.mockRejectedValueOnce(new OnlineProviderError(reason, 'Playback unavailable', 'bodian'));
-        await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toEqual({ kind: 'unavailable', reason });
+    it.each([
+        ['preview-only', 'preview-only'],
+        ['subscription-required', 'subscription-required'],
+        ['region-restricted', 'region-restricted'],
+        ['auth-required', 'sign-in-needed'],
+    ] as const)('preserves %s for the queue as %s and does not cache audio', async (code, caseId) => {
+        sourceMock.mockRejectedValueOnce(new OnlineProviderError(code, 'Playback unavailable', 'bodian'));
+        const result = await loadOnlineSongAudioSource(song, 'high', null);
+        expect(result).toEqual({ kind: 'unavailable', failure: { case: caseId, operation: 'audio', providerId: 'kugou', facts: { errorCode: code } } });
         expect(updatePrefetchedAudioUrlMock).not.toHaveBeenCalled();
+    });
+
+    it('sorts a plain thrown error as unknown and logs it once, cleaned', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        sourceMock.mockRejectedValueOnce(new Error('GET https://audio.test/x?token=abcdef0123456789 failed'));
+        const result = await loadOnlineSongAudioSource(song, 'high', null);
+        expect(result).toMatchObject({ kind: 'unavailable', failure: { case: 'unknown' } });
+        expect(warn).toHaveBeenCalledOnce();
+        expect(warn.mock.calls[0][0]).toBe('[OnlineFailure] audio kugou unknown');
+        expect(JSON.stringify(warn.mock.calls[0][1])).not.toContain('abcdef0123456789');
+        warn.mockRestore();
+    });
+
+    it('sorts a source that came back without an address as no audio', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        sourceMock.mockResolvedValueOnce(null);
+        await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toEqual({
+            kind: 'unavailable', failure: { case: 'no-audio', operation: 'audio', providerId: 'kugou', facts: { case: 'no-audio' } },
+        });
+        expect(warn).toHaveBeenCalledOnce();
+        warn.mockRestore();
+    });
+
+    it('still plays a cached copy of another level when no address can be had, and logs why', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        cachedAudioMock.mockResolvedValueOnce(null).mockResolvedValueOnce(new Blob(['x']));
+        sourceMock.mockRejectedValueOnce(new OnlineProviderError('network', 'offline', 'kugou'));
+        await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toMatchObject({ kind: 'ok', blobUrl: 'blob:test' });
+        expect(warn.mock.calls[0][0]).toBe('[OnlineFailure] audio kugou unreachable');
+        warn.mockRestore();
     });
 
     it('returns provider metadata and stores it with the prefetched URL', async () => {
@@ -141,6 +211,259 @@ describe('online audio ReplayGain plumbing', () => {
     });
 });
 
+describe('song unlock (fork 私房菜)', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        sourceMock.mockReset();
+        cachedAudioMock.mockReset();
+        cachedAudioMock.mockResolvedValue(null);
+        isUrlValidMock.mockReturnValue(true);
+        previewAudioMock.mockReturnValue(false);
+        unlockSourceMock.mockReset();
+        unlockSettings.enabled = true;
+        resetOnlineRequestCooldowns();
+        clearCachedSongAudioDistrust(song);
+        useOnlineProviderAccountStore.setState({ accounts: {} });
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        unlockSettings.enabled = false;
+        vi.restoreAllMocks();
+    });
+
+    it('plays the alternate source for a song the account cannot play', async () => {
+        sourceMock.mockResolvedValueOnce(null);
+        unlockSourceMock.mockResolvedValueOnce({ code: 200, url: 'https://unlock.test/song.mp3', source: 'bodian' });
+
+        await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toEqual({
+            kind: 'ok', audioSrc: 'https://unlock.test/song.mp3',
+        });
+        expect(unlockSourceMock).toHaveBeenCalledWith(song, unlockSettings.servers);
+        expect(updatePrefetchedAudioUrlMock).toHaveBeenCalledWith(song, 'https://unlock.test/song.mp3', 'high');
+    });
+
+    it('prefers the alternate source over a preview clip the platform would play', async () => {
+        sourceMock.mockResolvedValueOnce({ url: 'https://audio.test/preview.mp3', fetchedAt: 1, quality: 'high' });
+        previewAudioMock.mockReturnValueOnce(true);
+        unlockSourceMock.mockResolvedValueOnce({ code: 200, url: 'https://unlock.test/full.mp3', source: 'netease' });
+
+        await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toEqual({
+            kind: 'ok', audioSrc: 'https://unlock.test/full.mp3',
+        });
+    });
+
+    it('keeps the preview clip where the alternate source has nothing', async () => {
+        sourceMock.mockResolvedValueOnce({ url: 'https://audio.test/preview.mp3', fetchedAt: 1, quality: 'high' });
+        previewAudioMock.mockReturnValueOnce(true);
+        unlockSourceMock.mockResolvedValueOnce({ code: 404, url: null });
+
+        await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toMatchObject({
+            kind: 'ok', audioSrc: 'https://audio.test/preview.mp3', preview: true,
+        });
+    });
+
+    it('does not ask the alternate source when the platform cannot be reached', async () => {
+        sourceMock.mockRejectedValueOnce(new OnlineProviderError('network', 'offline', 'kugou'));
+
+        await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toMatchObject({
+            kind: 'unavailable', failure: { case: 'unreachable' },
+        });
+        expect(unlockSourceMock).not.toHaveBeenCalled();
+    });
+
+    it('asks nothing anywhere while the setting is off', async () => {
+        unlockSettings.enabled = false;
+        sourceMock.mockResolvedValueOnce(null);
+
+        await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toMatchObject({ kind: 'unavailable' });
+        expect(unlockSourceMock).not.toHaveBeenCalled();
+    });
+});
+
+describe('online audio source failures', () => {
+    const okSource = { url: 'https://audio.test/song.mp3', fetchedAt: 1, quality: 'high' as const };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        sourceMock.mockReset();
+        cachedAudioMock.mockReset();
+        cachedAudioMock.mockResolvedValue(null);
+        isUrlValidMock.mockReturnValue(true);
+        resetOnlineRequestCooldowns();
+        clearCachedSongAudioDistrust(song);
+        useOnlineProviderAccountStore.setState({ accounts: {} });
+    });
+
+    it('tells a sign-in that ran out from none, by the account before the request', async () => {
+        useOnlineProviderAccountStore.getState().updateAccount('kugou', { status: 'authenticated' });
+        sourceMock.mockImplementationOnce(async () => {
+            // The transport drops the session where it is refused: what counts is the account before the request.
+            useOnlineProviderAccountStore.getState().clearAccount('kugou');
+            throw new OnlineProviderError('auth-required', 'Session rejected', 'kugou');
+        });
+        const ranOut = await loadOnlineSongAudioSource(song, 'high', null);
+        expect(ranOut).toMatchObject({ kind: 'unavailable', failure: { case: 'sign-in-needed', providerId: 'kugou' } });
+        expect(ranOut.kind === 'unavailable' && ranOut.failure.facts.signedOut).toBeFalsy();
+
+        useOnlineProviderAccountStore.getState().updateAccount('kugou', { status: 'anonymous' });
+        sourceMock.mockRejectedValueOnce(new OnlineProviderError('auth-required', 'Sign in first', 'kugou'));
+        await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toMatchObject({
+            kind: 'unavailable',
+            failure: { case: 'sign-in-needed', facts: { signedOut: true } },
+        });
+    });
+
+    it.each([
+        ['no source', () => sourceMock.mockResolvedValueOnce(null), 'no-audio'],
+        ['an empty URL', () => sourceMock.mockResolvedValueOnce({ ...okSource, url: '' }), 'no-audio'],
+        ['a script URL', () => sourceMock.mockResolvedValueOnce({ ...okSource, url: 'javascript:x' }), 'no-audio'],
+        ['a plain Error', () => sourceMock.mockRejectedValueOnce(new Error('boom')), 'unknown'],
+        ['HTTP 429 with a wait', () => sourceMock.mockRejectedValueOnce(new OnlineProviderError('network', 'Too many', 'kugou', undefined, 429, 25_000)), 'retry-later'],
+        ['HTTP 503', () => sourceMock.mockRejectedValueOnce(new OnlineProviderError('network', 'Down', 'kugou', undefined, 503)), 'unreachable'],
+    ] as const)('sorts %s into a case and never touches the prefetch entry', async (_label, arrange, caseId) => {
+        arrange();
+
+        const result = await loadOnlineSongAudioSource(song, 'high', null);
+
+        expect(result).toMatchObject({ kind: 'unavailable', failure: { case: caseId, operation: 'audio', providerId: 'kugou' } });
+        expect(updatePrefetchedAudioUrlMock).not.toHaveBeenCalled();
+    });
+
+    describe('quiet retries', () => {
+        const networkError = () => new OnlineProviderError('network', 'offline', 'kugou');
+
+        it('retries a network failure and returns the source that follows', async () => {
+            sourceMock.mockRejectedValueOnce(networkError()).mockResolvedValueOnce(okSource);
+            const sleep = vi.fn(async (_ms: number) => { });
+            const onRetrying = vi.fn();
+
+            const result = await loadOnlineSongAudioSource(song, 'high', null, { retry: { isCurrent: () => true, onRetrying, sleep } });
+
+            expect(result).toMatchObject({ kind: 'ok', audioSrc: okSource.url });
+            expect(sourceMock).toHaveBeenCalledTimes(2);
+            expect(sleep.mock.calls).toEqual([[1000]]);
+            expect(onRetrying).toHaveBeenCalledWith(expect.objectContaining({ case: 'unreachable' }), 1);
+            expect(updatePrefetchedAudioUrlMock).toHaveBeenCalledTimes(1);
+        });
+
+        it('gives up after the policy delays run out', async () => {
+            sourceMock.mockRejectedValue(networkError());
+            const sleep = vi.fn(async (_ms: number) => { });
+
+            const result = await loadOnlineSongAudioSource(song, 'high', null, { retry: { isCurrent: () => true, sleep } });
+
+            expect(result).toMatchObject({ kind: 'unavailable', failure: { case: 'unreachable' } });
+            expect(sourceMock).toHaveBeenCalledTimes(3);
+            expect(sleep.mock.calls).toEqual([[1000], [3000]]);
+        });
+
+        it('retries a timeout once', async () => {
+            sourceMock.mockRejectedValue(new OnlineRequestTimeout(60_000));
+            const sleep = vi.fn(async (_ms: number) => { });
+
+            await loadOnlineSongAudioSource(song, 'high', null, { retry: { isCurrent: () => true, sleep } });
+
+            expect(sourceMock).toHaveBeenCalledTimes(2);
+            expect(sleep.mock.calls).toEqual([[2000]]);
+        });
+
+        it('stops as soon as the request is no longer current', async () => {
+            sourceMock.mockRejectedValue(networkError());
+            let current = true;
+            const sleep = vi.fn(async (_ms: number) => { current = false; });
+
+            const result = await loadOnlineSongAudioSource(song, 'high', null, { retry: { isCurrent: () => current, sleep } });
+
+            expect(result).toMatchObject({ kind: 'unavailable', failure: { case: 'unreachable' } });
+            expect(sourceMock).toHaveBeenCalledTimes(1);
+            expect(sleep).toHaveBeenCalledTimes(1);
+        });
+
+        it('does not retry a stale request at all', async () => {
+            sourceMock.mockRejectedValue(networkError());
+            const sleep = vi.fn(async (_ms: number) => { });
+            const onRetrying = vi.fn();
+
+            await loadOnlineSongAudioSource(song, 'high', null, { retry: { isCurrent: () => false, onRetrying, sleep } });
+
+            expect(sourceMock).toHaveBeenCalledTimes(1);
+            expect(sleep).not.toHaveBeenCalled();
+            expect(onRetrying).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['unknown', () => sourceMock.mockResolvedValue(null)],
+            ['auth', () => sourceMock.mockRejectedValue(new OnlineProviderError('auth-required', 'no', 'kugou'))],
+        ] as const)('does not retry %s', async (_label, arrange) => {
+            arrange();
+            const sleep = vi.fn(async (_ms: number) => { });
+
+            await loadOnlineSongAudioSource(song, 'high', null, { retry: { isCurrent: () => true, sleep } });
+
+            expect(sourceMock).toHaveBeenCalledTimes(1);
+            expect(sleep).not.toHaveBeenCalled();
+        });
+
+        it('does not retry without retry options', async () => {
+            sourceMock.mockRejectedValue(networkError());
+
+            await loadOnlineSongAudioSource(song, 'high', null);
+
+            expect(sourceMock).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    it('answers from the cooldown without asking the provider again after a stated Retry-After', async () => {
+        sourceMock.mockRejectedValueOnce(new OnlineProviderError('network', 'Too many', 'kugou', undefined, 429, 25_000));
+        await loadOnlineSongAudioSource(song, 'high', null);
+
+        const second = await loadOnlineSongAudioSource(song, 'high', null);
+
+        expect(sourceMock).toHaveBeenCalledTimes(1);
+        expect(second).toMatchObject({ kind: 'unavailable', failure: { case: 'retry-later', providerId: 'kugou' } });
+        if (second.kind === 'unavailable') {
+            expect(second.failure.facts.retryAfterMs).toBeGreaterThan(0);
+            expect(second.failure.facts.retryAfterMs).toBeLessThanOrEqual(25_000);
+        }
+    });
+
+    describe('media cache', () => {
+        it('falls back to the provider when reading the cache throws', async () => {
+            cachedAudioMock.mockRejectedValueOnce(new Error('IndexedDB is gone'));
+            sourceMock.mockResolvedValueOnce(okSource);
+
+            await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toMatchObject({ kind: 'ok', audioSrc: okSource.url });
+            expect(sourceMock).toHaveBeenCalledTimes(1);
+        });
+
+        it('uses the cached blob by default', async () => {
+            cachedAudioMock.mockResolvedValueOnce(new Blob([new Uint8Array([1])]));
+
+            await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toMatchObject({ kind: 'ok', audioSrc: 'blob:test', blobUrl: 'blob:test' });
+            expect(sourceMock).not.toHaveBeenCalled();
+        });
+
+        it('skips the cached blob when asked to bypass it', async () => {
+            cachedAudioMock.mockResolvedValue(new Blob([new Uint8Array([1])]));
+            sourceMock.mockResolvedValueOnce(okSource);
+
+            await expect(loadOnlineSongAudioSource(song, 'high', null, { bypassMediaCache: true })).resolves.toMatchObject({ kind: 'ok', audioSrc: okSource.url });
+            expect(cachedAudioMock).not.toHaveBeenCalled();
+        });
+
+        it('skips the cached blob of a song whose cache is distrusted', async () => {
+            cachedAudioMock.mockResolvedValue(new Blob([new Uint8Array([1])]));
+            sourceMock.mockResolvedValueOnce(okSource);
+            distrustCachedSongAudio(song);
+
+            await expect(loadOnlineSongAudioSource(song, 'high', null)).resolves.toMatchObject({ kind: 'ok', audioSrc: okSource.url });
+            expect(cachedAudioMock).not.toHaveBeenCalled();
+        });
+    });
+});
+
 describe('online QQ lyric candidate plumbing', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -190,6 +513,21 @@ describe('online QQ lyric candidate plumbing', () => {
             }),
         }));
         expect(saveLyricsStateMock).not.toHaveBeenCalled();
+    });
+
+    it('lets auto-match ask the song\'s provider for the artist\'s other name', async () => {
+        const ytmSong: SongResult = { ...song, sourceRef: { kind: 'online', providerId: 'ytm', mediaId: 'online-song' } };
+        lyricsMock.mockResolvedValue({ lyrics: null, isPureMusic: false });
+        autoMatchMock.mockResolvedValue(null);
+        otherArtistNameMock.mockResolvedValue('Oasis');
+
+        await loadOnlineSongLyrics(ytmSong, null, null, { isCurrent: () => true, onLyrics: vi.fn(), onDone: vi.fn() });
+
+        const options = autoMatchMock.mock.calls[0][3];
+        // Nothing is asked until the matcher needs it.
+        expect(otherArtistNameMock).not.toHaveBeenCalled();
+        expect(await options.alternateArtist()).toBe('Oasis');
+        expect(otherArtistNameMock).toHaveBeenCalledExactlyOnceWith(ytmSong);
     });
 
     it('reports done before the auto-match search finishes, so audio never waits on it', async () => {
@@ -313,5 +651,29 @@ describe('instrumental tracks, once auto-match has settled them', () => {
         expect(merged.lyricsSource).toBe('imported');
         expect(merged.importedLyrics).toBe(imported);
         expect(merged.matchedIsPureMusic).toBe(true);
+    });
+});
+
+describe('lyrics a provider keeps as its own timing', () => {
+    const wordLevel = {
+        lines: [{ startTime: 0, endTime: 1, fullText: 'line', words: [{ text: 'line', startTime: 0, endTime: 1 }] }],
+        isWordByWord: true,
+    };
+
+    it('keeps the provider\'s word-level lyrics instead of searching other sources', async () => {
+        prefersOwnWordByWordMock.mockReturnValue(true);
+        lyricsMock.mockResolvedValue({ lyrics: wordLevel, isPureMusic: false });
+        songCacheMock.mockResolvedValue(null);
+        loadLyricsStateMock.mockResolvedValue(null);
+
+        const onLyrics = vi.fn();
+        await loadOnlineSongLyrics(song, null, null, {
+            isCurrent: () => true,
+            onLyrics,
+            onDone: vi.fn(),
+        });
+
+        expect(onLyrics).toHaveBeenCalledWith(wordLevel);
+        expect(autoMatchMock).not.toHaveBeenCalled();
     });
 });

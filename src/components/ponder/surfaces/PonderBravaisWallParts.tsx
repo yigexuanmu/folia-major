@@ -4,7 +4,7 @@ import {
     Blinds,
     Check,
     ChevronLeft,
-    Crosshair,
+    Disc3,
     FoldHorizontal,
     Heart,
     Layers3,
@@ -25,7 +25,7 @@ import {
     X,
     type LucideIcon,
 } from 'lucide-react';
-import { relativeRectStyle } from './ponderSurfaceGeometry';
+import { relativeRectStyle } from './relativeRectStyle';
 import {
     BRAVAIS_SEAM_TABS,
     BRAVAIS_TOOLS_QUICK,
@@ -54,7 +54,7 @@ const KIND_LABEL_KEYS: Record<BravaisWallItem['kind'], string> = {
     feed: 'libraryBravais.kind.feed',
 };
 /** 首页窄缝的四个页签（歌单 / 电台 / 专辑 / 本地），文案与真实页签同一份。 */
-const SEAM_TAB_KEYS = ['home.playlists', 'home.radio', 'home.albums', 'localMusic.folder'] as const;
+const SEAM_TAB_KEYS = ['home.playlists', 'home.radioTab', 'home.albums', 'localMusic.folder'] as const;
 const SPECIAL_ICONS: Record<BravaisSpecial, LucideIcon> = {
     liked: Heart,
     'personal-fm': Radio,
@@ -307,15 +307,10 @@ const LOOK_VALUE_KEYS = {
 
 export type BravaisLook = keyof typeof LOOK_VALUE_KEYS;
 
-/** 工具面板：顶上四格一次性动作、音量、「墙面外观」下的透光 / 叠色、开关灯。 */
+/** 工具面板：顶上六格纯图标一次性动作、音量、「墙面外观」下的透光 / 叠色、开关灯。 */
 export const BravaisToolsPanel: React.FC<{ accent: string; look: BravaisLook }> = ({ accent, look }) => {
     const { t } = useTranslation();
-    const quick: [LucideIcon, string][] = [
-        [Crosshair, 'libraryBravais.toolsLocateShort'],
-        [Shuffle, 'libraryBravais.toolsShuffleShort'],
-        [Sparkles, 'libraryBravais.toolsThemeShort'],
-        [PanelsTopLeft, 'libraryBravais.toolsLatticeShort'],
-    ];
+    const quick: LucideIcon[] = [Shuffle, Sparkles, ListMusic, PanelsTopLeft, Disc3, Settings];
     return (
         <div
             data-ponder-bravais-tools-panel={look}
@@ -326,15 +321,14 @@ export const BravaisToolsPanel: React.FC<{ accent: string; look: BravaisLook }> 
                 boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.09), 0 18px 40px rgba(0, 0, 0, 0.5)',
             }}
         >
-            {quick.map(([Icon, key], index) => (
+            {quick.map((Icon, index) => (
                 <span
-                    key={key}
+                    key={index}
                     data-ponder-bravais-quick={index}
-                    className="flex flex-col items-center justify-center gap-[10%] rounded-[8px] bg-white/[0.06]"
+                    className="flex items-center justify-center rounded-[6px] bg-white/[0.06]"
                     style={relativeRectStyle(BRAVAIS_TOOLS_QUICK[index])}
                 >
-                    <Icon className="h-[32%] w-auto" />
-                    <span className="text-[6.5px] leading-none text-white/65">{t(key)}</span>
+                    <Icon className="h-[46%] w-auto" />
                 </span>
             ))}
             <span className="flex items-center gap-[5%]" style={relativeRectStyle(BRAVAIS_TOOLS_ROWS.volume)}>

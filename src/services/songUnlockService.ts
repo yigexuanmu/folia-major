@@ -302,6 +302,22 @@ export async function unlockKuwoUrl(keyword: string, songName: string, artist: s
   }
 }
 
+// 值得再去问第三方音源的情况：这首歌在这个账号上放不了（会员、购买、权限、只给试听、地区、下架），
+// 而不是连不上、超时或被平台拒绝——那几种换成备用音源也一样拿不到，只会多等几秒。
+const UNLOCK_FAILURE_CASES = new Set([
+  'no-audio',
+  'audio-unplayable',
+  'preview-only',
+  'subscription-required',
+  'purchase-required',
+  'entitlement-required',
+  'region-restricted',
+  'taken-down',
+  'not-public',
+]);
+
+export const unlockWorthTrying = (failureCase: string): boolean => UNLOCK_FAILURE_CASES.has(failureCase);
+
 export async function getUnlockAudioSource(
   song: SongResult,
   servers: { key: SongUnlockServer; enabled: boolean }[]
