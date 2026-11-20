@@ -3,6 +3,8 @@
   stdenv,
   fetchPnpmDeps,
   fetchFromGitLab,
+  fetchurl,
+  cmake,
   rustPlatform,
   rustfmt,
   python3,
@@ -86,6 +88,32 @@ let
     libXi libXrandr libXrender libXScrnSaver libXtst
     mesa nspr nss pipewire wayland libxkbcommon zlib
   ];
+
+  # 智能过渡（automix）与智能动感模式的两个模型，随安装包分发。哈希与
+  # shared/modelManifest.json 里的一致（build/fetchModels.mjs 用同一组数字校验，上游换模型时
+  # 这里会失配报错，照 manifest 改即可）；文件本身不进仓库，只有打包版从 models/ 里带上。
+  beatThisWeights = fetchurl {
+    # Beat This! final0：拍点。41102271 字节。
+    url = "https://github.com/chthollyphile/folia-major/releases/download/models-v1/beat_this-wgsl.bin";
+    hash = "sha256-Y2WuW6LkKSJ3LaAfv9C96N0gtzYqZ5AY54pfJR/oqWc=";
+  };
+  htdemucsWeights = fetchurl {
+    # htdemucs：分轨。htdemucs 与 htdemucs_gpu 是同一个文件，91838176 字节。
+    url = "https://github.com/chthollyphile/folia-major/releases/download/models-v1/htdemucs-wgsl.bin";
+    hash = "sha256-J9UzGnSk4jsYFys9WdA3jmmP15vA0P7TMW2nfjo32NE=";
+  };
+
+  # 两个模型的 CPU 运行时：MNN 3.6.1（固定提交，与 build/buildMnnRuntime.mjs 的 MNN_COMMIT 同一个）
+  # 加 native/folia-mnn 里自己的算子，编译成一个共享库，electron/analysis/mnn.cjs 用 koffi 载入。
+  # 机器没有可用 WebGPU 时全部分析都走它，所以 Nix 包必须自己编一份。
+  mnnRev = "d407447ed56c4121a11ccbd266dc184ca1ead0c2";
+  mnnSource = fetchurl {
+    url = "https://github.com/alibaba/MNN/archive/${mnnRev}.tar.gz";
+    hash = "sha256-E9ypVH332sQKtAxzGBNkBvSjPf6ZzUC/qk27InDLh5U=";
+  };
+
+  # mnn.cjs 按 build/mnn/<mac|win|linux>-<arch>/ 找库，arch 取的是 process.arch（x64 / arm64）。
+  nodeArch = if stdenv.hostPlatform.isAarch64 then "arm64" else "x64";
 in
 
 stdenv.mkDerivation (finalAttrs: {
@@ -103,7 +131,6 @@ stdenv.mkDerivation (finalAttrs: {
     hash = "sha256-0QTfNTqejIJwyE81Svx2uGdnAueAffdiuJ/wj1no67o=";
   };
 
-  env.SKIP_NATIVE_BUILD = "true";
   env.ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
   env.ELECTRON_DEV = "false";
   env.ELECTRON = "true";
@@ -114,12 +141,25 @@ stdenv.mkDerivation (finalAttrs: {
     nodejs
     pnpm
     pnpmConfigHook
+    cmake
     copyDesktopItems
     makeWrapper
   ];
 
   buildPhase = ''
     runHook preBuild
+
+    # 分析用的 CPU 运行时（见上面 mnnSource）。装到 mnn.cjs 的默认查找位置，随下面的
+    # `cp -a build` 一起进安装目录；包装脚本另外用 FOLIA_MNN_LIBRARY 指一次，两条路都通。
+    mkdir -p .mnn-src
+    tar -xzf ${mnnSource} -C .mnn-src --strip-components=1
+    cmake -S native/folia-mnn -B .mnn-build \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DMNN_SOURCE_DIR=$PWD/.mnn-src
+    cmake --build .mnn-build --target folia_mnn -j''${NIX_BUILD_CORES:-1}
+    mkdir -p build/mnn/linux-${nodeArch}
+    cp .mnn-build/libfolia_mnn.so build/mnn/linux-${nodeArch}/libfolia_mnn.so
+
     pnpm exec vite build
     runHook postBuild
   '';
@@ -133,6 +173,12 @@ stdenv.mkDerivation (finalAttrs: {
     # (tray icon, thumbar icons); electron-builder copies them as extraResources
     # for packaged builds, the nix package needs them in-place too
     cp -a build $appdir/build
+    # The two analysis models. main.cjs's getBundledModelsDirectory() is resources/models in a
+    # packaged build and <app>/models here (this package is not electron-builder's), so they go
+    # next to dist/ - without them automix says it needs the models and nothing analyses.
+    mkdir -p $appdir/models
+    cp ${beatThisWeights} $appdir/models/beat_this-wgsl.bin
+    cp ${htdemucsWeights} $appdir/models/htdemucs-wgsl.bin
     cp -a electron $appdir/
     cp -a shared $appdir/
     cp package.json $appdir/
@@ -144,6 +190,7 @@ stdenv.mkDerivation (finalAttrs: {
       --prefix LD_LIBRARY_PATH : "${runtimeLibs}" \
       --set ELECTRON_OZONE_PLATFORM_HINT "auto" \
       --set FOLIA_WINDOWTOLAYER_PATH $appdir/windowtolayer \
+      --set FOLIA_MNN_LIBRARY $appdir/build/mnn/linux-${nodeArch}/libfolia_mnn.so \
       --add-flags "--enable-features=UseOzonePlatform --ozone-platform=x11 --enable-wayland-ime"
     install -Dm644 packaging/linux/folia-major.desktop \
       $out/share/applications/folia-major.desktop
