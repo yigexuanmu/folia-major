@@ -136,6 +136,9 @@ stdenv.mkDerivation (finalAttrs: {
   env.ELECTRON = "true";
 
   dontAutoPatchelf = true;
+  # cmake 只用来编 MNN，工程的根目录没有 CMakeLists.txt：别让 stdenv 的 cmake 钩子
+  # 把默认的 configurePhase 接管过去。
+  dontUseCmakeConfigure = true;
 
   nativeBuildInputs = [
     nodejs
