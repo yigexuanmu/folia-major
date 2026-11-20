@@ -119,10 +119,9 @@ jobs:
   release:
     name: Publish release
     needs: build
-    # build 矩阵里 mac 抢不到 hosted runner 时整个作业是 cancelled，矩阵的
-    # continue-on-error 兜不住 needs（run 44759866206：Windows/Linux 都成了，
-    # mac cancelled，release 整轮 skipped）。所以这里用 always()，真正的门槛
-    # 放到下面的产物检查里：一个包都没有才失败。
+    # 用 always()：build 里任何一格被取消/失败时 needs 不满足，release 会被静默
+    # 跳过（run 44759866206 就是这么白跑的）。真正的门槛放在下面的产物检查里——
+    # Windows 和 Linux 的包都在才发，缺一个都不发半套。
     if: always() && needs.build.result != 'skipped'
     runs-on: ubuntu-latest
 
@@ -154,6 +153,12 @@ jobs:
             echo "::error::没有任何构建产物，放弃发版"
             exit 1
           fi
+          for pattern in '*.exe' '*.tar.gz'; do
+            if [ -z "$(find artifacts -name "$pattern" -print -quit)" ]; then
+              echo "::error::缺少 $pattern，不发半套"
+              exit 1
+            fi
+          done
           # 安装包清单按实际拿到的产物生成：mac 那一格没抢到 runner 时，
           # 别在发布说明里承诺一个不存在的 dmg。
           assets=""
