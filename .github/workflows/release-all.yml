@@ -14,6 +14,7 @@ jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.continue-on-error || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -21,9 +22,12 @@ jobs:
           - os: windows-latest
             target: --win
             upload_pattern: 'release/*.exe'
-          - os: macos-latest
+          # macos-latest 这两轮都抢不到 hosted runner（"The job was not acquired by Runner
+          # of type hosted"），钉一个具体镜像，并让它的失败不挡住 Windows/Linux 的发版。
+          - os: macos-15
             target: --mac
             upload_pattern: 'release/*.dmg'
+            continue-on-error: true
           - os: ubuntu-latest
             target: --linux
             upload_pattern: 'release/*.tar.gz'
