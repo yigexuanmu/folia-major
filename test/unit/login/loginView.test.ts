@@ -35,6 +35,7 @@ describe('the platform column', () => {
         expect(rowStatus(row('a', signedIn))).toBe('signed-in');
         expect(rowStatus(row('a', ranOut))).toBe('ran-out');
         expect(rowStatus(row('a'))).toBe('signed-out');
+        expect(rowStatus(row('a', { status: 'unknown', hydration: 'loading' }))).toBe('checking');
         expect(rowStatus(row('a', { requiresAccount: false }))).toBe('accountless');
         // Out of reach wins over everything: such a row cannot be chosen, whoever was signed in there.
         expect(rowStatus(row('a', { ...signedIn, ...off }))).toBe('off');
@@ -148,6 +149,7 @@ describe('what a chosen row leads to', () => {
         expect(rowLeadsTo('signed-out')).toBe('sign-in');
         expect(rowLeadsTo('ran-out')).toBe('sign-in');
         expect(rowLeadsTo('off')).toBeNull();
+        expect(rowLeadsTo('checking')).toBe('sign-in');
     });
 });
 
@@ -354,5 +356,23 @@ describe('the texts the window can ask for', () => {
             ytm: { 'browser-unfinished': 'home.loginCaseYtmUnfinished', 'no-browser': 'home.loginNoBrowserYtm' },
             spotify: { 'browser-unfinished': 'home.loginCaseSpotifyUnfinished', 'not-authorized': 'home.loginCaseSpotifyDenied', 'cannot-listen': 'home.loginCaseSpotifyPort' },
         });
+    });
+});
+
+describe('loginView · the check after a sign-in and the setup checklist', () => {
+    it('shows the check as its own scene and the checklist over whatever the row leads to', () => {
+        expect(loginScene({ lead: 'sign-in', phase: 'checking', inBrowser: true, failed: false })).toBe('checking');
+        expect(loginScene({ lead: 'sign-in', phase: 'checking', inBrowser: true, failed: false, setup: true })).toBe('setup');
+        expect(loginScene({ lead: 'account', phase: null, inBrowser: false, failed: false, setup: true })).toBe('setup');
+        expect(loginScene({ lead: null, phase: null, inBrowser: false, failed: false, setup: true })).toBe('none');
+        expect(sceneHeadline('checking', true)).toBe('login.checkingAccount');
+    });
+
+    it('adds a check mark after the account when the platform checks, and walks onto it', () => {
+        expect(stepMarks('browser', true, true)).toEqual({ marks: ['browser', 'account', 'check'], current: 0 });
+        expect(stepMarks('reading', true, true)?.current).toBe(1);
+        expect(stepMarks('checking', true, true)?.current).toBe(2);
+        expect(stepMarks('reading', false, true)).toEqual({ marks: ['code', 'phone', 'account', 'check'], current: 2 });
+        expect(stepMarks('setup', true, true)).toBeNull();
     });
 });

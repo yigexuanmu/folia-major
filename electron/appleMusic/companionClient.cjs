@@ -10,6 +10,9 @@ function createCompanionClient({ nativeExecutablePath = '', profilePath, spawnPr
     let child = null;
     let sequence = 0;
     const pending = new Map();
+    // The player's state code last seen in a status answer: a change is logged once (single loop
+    // goes round, or ends, by these codes), never every half-second answer.
+    let lastPlayerState = null;
 
     // A lost child invalidates every outstanding request without exposing raw process errors.
     function failPending(error) {
@@ -94,6 +97,14 @@ function createCompanionClient({ nativeExecutablePath = '', profilePath, spawnPr
                 // `busy` is a rejection before execution, so retrying cannot duplicate a write.
                 // Keep retries within this request's original deadline.
                 if (!['not-ready', 'busy'].includes(result.error) || Date.now() >= deadline) {
+                    if (operation === 'setRepeatOne') {
+                        console.info('[AppleMusic] single repeat', { asked: params.enabled === true, ok: result.ok, repeatMode: result.data?.repeatMode ?? null, error: result.error });
+                    }
+                    if (operation === 'playbackStatus' && result.ok && result.data && result.data.state !== lastPlayerState) {
+                        lastPlayerState = result.data.state;
+                        const { state, repeatMode, positionMs, durationMs, isPlaying } = result.data;
+                        console.info('[AppleMusic] player state', { state, repeatMode, positionMs, durationMs, isPlaying });
+                    }
                     const elapsedMs = Date.now() - (deadline - timeoutMs);
                     if (elapsedMs >= 1000) console.info('[AppleMusic] Companion request settled', { operation, elapsedMs, attempts: attempt, ok: result.ok });
                     return result;
@@ -101,6 +112,13 @@ function createCompanionClient({ nativeExecutablePath = '', profilePath, spawnPr
                 await new Promise(resolve => setTimeout(resolve, Math.min(250, Math.max(0, deadline - Date.now()))));
             }
             return result;
+        },
+        // Pauses the player when the companion runs; a companion that does not run sounds nothing,
+        // and asking it would start one. False when there was nothing to pause or the pause failed.
+        async pauseIfRunning() {
+            if (!child?.connected) return false;
+            const result = await this.request('pause');
+            return result.ok === true;
         },
         // Disconnecting the parent channel makes the companion exit and clears pending work.
         close() {

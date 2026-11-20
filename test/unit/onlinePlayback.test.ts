@@ -17,6 +17,11 @@ const unlockSettings = vi.hoisted(() => ({
     enabled: false,
     servers: [{ key: 'netease', enabled: true }, { key: 'bodian', enabled: true }],
 }));
+const lyricSettings = vi.hoisted(() => ({
+    autoUseBestLyric: true,
+    preferredAlternativeLyricSource: 'qq',
+    keepProviderWordTiming: true,
+}));
 
 vi.mock('@/services/onlineMusic/resourceCache', () => ({
     getCachedSongAudioBlob: cachedAudioMock,
@@ -35,7 +40,11 @@ vi.mock('@/services/onlineMusic/omni', () => ({
     },
 }));
 
-afterEach(() => prefersOwnWordByWordMock.mockReturnValue(false));
+afterEach(() => {
+    prefersOwnWordByWordMock.mockReturnValue(false);
+    lyricSettings.preferredAlternativeLyricSource = 'qq';
+    lyricSettings.keepProviderWordTiming = true;
+});
 
 vi.mock('@/stores/useSongUnlockSettingsStore', () => ({
     useSongUnlockSettingsStore: {
@@ -52,7 +61,7 @@ vi.mock('@/services/songUnlockService', async (importOriginal) => ({
 
 vi.mock('@/stores/useLyricSettingsStore', () => ({
     useLyricSettingsStore: {
-        getState: () => ({ autoUseBestLyric: true, preferredAlternativeLyricSource: 'qq' }),
+        getState: () => lyricSettings,
     },
 }));
 
@@ -471,6 +480,21 @@ describe('online QQ lyric candidate plumbing', () => {
         loadLyricsStateMock.mockResolvedValue(null);
     });
 
+    it.each(['match', 'save'])('reports an automatic lyric %s failure separately from finishing audio preparation', async failure => {
+        const lyrics = { lines: [{ startTime: 0, endTime: 1, fullText: 'line', words: [] }], isWordByWord: false };
+        lyricsMock.mockResolvedValue({ lyrics, isPureMusic: false });
+        if (failure === 'match') autoMatchMock.mockRejectedValueOnce(new Error('match failed'));
+        else {
+            autoMatchMock.mockResolvedValueOnce({ lyrics, source: 'qq', id: 'other' });
+            saveLyricsStateMock.mockRejectedValueOnce(new Error('save failed'));
+        }
+        const onAutoMatchError = vi.fn();
+        const onDone = vi.fn();
+        await loadOnlineSongLyrics(song, null, null, { isCurrent: () => true, onLyrics: vi.fn(), onAutoMatchError, onDone });
+        expect(onAutoMatchError).toHaveBeenCalledOnce();
+        expect(onDone).toHaveBeenCalled();
+    });
+
     it('passes the already-loaded QQ song and lyrics to auto-match as its provider candidate', async () => {
         const qqSong: SongResult = {
             ...song,
@@ -660,11 +684,12 @@ describe('lyrics a provider keeps as its own timing', () => {
         isWordByWord: true,
     };
 
-    it('keeps the provider\'s word-level lyrics instead of searching other sources', async () => {
+    const load = async () => {
         prefersOwnWordByWordMock.mockReturnValue(true);
         lyricsMock.mockResolvedValue({ lyrics: wordLevel, isPureMusic: false });
         songCacheMock.mockResolvedValue(null);
         loadLyricsStateMock.mockResolvedValue(null);
+        autoMatchMock.mockResolvedValue(null);
 
         const onLyrics = vi.fn();
         await loadOnlineSongLyrics(song, null, null, {
@@ -672,8 +697,34 @@ describe('lyrics a provider keeps as its own timing', () => {
             onLyrics,
             onDone: vi.fn(),
         });
+        return onLyrics;
+    };
+
+    it('keeps the provider\'s word-level lyrics without a search when it is the preferred source', async () => {
+        lyricSettings.preferredAlternativeLyricSource = 'kugou';
+
+        const onLyrics = await load();
 
         expect(onLyrics).toHaveBeenCalledWith(wordLevel);
         expect(autoMatchMock).not.toHaveBeenCalled();
+    });
+
+    it('still asks another preferred source, passing the setting on (issue #1127)', async () => {
+        const onLyrics = await load();
+
+        expect(onLyrics).toHaveBeenCalledWith(wordLevel);
+        expect(autoMatchMock).toHaveBeenCalledWith('Song', '', 1000, expect.objectContaining({
+            preferredSource: 'qq',
+            keepOwnWordTiming: true,
+        }));
+    });
+
+    it('searches as for any song when keeping the provider\'s timing is off', async () => {
+        lyricSettings.preferredAlternativeLyricSource = 'kugou';
+        lyricSettings.keepProviderWordTiming = false;
+
+        await load();
+
+        expect(autoMatchMock).toHaveBeenCalledWith('Song', '', 1000, expect.objectContaining({ keepOwnWordTiming: false }));
     });
 });

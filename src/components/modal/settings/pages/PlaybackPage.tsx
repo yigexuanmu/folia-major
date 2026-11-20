@@ -42,6 +42,7 @@ const O = {
     transcode: option(SOUND, 'transcodeFallback', 'options.transcodeFallback', { electronOnly: true }),
     queueBehavior: option(BEHAVIOR, 'queueDefaultBehavior', 'options.queueDefaultBehavior'),
     autoSkipUnplayable: option(BEHAVIOR, 'autoSkipUnplayable', 'options.autoSkipUnplayable'),
+    shuffleRoundNoRepeat: option(BEHAVIOR, 'shuffleRoundNoRepeat', 'options.shuffleRoundNoRepeat'),
     preventSleep: option(BEHAVIOR, 'preventDisplaySleepDuringPlayback', 'options.preventDisplaySleepDuringPlayback', { electronOnly: true }),
     voiceInputPause: option(BEHAVIOR, 'voiceInputPause', 'options.voiceInputPause', { electronOnly: true, available: () => runsOnWindows() }),
     unlock: option(UNLOCK, 'songUnlockEnable', 'options.songUnlockEnable'),
@@ -97,11 +98,13 @@ const PlaybackPage: React.FC = () => {
         transcode: state.enableTranscodeFallback,
         queueBehavior: state.queueAddBehavior,
         autoSkipUnplayable: state.autoSkipUnplayable,
+        shuffleRoundNoRepeat: state.shuffleRoundNoRepeat,
         setMediaCache: state.handleToggleMediaCache,
         setFade: state.handleTogglePlaybackFade,
         setTranscode: state.handleToggleTranscodeFallback,
         setQueueBehavior: state.handleSetQueueAddBehavior,
         setAutoSkipUnplayable: state.handleToggleAutoSkipUnplayable,
+        setShuffleRoundNoRepeat: state.handleToggleShuffleRoundNoRepeat,
     })));
     const songUnlock = useSongUnlockSettingsStore(useShallow(state => ({
         enabled: state.useSongUnlock,
@@ -274,6 +277,9 @@ const PlaybackPage: React.FC = () => {
                 </Row>
                 <Row option={O.autoSkipUnplayable} note={t('options.autoSkipUnplayableDesc')}>
                     <Toggle checked={audio.autoSkipUnplayable} onChange={audio.setAutoSkipUnplayable} />
+                </Row>
+                <Row option={O.shuffleRoundNoRepeat} note={t('options.shuffleRoundNoRepeatDesc')}>
+                    <Toggle checked={audio.shuffleRoundNoRepeat} onChange={audio.setShuffleRoundNoRepeat} />
                 </Row>
                 {isElectron && (
                     <Row option={O.preventSleep} hint={t('options.preventDisplaySleepDuringPlaybackDesc')}>

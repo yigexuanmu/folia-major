@@ -31,6 +31,16 @@ exports[`mod tuning keys > are pinned, so a renamed or dropped key is a visible 
       "min": -5,
       "type": "number",
     },
+    "positionX": {
+      "max": 40,
+      "min": -40,
+      "type": "number",
+    },
+    "positionY": {
+      "max": 40,
+      "min": -40,
+      "type": "number",
+    },
     "radiusScale": {
       "max": 1.5,
       "min": 0.5,
@@ -38,6 +48,19 @@ exports[`mod tuning keys > are pinned, so a renamed or dropped key is a visible 
     },
     "showAxisLine": {
       "type": "boolean",
+    },
+    "showTranslation": {
+      "type": "boolean",
+    },
+    "translationLetterSpacingOffset": {
+      "max": 20,
+      "min": -5,
+      "type": "number",
+    },
+    "translationScale": {
+      "max": 2,
+      "min": 0.5,
+      "type": "number",
     },
   },
   "classic": {
@@ -432,11 +455,63 @@ exports[`mod tuning keys > are pinned, so a renamed or dropped key is a visible 
       "type": "choice",
     },
   },
+  "metaphor": {
+    "blobs": {
+      "max": 2,
+      "min": 0,
+      "type": "number",
+    },
+    "cameraMotion": {
+      "max": 2,
+      "min": 0,
+      "type": "number",
+    },
+    "cutPace": {
+      "max": 2,
+      "min": 0.4,
+      "type": "number",
+    },
+    "flip": {
+      "type": "boolean",
+    },
+    "flow": {
+      "max": 2,
+      "min": 0,
+      "type": "number",
+    },
+    "grain": {
+      "max": 2,
+      "min": 0,
+      "type": "number",
+    },
+    "halftone": {
+      "max": 2.5,
+      "min": 0.5,
+      "type": "number",
+    },
+    "keywordColors": {
+      "type": "boolean",
+    },
+    "negative": {
+      "type": "boolean",
+    },
+    "transitions": {
+      "type": "boolean",
+    },
+  },
   "monet": {
     "audioStyle": {
       "options": [
         "bar",
         "line",
+      ],
+      "type": "choice",
+    },
+    "descriptionVisibility": {
+      "options": [
+        "auto",
+        "always",
+        "hidden",
       ],
       "type": "choice",
     },
@@ -447,6 +522,17 @@ exports[`mod tuning keys > are pinned, so a renamed or dropped key is a visible 
     },
     "keywordColoringEnabled": {
       "type": "boolean",
+    },
+    "mirrorLayout": {
+      "type": "boolean",
+    },
+    "portraitHangerVisibility": {
+      "options": [
+        "auto",
+        "always",
+        "hidden",
+      ],
+      "type": "choice",
     },
     "portraitStyle": {
       "options": [
@@ -652,6 +738,27 @@ exports[`mod tuning keys > are pinned, so a renamed or dropped key is a visible 
     "enableLineGlow": {
       "type": "boolean",
     },
+    "hubView": {
+      "type": "boolean",
+    },
+    "hubViewBack": {
+      "max": 3,
+      "min": 0.2,
+      "type": "number",
+    },
+    "hubViewHeight": {
+      "max": 3,
+      "min": 0.4,
+      "type": "number",
+    },
+    "mirrorLayout": {
+      "type": "boolean",
+    },
+    "parallaxDepth": {
+      "max": 2,
+      "min": 0,
+      "type": "number",
+    },
     "showCenterGradient": {
       "type": "boolean",
     },
@@ -669,6 +776,16 @@ exports[`mod tuning keys > are pinned, so a renamed or dropped key is a visible 
     "tickSnappiness": {
       "max": 2,
       "min": 0.5,
+      "type": "number",
+    },
+    "tiltAxisDeg": {
+      "max": 90,
+      "min": -90,
+      "type": "number",
+    },
+    "tiltDeg": {
+      "max": 70,
+      "min": -70,
       "type": "number",
     },
     "wheelCenterX": {

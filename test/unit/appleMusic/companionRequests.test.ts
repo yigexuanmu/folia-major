@@ -76,6 +76,41 @@ describe('Apple Music companion requests', () => {
         expect(executeJavaScript).toHaveBeenCalledTimes(2);
     });
 
+    it('uses the existing pagination bounds for library songs', () => {
+        expect(validateRequest({ id: 'library', operation: 'librarySongs', params: { limit: 100, offset: 100000 } }))
+            .toMatchObject({ operation: 'librarySongs', params: { limit: 100, offset: 100000 } });
+        for (const offset of [-1, 0.5, 100001, Number.MAX_SAFE_INTEGER]) {
+            expect(validateRequest({ id: 'library', operation: 'librarySongs', params: { limit: 100, offset } })).toBeNull();
+        }
+        expect(validateRequest({ id: 'library', operation: 'librarySongs', params: { limit: 101 } })).toBeNull();
+    });
+
+    it('reads library songs with catalog relationships without dropping unmapped rows', async () => {
+        const call = vi.fn(async (path: string) => path === 'v1/me/storefront'
+            ? { status: 200, data: { data: [{ id: 'cn' }] } }
+            : { status: 200, data: { data: [
+                { id: 'i.mapped', type: 'library-songs', attributes: { name: 'Mapped' }, relationships: { catalog: { data: [{ id: '123' }] } } },
+                { id: 'i.upload', type: 'library-songs', attributes: { name: 'Upload', token: 'private-token' } },
+            ], next: '/v1/me/library/songs?offset=5' } });
+        const request = validateRequest({ id: 'library', operation: 'librarySongs', params: { limit: 2, offset: 0 } });
+        const result = await runInNewContext(requestExpression(request), { window: { MusicKit: { getInstance: () => ({ api: { music: call } }) } }, URL });
+        expect(call).toHaveBeenLastCalledWith('v1/me/library/songs', { limit: 2, offset: 0, include: 'catalog' });
+        expect(result).toMatchObject({ ok: true, data: { items: [
+            { id: 'i.mapped', attributes: { playParams: { catalogId: '123' } } },
+            { id: 'i.upload', attributes: { name: 'Upload', playParams: { catalogId: '' } } },
+        ], hasMore: true, nextOffset: 5 } });
+        expect(JSON.stringify(result)).not.toContain('private-token');
+    });
+
+    it('rejects library-song cursors beyond the existing bound', async () => {
+        const call = vi.fn(async (path: string) => path === 'v1/me/storefront'
+            ? { status: 200, data: { data: [{ id: 'cn' }] } }
+            : { status: 200, data: { data: [{ id: 'i.song', type: 'library-songs' }], next: '/v1/me/library/songs?offset=100001' } });
+        const request = validateRequest({ id: 'library', operation: 'librarySongs', params: { limit: 1, offset: 99999 } });
+        expect(await runInNewContext(requestExpression(request), { window: { MusicKit: { getInstance: () => ({ api: { music: call } }) } }, URL }))
+            .toMatchObject({ ok: false, error: 'invalid-response' });
+    });
+
     it('rejects unknown operations, dangerous IDs and invalid page sizes', () => {
         expect(validateRequest({ id: '1', operation: 'evaluate', params: { code: 'anything' } })).toBeNull();
         expect(validateRequest({ id: '1', operation: 'lyrics', params: { songId: '../me' } })).toBeNull();
@@ -183,8 +218,10 @@ describe('Apple Music companion requests', () => {
         expect(await result).toMatchObject({ ok: false, error: 'not-ready' });
     });
 
-    it('uses a catalog ID to play and rejects library IDs or invalid seek values', async () => {
-        expect(validateRequest({ id: '5', operation: 'playSong', params: { catalogId: 'i.library' } })).toBeNull();
+    it('uses a catalog ID to play and rejects malformed IDs or invalid seek values', async () => {
+        for (const catalogId of ['l.album', 'i.', 'i.bad-id', '../123', 'i.' + 'a'.repeat(101)]) {
+            expect(validateRequest({ id: '5', operation: 'playSong', params: { catalogId } })).toBeNull();
+        }
         expect(validateRequest({ id: '5', operation: 'seek', params: { seconds: -1 } })).toBeNull();
         const setQueue = vi.fn(async () => {});
         const play = vi.fn(async () => {});
@@ -194,6 +231,96 @@ describe('Apple Music companion requests', () => {
         expect(setQueue).toHaveBeenCalledWith({ song: '123', startPlaying: false, startTime: 0 });
         expect(play).toHaveBeenCalledOnce();
         expect(result).toMatchObject({ ok: true });
+    });
+
+    // An uploaded song has no catalog counterpart: the page queues it by its library id, as Apple's web player does.
+    it('plays and prepares an upload by its library ID', async () => {
+        expect(validateRequest({ id: '5', operation: 'prepareNext', params: { catalogId: 'i.upload', nextIds: ['456'] } }))
+            .toMatchObject({ params: { catalogId: 'i.upload', nextIds: ['456'] } });
+        expect(validateRequest({ id: '5', operation: 'prepareNext', params: { catalogId: '123', nextIds: ['i.upload'] } })).toBeNull();
+        const setQueue = vi.fn(async () => {});
+        const play = vi.fn(async () => {});
+        const mk = { api: { music: vi.fn() }, setQueue, play };
+        const request = validateRequest({ id: '5', operation: 'playSong', params: { catalogId: 'i.4YBN2bxs490m70' } });
+        const result = await runInNewContext(requestExpression(request), { window: { MusicKit: { getInstance: () => mk } } });
+        expect(setQueue).toHaveBeenCalledWith({ song: 'i.4YBN2bxs490m70', startPlaying: false, startTime: 0 });
+        expect(play).toHaveBeenCalledOnce();
+        expect(result).toMatchObject({ ok: true });
+    });
+
+    it('plays in the account region on a page Apple kept in another, and says whether it plays previews', async () => {
+        const mk: Record<string, any> = {
+            api: { music: vi.fn() },
+            isAuthorized: true,
+            storefrontId: 'cn',
+            storefrontCountryCode: 'us',
+            playbackMode: 0,
+            get previewOnly() { return this.playbackMode === 0; },
+            hasMusicSubscription: vi.fn(async () => true),
+            play: vi.fn(async () => {}),
+        };
+        let queuedIn: unknown[] = [];
+        mk.setQueue = vi.fn(async () => { queuedIn = [mk.storefrontId, mk.playbackMode]; });
+        const request = validateRequest({ id: '5', operation: 'playSong', params: { catalogId: '123' } });
+        const window = { MusicKit: { getInstance: () => mk, PlaybackMode: { PREVIEW_ONLY: 0, MIXED_CONTENT: 1 } } };
+        const result = await runInNewContext(requestExpression(request), { window, setTimeout, clearTimeout });
+        expect(queuedIn).toEqual(['us', 1]);
+        expect(result).toMatchObject({ ok: true, data: { previewOnly: false, storefront: 'us', subscribed: true } });
+    });
+
+    it('aligns the region before a station and a prepared queue too, not for other requests', async () => {
+        const regionAfter = async (operation: string, params: Record<string, unknown> = {}) => {
+            const mk = {
+                api: { music: vi.fn(async () => ({ data: { data: [] } })) }, isAuthorized: true, storefrontId: 'cn', storefrontCountryCode: 'us',
+                playbackMode: 1, setQueue: vi.fn(async () => {}), play: vi.fn(async () => {}),
+            };
+            const window = { MusicKit: { getInstance: () => mk, PlaybackMode: { PREVIEW_ONLY: 0, MIXED_CONTENT: 1 } } };
+            await runInNewContext(requestExpression(validateRequest({ id: '1', operation, params })), { window, setTimeout, clearTimeout });
+            return mk.storefrontId;
+        };
+        expect(await regionAfter('playStation', { stationId: 'ra.123' })).toBe('us');
+        expect(await regionAfter('prepareNext', { catalogId: '1', nextIds: ['2'] })).toBe('us');
+        expect(await regionAfter('playbackStatus')).toBe('cn');
+        expect(await regionAfter('pause')).toBe('cn');
+    });
+
+    it('starts in the page region when aligning fails', async () => {
+        const mk: Record<string, any> = {
+            api: { music: vi.fn() }, isAuthorized: true, storefrontCountryCode: 'us',
+            get storefrontId() { return 'cn'; }, set storefrontId(_value) { throw new Error('read-only'); },
+            setQueue: vi.fn(async () => {}), play: vi.fn(async () => {}),
+        };
+        const request = validateRequest({ id: '5', operation: 'playSong', params: { catalogId: '123' } });
+        const result = await runInNewContext(requestExpression(request), { window: { MusicKit: { getInstance: () => mk } } });
+        expect(mk.setQueue).toHaveBeenCalledOnce();
+        expect(result).toMatchObject({ ok: true, data: { storefront: 'cn' } });
+    });
+
+    it('sets the page player volume and accepts only a level from 0 to 1', async () => {
+        expect(validateRequest({ id: '1', operation: 'setVolume', params: { volume: 1.5 } })).toBeNull();
+        expect(validateRequest({ id: '1', operation: 'setVolume', params: { volume: -0.1 } })).toBeNull();
+        expect(validateRequest({ id: '1', operation: 'setVolume', params: { volume: '0.5' } })).toBeNull();
+        const mk = { api: { music: vi.fn() }, volume: 1 };
+        const request = validateRequest({ id: '1', operation: 'setVolume', params: { volume: 0.25 } });
+        expect(await runInNewContext(requestExpression(request), { window: { MusicKit: { getInstance: () => mk } } }))
+            .toMatchObject({ ok: true });
+        expect(mk.volume).toBe(0.25);
+    });
+
+    it('sets the page player repeat of one track, never its list repeat', async () => {
+        expect(validateRequest({ id: '1', operation: 'setRepeatOne', params: { enabled: 'yes' } })).toBeNull();
+        expect(validateRequest({ id: '1', operation: 'setRepeatOne', params: {} })).toBeNull();
+        const mk = { api: { music: vi.fn() }, setRepeatMode: vi.fn() };
+        for (const enabled of [true, false]) {
+            const request = validateRequest({ id: '1', operation: 'setRepeatOne', params: { enabled } });
+            expect(await runInNewContext(requestExpression(request), { window: { MusicKit: { getInstance: () => mk } } }))
+                .toMatchObject({ ok: true });
+        }
+        expect(mk.setRepeatMode.mock.calls).toEqual([[1], [0]]);
+        const plain = { api: { music: vi.fn() }, repeatMode: 0 };
+        const request = validateRequest({ id: '1', operation: 'setRepeatOne', params: { enabled: true } });
+        await runInNewContext(requestExpression(request), { window: { MusicKit: { getInstance: () => plain } } });
+        expect(plain.repeatMode).toBe(1);
     });
 
     it('accepts only a bounded start position for a song', () => {
@@ -234,7 +361,7 @@ describe('Apple Music companion requests', () => {
         };
         expect(await runInNewContext(requestExpression(request), { window: { MusicKit: { getInstance: () => mk } } })).toEqual({
             ok: true, data: {
-                itemId: 'i.library', catalogId: '123', isPlaying: false, state: 5, queueLength: 1, queueKeys: ['length'], positionMs: 42500, durationMs: 200000,
+                itemId: 'i.library', catalogId: '123', isPlaying: false, state: 5, repeatMode: null, queueLength: 1, queueKeys: ['length'], positionMs: 42500, durationMs: 200000,
             },
         });
     });
