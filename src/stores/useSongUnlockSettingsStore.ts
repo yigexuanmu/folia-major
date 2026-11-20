@@ -12,16 +12,15 @@ import type { SongUnlockServer, UnlockServerConfig } from '../types';
 export const USE_SONG_UNLOCK_STORAGE_KEY = 'use_song_unlock';
 export const SONG_UNLOCK_SERVERS_STORAGE_KEY = 'song_unlock_servers';
 
-const UNLOCK_SERVER_KEYS: readonly SongUnlockServer[] = ['netease', 'bodian', 'kuwo'];
-
 const DEFAULT_UNLOCK_SERVERS: UnlockServerConfig[] = [
     { key: 'netease', enabled: true },
     { key: 'bodian', enabled: true },
     { key: 'kuwo', enabled: false },
 ];
 
+// 认不认这个音源，以默认表为准：平台名只在默认表里出现一次（omniArchitecture 的计数规则）。
 const isUnlockServerKey = (value: unknown): value is SongUnlockServer =>
-    typeof value === 'string' && (UNLOCK_SERVER_KEYS as readonly string[]).includes(value);
+    typeof value === 'string' && DEFAULT_UNLOCK_SERVERS.some(server => server.key === value);
 
 /** 存下来的一项 `{ key, enabled }`；认不出 key 的丢掉，enabled 只认真正的 true。 */
 const readServerEntry = (value: unknown): UnlockServerConfig | null => {
