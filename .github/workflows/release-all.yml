@@ -2,11 +2,6 @@ name: Build All & Release
 
 on:
   workflow_dispatch:
-    inputs:
-      build_macos:
-        description: '同时构建 macOS（本仓库目前抢不到 hosted mac runner，默认关）'
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -19,23 +14,18 @@ jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    # 本仓库（fork）拿不到 macOS 的 hosted runner：macos-latest / macos-15 / macos-14
-    # 三次都是排队到 15 分钟超时被判 cancelled（"The job was not acquired by Runner of
-    # type hosted"），GitHub 状态页当时没有事故。mac 因此默认不进矩阵，需要时用
-    # build_macos 手动开启；它那一路失败/取消不挡住 Windows/Linux 发版。
-    if: matrix.os != 'macos-14' || inputs.build_macos
     continue-on-error: ${{ matrix.continue-on-error || false }}
     strategy:
       fail-fast: false
+      # macOS 不在这个矩阵里：本 fork 拿不到 mac 的 hosted runner（macos-latest /
+      # macos-15 / macos-14 三次都排队到超时被判 cancelled），而作业级 if 不能引用
+      # matrix，没法只跳过它。mac 包走同仓库的 Publish Realeco（electron-release.yml，
+      # 四平台含 mac）。这里只负责 Windows + Linux 的发版，跑完必定进 release。
       matrix:
         include:
           - os: windows-latest
             target: --win
             upload_pattern: 'release/*.exe'
-          - os: macos-14
-            target: --mac
-            upload_pattern: 'release/*.dmg'
-            continue-on-error: true
           - os: ubuntu-latest
             target: --linux
             upload_pattern: 'release/*.tar.gz'
