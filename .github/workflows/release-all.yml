@@ -22,9 +22,10 @@ jobs:
           - os: windows-latest
             target: --win
             upload_pattern: 'release/*.exe'
-          # macos-latest 这两轮都抢不到 hosted runner（"The job was not acquired by Runner
-          # of type hosted"），钉一个具体镜像，并让它的失败不挡住 Windows/Linux 的发版。
-          - os: macos-15
+          # macos-latest 与 macos-15 两轮都没抢到 hosted runner
+          # （"The job was not acquired by Runner of type hosted"），换 macos-14 的池子再试；
+          # 它的失败不挡住 Windows/Linux 发版（release 作业因此用 always()）。
+          - os: macos-14
             target: --mac
             upload_pattern: 'release/*.dmg'
             continue-on-error: true
@@ -121,6 +122,11 @@ jobs:
   release:
     name: Publish release
     needs: build
+    # build 矩阵里 mac 抢不到 hosted runner 时整个作业是 cancelled，矩阵的
+    # continue-on-error 兜不住 needs（run 44759866206：Windows/Linux 都成了，
+    # mac cancelled，release 整轮 skipped）。所以这里用 always()，真正的门槛
+    # 放到下面的产物检查里：一个包都没有才失败。
+    if: always() && needs.build.result != 'skipped'
     runs-on: ubuntu-latest
 
     steps:
@@ -147,6 +153,14 @@ jobs:
         shell: bash
         run: |
           mapfile -d '' files < <(find artifacts -type f -print0)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::没有任何构建产物，放弃发版"
+            exit 1
+          fi
+          # 安装包清单按实际拿到的产物生成：mac 那一格没抢到 runner 时，
+          # 别在发布说明里承诺一个不存在的 dmg。
+          assets=""
+          for f in "${files[@]}"; do assets+="- $(basename "$f")"$'\n'; done
           gh release delete "${TAG}" --repo "${GITHUB_REPOSITORY}" --cleanup-tag --yes >/dev/null 2>&1 || true
           cat > release-notes.md <<EOF
           Folia fork v${VERSION}
@@ -155,10 +169,7 @@ jobs:
 
           ## 安装包
 
-          - **Windows**: Folia-Setup-${VERSION}.exe
-          - **macOS**: Folia-${VERSION}-x64.dmg / Folia-${VERSION}-arm64.dmg
-          - **Linux**: folia-major-${VERSION}-linux-x64.tar.gz（解压即用）
-
+          ${assets}
           ## 构建信息
 
           - Source: ${GITHUB_SHA}

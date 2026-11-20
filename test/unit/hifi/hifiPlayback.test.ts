@@ -577,7 +577,10 @@ describe('clock and shim driving', () => {
         expect(api.seek).toHaveBeenCalledWith(90);
         expect(playback.hifiPlaybackClock.state()).toMatchObject({ baseSec: 90, paused: true });
         push.clock?.({ trackKey, positionSec: 90, paused: false, reason: 'resume', seq: 5, sampledAtMs: Date.now() });
-        expect(playback.hifiPlaybackClock.state()).toMatchObject({ baseSec: 90, paused: false });
+        // 恢复推送会按 sampledAtMs 补上路上耽搁的时间：Date.now() 正好跨过一毫秒边界时
+        // baseSec 就是 90.001（CI 上偶发），所以这里给毫秒级容差而不是等值匹配。
+        expect(playback.hifiPlaybackClock.state().paused).toBe(false);
+        expect(playback.hifiPlaybackClock.state().baseSec).toBeCloseTo(90, 1);
 
         await playback.hifiTransport.pause();
         expect(api.pause).toHaveBeenCalledTimes(1);
