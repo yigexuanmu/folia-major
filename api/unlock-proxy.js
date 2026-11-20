@@ -22,7 +22,9 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
-    const { url: targetUrlStr } = req.query;
+    // Vercel 的 query 同名参数可能是数组，取第一个
+    const rawTarget = req.query.url;
+    const targetUrlStr = Array.isArray(rawTarget) ? rawTarget[0] : rawTarget;
     if (!targetUrlStr) {
         return res.status(400).json({ error: 'Missing url parameter' });
     }

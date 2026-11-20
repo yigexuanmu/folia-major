@@ -3,14 +3,16 @@
 //
 // fork 私有功能，随上游把 useSettingsUiStore 拆分为领域 store 而独立成店。
 // 沿用拆分前的 localStorage 键（use_song_unlock / song_unlock_servers），
-// 老用户安装新版本时设置原样保留。
+// 老用户安装新版本时设置原样保留。读写都走 storagePrimitives（D508）。
 
 import { create } from 'zustand';
-import { getStoredBoolean, setStoredBoolean } from './storagePrimitives';
-import type { UnlockServerConfig } from '../types';
+import { getStoredBoolean, getStoredString, setStoredBoolean, setStoredString } from './storagePrimitives';
+import type { SongUnlockServer, UnlockServerConfig } from '../types';
 
 export const USE_SONG_UNLOCK_STORAGE_KEY = 'use_song_unlock';
 export const SONG_UNLOCK_SERVERS_STORAGE_KEY = 'song_unlock_servers';
+
+const UNLOCK_SERVER_KEYS: readonly SongUnlockServer[] = ['netease', 'bodian', 'kuwo'];
 
 const DEFAULT_UNLOCK_SERVERS: UnlockServerConfig[] = [
     { key: 'netease', enabled: true },
@@ -18,24 +20,35 @@ const DEFAULT_UNLOCK_SERVERS: UnlockServerConfig[] = [
     { key: 'kuwo', enabled: false },
 ];
 
+const isUnlockServerKey = (value: unknown): value is SongUnlockServer =>
+    typeof value === 'string' && (UNLOCK_SERVER_KEYS as readonly string[]).includes(value);
+
+/** 存下来的一项 `{ key, enabled }`；认不出 key 的丢掉，enabled 只认真正的 true。 */
+const readServerEntry = (value: unknown): UnlockServerConfig | null => {
+    if (typeof value !== 'object' || value === null) return null;
+    const entry = value as { key?: unknown; enabled?: unknown };
+    if (!isUnlockServerKey(entry.key)) return null;
+    return { key: entry.key, enabled: entry.enabled === true };
+};
+
 const readStoredServers = (): UnlockServerConfig[] => {
+    const stored = getStoredString(SONG_UNLOCK_SERVERS_STORAGE_KEY, '');
+    if (!stored) return [...DEFAULT_UNLOCK_SERVERS];
+    let parsed: unknown;
     try {
-        if (typeof window === 'undefined') return [...DEFAULT_UNLOCK_SERVERS];
-        const stored = localStorage.getItem(SONG_UNLOCK_SERVERS_STORAGE_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored) as UnlockServerConfig[];
-            if (Array.isArray(parsed) && parsed.length) {
-                // 以默认表为准补齐新音源，保留用户已有的启用状态
-                return DEFAULT_UNLOCK_SERVERS.map((server) => {
-                    const storedServer = parsed.find((entry) => entry.key === server.key);
-                    return storedServer ? { key: server.key, enabled: storedServer.enabled } : server;
-                });
-            }
-        }
+        parsed = JSON.parse(stored);
     } catch {
         // 解析失败按默认处理
+        return [...DEFAULT_UNLOCK_SERVERS];
     }
-    return [...DEFAULT_UNLOCK_SERVERS];
+    if (!Array.isArray(parsed)) return [...DEFAULT_UNLOCK_SERVERS];
+    const saved = parsed.map(readServerEntry).filter((entry): entry is UnlockServerConfig => entry !== null);
+    if (!saved.length) return [...DEFAULT_UNLOCK_SERVERS];
+    // 以默认表为准补齐新音源，保留用户已有的启用状态
+    return DEFAULT_UNLOCK_SERVERS.map((server) => {
+        const storedServer = saved.find(entry => entry.key === server.key);
+        return storedServer ? { key: server.key, enabled: storedServer.enabled } : server;
+    });
 };
 
 interface SongUnlockSettingsState {
@@ -59,13 +72,6 @@ export const useSongUnlockSettingsStore = create<SongUnlockSettingsState>()((set
             server.key === key ? { ...server, enabled } : server,
         );
         set({ songUnlockServers: servers });
-        try {
-            if (typeof window !== 'undefined') {
-                localStorage.setItem(SONG_UNLOCK_SERVERS_STORAGE_KEY, JSON.stringify(servers));
-            }
-        } catch {
-            // 存储不可用时仅保留内存态
-        }
+        setStoredString(SONG_UNLOCK_SERVERS_STORAGE_KEY, JSON.stringify(servers));
     },
 }));
-
