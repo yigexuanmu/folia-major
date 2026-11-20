@@ -1,0 +1,20 @@
+name: Probe Token
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Who am I
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -x
+          gh api "repos/${GITHUB_REPOSITORY}" --jq '.permissions' || true
+          gh api -i "repos/${GITHUB_REPOSITORY}/releases/tags/v0.7.26" | head -5 || true
+          echo '{"tag_name":"probe-token-test","name":"probe","draft":true,"target_commitish":"main"}' > /tmp/body.json
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/releases" --input /tmp/body.json && echo CREATED || echo FAILED
