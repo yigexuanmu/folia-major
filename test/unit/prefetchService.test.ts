@@ -28,8 +28,8 @@ vi.mock('@/services/onlineMusic/resourceCache', async (importOriginal) => ({
     ...await importOriginal<typeof import('@/services/onlineMusic/resourceCache')>(),
     hasCachedSongAudio: (...args: unknown[]) => mocks.hasCachedSongAudio(...args),
 }));
-vi.mock('@/services/songUnlockService', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/services/songUnlockService')>()),
+vi.mock('@/services/songUnlockService', async () => ({
+    ...(await vi.importActual<Record<string, unknown>>('@/services/songUnlockService')),
     getUnlockAudioSource: (...args: unknown[]) => mocks.getUnlockAudioSource(...(args as [])),
 }));
 vi.mock('@/services/onlineMusic/failure/onlineRequestCooldown', () => ({

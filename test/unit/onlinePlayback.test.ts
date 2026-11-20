@@ -11,7 +11,7 @@ const loadLyricsStateMock = vi.hoisted(() => vi.fn());
 const saveLyricsStateMock = vi.hoisted(() => vi.fn());
 const isUrlValidMock = vi.hoisted(() => vi.fn(() => true));
 const updatePrefetchedAudioUrlMock = vi.hoisted(() => vi.fn());
-const previewAudioMock = vi.hoisted(() => vi.fn((_url: string) => false));
+const previewAudioMock = vi.hoisted(() => vi.fn<(_url: string) => boolean>(() => false));
 const unlockSourceMock = vi.hoisted(() => vi.fn());
 const unlockSettings = vi.hoisted(() => ({
     enabled: false,
@@ -54,8 +54,8 @@ vi.mock('@/stores/useSongUnlockSettingsStore', () => ({
 
 // The rule that says which failures are worth asking an alternate source stays the real one: only
 // the lookup itself is stubbed, so a failure the rule passes over is seen as such.
-vi.mock('@/services/songUnlockService', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@/services/songUnlockService')>()),
+vi.mock('@/services/songUnlockService', async () => ({
+    ...(await vi.importActual<Record<string, unknown>>('@/services/songUnlockService')),
     getUnlockAudioSource: (...args: unknown[]) => unlockSourceMock(...args),
 }));
 
