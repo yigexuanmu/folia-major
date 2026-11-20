@@ -9,12 +9,13 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Who am I
+      - name: Exact release command
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v9.9.9-probe
         run: |
-          set -x
-          gh api "repos/${GITHUB_REPOSITORY}" --jq '.permissions' || true
-          gh api -i "repos/${GITHUB_REPOSITORY}/releases/tags/v0.7.26" | head -5 || true
-          echo '{"tag_name":"probe-token-test","name":"probe","draft":true,"target_commitish":"main"}' > /tmp/body.json
-          gh api -X POST "repos/${GITHUB_REPOSITORY}/releases" --input /tmp/body.json && echo CREATED || echo FAILED
+          echo hi > /tmp/asset.txt
+          gh release delete "${TAG}" --repo "${GITHUB_REPOSITORY}" --cleanup-tag --yes || echo "delete rc=$?"
+          gh release create "${TAG}" /tmp/asset.txt --repo "${GITHUB_REPOSITORY}" --title "probe" --notes "probe" --target "${GITHUB_SHA}" --draft || echo "create rc=$?"
+          echo "--- retry without --target ---"
+          gh release create "${TAG}x" /tmp/asset.txt --repo "${GITHUB_REPOSITORY}" --title "probe" --notes "probe" --draft || echo "create2 rc=$?"
