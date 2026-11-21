@@ -26,7 +26,7 @@ export default {
     "verdictNoGpuTitle": "Komputer ini tidak dapat menganalisis musik di kartu grafis",
     "verdictNoGpu": "Efek {{smartBeat}} yang mengikuti drum tidak berfungsi; fitur lain tidak terpengaruh. Laju bingkai di bawah hanya untuk animasi lirik.",
     "verdictNoGpuReason": "Penyebab: {{reason}}.",
-    "verdictNoGpuHint": "Analisis berjalan di WebGPU di atas Vulkan: di X11 aplikasi menyalakan Vulkan sendiri saat driver Vulkan ditemukan; Wayland asli tidak memerlukannya. Jika masih tidak ada adapter - NixOS menyimpan berkas driver di jalur yang tidak bisa dibuka sandbox GPU peramban - jalankan dengan --no-sandbox untuk melewatinya, dengan mengorbankan sandbox. Atur FOLIA_LINUX_VULKAN=0 untuk mematikan Vulkan otomatis.",
+    "verdictNoGpuHint": "Analisis berjalan di WebGPU di atas Vulkan: di X11 aplikasi menyalakan Vulkan sendiri saat driver Vulkan ditemukan; Wayland asli tidak memerlukannya. Jika masih tidak ada adapter - NixOS menyimpan berkas driver di jalur yang tidak bisa dibuka sandbox GPU peramban - jalankan dengan --no-sandbox atau atur FOLIA_LINUX_NO_SANDBOX=1 untuk melewatinya, dengan mengorbankan sandbox. Atur FOLIA_LINUX_VULKAN=0 untuk mematikan Vulkan otomatis.",
     "verdictBehindTitle": "Gambar baik, tetapi analisis tertinggal",
     "verdictBehind": "Dengan pengaturan sekarang gambar mulus, tetapi musik dianalisis hanya {{times}}× kecepatan pemutaran, terlalu lambat untuk efek drum. Dengan “{{settings}}” analisis bisa mengikuti.",
     "verdictAnalysisSlowTitle": "Komputer ini terlalu lambat menganalisis musik",

@@ -26,7 +26,7 @@ export default {
     "verdictNoGpuTitle": "Máy này không phân tích nhạc được trên card đồ họa",
     "verdictNoGpu": "Các hiệu ứng {{smartBeat}} theo tiếng trống sẽ không hoạt động; các chức năng khác không bị ảnh hưởng. Tốc độ khung hình bên dưới chỉ dành cho hoạt ảnh lời.",
     "verdictNoGpuReason": "Nguyên nhân: {{reason}}.",
-    "verdictNoGpuHint": "Phân tích chạy trên WebGPU qua Vulkan: trên X11 ứng dụng tự bật Vulkan khi có driver Vulkan; Wayland gốc không cần. Nếu vẫn không tìm thấy adapter - NixOS giữ tệp driver ở nơi sandbox GPU của trình duyệt không mở được - hãy chạy với --no-sandbox để bỏ qua, đổi lại là mất sandbox. Đặt FOLIA_LINUX_VULKAN=0 để tắt Vulkan tự động.",
+    "verdictNoGpuHint": "Phân tích chạy trên WebGPU qua Vulkan: trên X11 ứng dụng tự bật Vulkan khi có driver Vulkan; Wayland gốc không cần. Nếu vẫn không tìm thấy adapter - NixOS giữ tệp driver ở nơi sandbox GPU của trình duyệt không mở được - hãy chạy với --no-sandbox hoặc đặt FOLIA_LINUX_NO_SANDBOX=1 để bỏ qua, đổi lại là mất sandbox. Đặt FOLIA_LINUX_VULKAN=0 để tắt Vulkan tự động.",
     "verdictBehindTitle": "Hình ảnh ổn, nhưng phân tích không theo kịp",
     "verdictBehind": "Với cài đặt hiện tại hình ảnh mượt, nhưng nhạc chỉ được phân tích ở {{times}}× tốc độ phát, quá chậm cho hiệu ứng trống. Với “{{settings}}” phân tích sẽ theo kịp.",
     "verdictAnalysisSlowTitle": "Máy này phân tích nhạc quá chậm",

@@ -235,6 +235,17 @@ if (process.platform === 'linux') {
     app.commandLine.appendSwitch('disable-vulkan');
     appendChromiumFeature('Vulkan', 'disable-features');
   }
+
+  // NixOS and friends keep the Vulkan driver manifests where the GPU process's sandbox cannot open
+  // them (/run/opengl-driver on NixOS; Chromium upstream bug), so WebGPU finds no adapter even with
+  // Vulkan on and the perf check reads "no WebGPU adapter". The only workaround today is Chromium's
+  // --no-sandbox, which unprotects the renderer as well - a real tradeoff, so it stays behind this
+  // explicit opt-in rather than a default or a heuristic.
+  if (process.env.FOLIA_LINUX_NO_SANDBOX === '1') {
+    console.warn('[LinuxGraphics] Chromium sandbox disabled by FOLIA_LINUX_NO_SANDBOX=1: the renderer runs unsandboxed too');
+    app.commandLine.appendSwitch('no-sandbox');
+  }
+
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
   app.commandLine.appendSwitch('log-level', '3');
 
