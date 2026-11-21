@@ -24,15 +24,16 @@ Folia Linux 便携版说明
 
 Linux 图形兼容性：
 
-- `electron/main.cjs` 默认关闭 Vulkan；AppImage 默认使用 `swiftshader`，普通运行默认使用系统图形路径。
+- 图形后端：Wayland 会话默认原生 Wayland（`--ozone-platform=wayland`），X11 会话默认 x11；`NIXOS_OZONE_WL=0` 强制走 x11（nix 打包），命令行自带的 `--ozone-platform=...` 优先级最高。AppImage 默认使用 `swiftshader`，普通运行默认使用系统图形路径。
 - 如果启动后出现黑屏、透明度/模糊异常或 GPU 崩溃，可尝试：
   `FOLIA_LINUX_GRAPHICS_MODE=swiftshader ./folia-major`
 - 如果仍不稳定，可使用最保守的软件渲染：
   `FOLIA_LINUX_GRAPHICS_MODE=software ./folia-major`
 - `FOLIA_LINUX_GRAPHICS_MODE=system` 恢复系统路径。调试非标准 AppImage 运行时可设置 `ELECTRON_LINUX_PACKAGED_GRAPHICS=true`。
-- X11 下智能动感模式提示没有可用的 WebGPU 时，可手动开启 Vulkan：
-  `FOLIA_LINUX_VULKAN=1 ./folia-major --ozone-platform=x11`
-  只在 X11（含 XWayland，即 `--ozone-platform=x11`）和系统图形路径下生效。原生 Wayland 下不开 Vulkan 也能用 WebGPU，开了反而会让 GPU 进程崩溃，所以这个变量在 Wayland 下会被忽略。
+- WebGPU（显卡分析/智能动感模式的鼓点分离）与 Vulkan 特性（`electron/linuxVulkan.cjs`）：
+  - 原生 Wayland：不需要 Vulkan 特性（WebGPU 走 Dawn 自己的 Vulkan 路径；开了反而会让合成器报 “'--ozone-platform=wayland' is not compatible with Vulkan”），应用在 Wayland 下不会开启它。
+  - X11（含 XWayland）：Chromium 默认不开 Vulkan，WebGPU 会找不到适配器。应用检测到本机有硬件 Vulkan 驱动（ICD 清单；lavapipe/SwiftShader 等软件渲染器不算）时自动开启；手动控制：`FOLIA_LINUX_VULKAN=1` 强制开启（没有驱动清单也开），`FOLIA_LINUX_VULKAN=0` 强制关闭；除 0/1 外的值按未设置处理（自动）。壁纸模式包装会话在系统图形路径下始终需要 Vulkan，不受该变量影响。
+- NixOS 注意：NVIDIA 的 Vulkan 驱动清单在 `/run/opengl-driver/share/vulkan/icd.d/`，Chromium 的 GPU 进程沙箱读不到它，所以无论 Wayland 还是 x11，WebGPU 都找不到适配器（Chromium 上游问题：GPU 沙箱阻止读取 ICD 清单）。此时可用 `--no-sandbox` 启动绕过——这会关闭浏览器沙箱，请自行权衡安全取舍。2026-11-21 在 NixOS 26.11 + Electron 45 验证（RTX 4060 Ti）：`folia-major --no-sandbox` 下性能检测约 20 倍实时分析，原生 Wayland 与 x11 均通过。
 
 这些变量只影响 Electron Linux 启动参数，不改变 Web 端或同步服务配置。排查时先确认可执行文件和 `resources/` 位于同一便携包目录。
 

@@ -25,6 +25,8 @@ export default {
     "verdictTooSlow": "Even at the lowest quality the picture is not smooth while the music is analysed. Try a lighter lyric animation, or set {{smartBeat}} to “{{cached}}”.",
     "verdictNoGpuTitle": "This computer cannot analyse music on the graphics card",
     "verdictNoGpu": "{{smartBeat}} effects that follow the drums will not work; everything else is unaffected. The frame rates below are for the lyric animation alone.",
+    "verdictNoGpuReason": "Why: {{reason}}.",
+    "verdictNoGpuHint": "The analysis runs on WebGPU over Vulkan: on X11 the app turns Vulkan on by itself when a Vulkan driver is present; native Wayland needs none. If it still finds no adapter - NixOS keeps the driver manifests where the browser's GPU sandbox cannot open them - launching with --no-sandbox lets it through, at the cost of the sandbox. Set FOLIA_LINUX_VULKAN=0 to turn the automatic Vulkan back off.",
     "verdictBehindTitle": "The picture is fine, but the analysis falls behind",
     "verdictBehind": "With your current settings the picture is smooth, but the music is analysed at only {{times}}× playback speed, too slow for the drum effects. With “{{settings}}” the analysis keeps up.",
     "verdictAnalysisSlowTitle": "This computer analyses music too slowly",

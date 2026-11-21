@@ -114,7 +114,7 @@ const { createPerfCheckHost } = require('./perfCheck.cjs');
 const { createCrashLog, installCrashHandlers, flushPageStorage } = require('./debug/crashLog.cjs');
 const { measureLeftovers, removeDownloadedLeftovers } = require('./analysis/modelPaths.cjs');
 const { resolveLinuxPasswordStore } = require('./linuxPasswordStore.cjs');
-const { resolveLinuxVulkanChoice, logLinuxVulkanChoice } = require('./linuxVulkan.cjs');
+const { resolveLinuxVulkanChoice, logLinuxVulkanChoice, vulkanIcdPresent } = require('./linuxVulkan.cjs');
 const { isWindowAlwaysOnTopSupported } = require('./windowAlwaysOnTopSupport.cjs');
 const { createGlobalShortcutController, usesGlobalShortcutsPortal } = require('./globalShortcuts.cjs');
 const { createTranscodeService } = require('./transcode/service.cjs');
@@ -211,6 +211,7 @@ app.on('certificate-error', (event, _webContents, requestUrl, error, _certificat
 const linuxVulkan = resolveLinuxVulkanChoice({
   ozonePlatform: app.commandLine.getSwitchValue('ozone-platform'),
   graphicsMode: linuxGraphicsMode,
+  icdPresent: process.platform === 'linux' ? vulkanIcdPresent() : false,
 });
 
 // Fix for Arch Linux / Wayland & Vulkan compatibility issues
@@ -550,7 +551,7 @@ function launchWrappedSelf({ onError } = {}) {
     return Promise.resolve('missing');
   }
 
-  // Desktop launchers often force --ozone-platform=x11 (the Nix wrapper does). The wrapped child
+  // Desktop launchers often force an --ozone-platform of their own. The wrapped child
   // must speak Wayland to reach the windowtolayer proxy socket, so strip any platform override
   // and pin wayland — otherwise wtl never sees a window and no layer surface ever appears.
   const childArgs = process.argv.slice(1)

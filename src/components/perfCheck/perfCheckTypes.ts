@@ -74,4 +74,6 @@ export interface PerfCheckReport {
     recommended: number;
     /** Whether the analysis could run on the GPU at all here. */
     gpuAnalysis: boolean;
+    /** Why `gpuAnalysis` is false, as the GPU path itself reported it; null while it ran. */
+    gpuAnalysisReason: string | null;
 }

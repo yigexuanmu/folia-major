@@ -49,6 +49,11 @@ const PerfCheckResults: React.FC<PerfCheckResultsProps> = ({ report, current, on
     // The settings' own names, as the settings window shows them.
     const names = { smartBeat: t('options.smartBeat'), cached: t('options.smartBeatModeCached'), page: t('options.settingsPageGraphics') };
     const times = (step: PerfCheckStepResult) => (step.inference.realtime ?? 0).toFixed(1);
+    // The hint below is about the Linux graphics stack; the check only exists in the desktop build,
+    // but the desktop is not only Linux (the worker reads navigator.platform the same way). It only
+    // earns its place when the failure is the adapter itself - weights missing have another fix.
+    const isLinux = /Linux/.test(navigator.platform);
+    const adapterishReason = /webgpu|adapter|vulkan/i.test(report.gpuAnalysisReason ?? '');
     // Why a step is not smooth decides what is said: a choppy picture, or analysis that falls behind playback.
     const verdict: { tone: PerfCheckRating; title: string; body: string } = !report.gpuAnalysis
         ? { tone: 'poor', title: t('perfCheck.verdictNoGpuTitle'), body: t('perfCheck.verdictNoGpu', names) }
@@ -116,6 +121,16 @@ const PerfCheckResults: React.FC<PerfCheckResultsProps> = ({ report, current, on
                 <div className={`mt-4 rounded-2xl p-4 ${RATING_STYLE[verdict.tone].split(' ')[0]}`}>
                     <div className={`text-base font-semibold ${RATING_STYLE[verdict.tone].split(' ')[1]}`}>{verdict.title}</div>
                     <p className="mt-1 text-sm leading-relaxed text-white/80">{verdict.body}</p>
+                    {!report.gpuAnalysis && (
+                        <>
+                            {report.gpuAnalysisReason && (
+                                <p className="mt-2 text-sm leading-relaxed text-white/60">
+                                    {t('perfCheck.verdictNoGpuReason', { reason: report.gpuAnalysisReason.replace(/[.。]+\s*$/, '') })}
+                                </p>
+                            )}
+                            {isLinux && adapterishReason && <p className="mt-2 text-sm leading-relaxed text-white/60">{t('perfCheck.verdictNoGpuHint')}</p>}
+                        </>
+                    )}
                     {offerRecommended && report.gpuAnalysis && (
                         applied === report.recommended ? (
                             <div className="mt-3 inline-flex items-center gap-1.5 text-sm text-emerald-300"><Check className="h-4 w-4" />{t('perfCheck.appliedRecommended')}</div>

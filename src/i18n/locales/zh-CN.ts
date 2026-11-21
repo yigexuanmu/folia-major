@@ -25,6 +25,8 @@ export default {
     "verdictTooSlow": "就算把画质降到最低，分析音乐时画面也不够流畅。建议换一个轻一些的歌词动画样式，或者把{{smartBeat}}改成「{{cached}}」。",
     "verdictNoGpuTitle": "这台电脑不能用显卡分析音乐",
     "verdictNoGpu": "{{smartBeat}}里依赖鼓点的效果用不了，其他功能不受影响。下面的帧率只反映歌词动画本身。",
+    "verdictNoGpuReason": "原因：{{reason}}。",
+    "verdictNoGpuHint": "显卡分析走 WebGPU/Vulkan：X11 下应用检测到显卡驱动时会自动打开 Vulkan，原生 Wayland 下不需要。若仍找不到适配器（如 NixOS：驱动清单放在 GPU 沙箱读不到的路径），可用 --no-sandbox 启动绕过——这会关闭浏览器沙箱，请自行权衡。设 FOLIA_LINUX_VULKAN=0 可关掉自动 Vulkan。",
     "verdictBehindTitle": "画面没问题，但分析跟不上",
     "verdictBehind": "按你现在的设置画面很流畅，但分析音乐只有播放速度的 {{times}} 倍，鼓点效果会来不及。改成「{{settings}}」后分析能跟上播放。",
     "verdictAnalysisSlowTitle": "这台电脑分析音乐太慢",

@@ -14,6 +14,7 @@
   copyDesktopItems,
   makeDesktopItem,
   makeWrapper,
+  writeShellScript,
   alsa-lib,
   at-spi2-core,
   cups,
@@ -114,6 +115,21 @@ let
 
   # mnn.cjs 按 build/mnn/<mac|win|linux>-<arch>/ 找库，arch 取的是 process.arch（x64 / arm64）。
   nodeArch = if stdenv.hostPlatform.isAarch64 then "arm64" else "x64";
+
+  # Wayland 是默认后端：应用本来就为它而写（全局快捷键 portal、壁纸模式、窗口装饰），而且
+  # 它的 Vulkan/WebGPU 逻辑在 Wayland 下不需要 Vulkan 特性（2026-11-21 在 NixOS 26.11 +
+  # Electron 45 验证：特性关闭时两个分析模型照样上 NVIDIA 适配器）。X11 会话与
+  # NIXOS_OZONE_WL=0 走 x11（electron/linuxVulkan.cjs 讲两个后端的分工；NixOS 上 GPU 沙箱
+  # 读不到 ICD 的注意事项在 packaging/linux/README-LINUX.txt）。用户自带的
+  # --ozone-platform=... 仍然优先：它排在这些旗标之后。
+  launcher = writeShellScript "folia-major-session-flags" ''
+    ozone=x11
+    if [ -n "''${WAYLAND_DISPLAY:-}''${WAYLAND_SOCKET:-}" ] && [ "''${NIXOS_OZONE_WL:-}" != "0" ]; then
+      ozone=wayland
+    fi
+    exec ${electron}/bin/electron "$FOLIA_APPDIR" \
+      --enable-features=UseOzonePlatform --ozone-platform="$ozone" --enable-wayland-ime "$@"
+  '';
 in
 
 stdenv.mkDerivation (finalAttrs: {
@@ -188,13 +204,12 @@ stdenv.mkDerivation (finalAttrs: {
     cp -a node_modules $appdir/node_modules
     cp -a ${windowtolayer}/bin/windowtolayer $appdir/windowtolayer
     mkdir -p $out/bin
-    makeWrapper ${electron}/bin/electron $out/bin/folia-major \
-      --add-flags $appdir \
+    makeWrapper ${launcher} $out/bin/folia-major \
+      --set FOLIA_APPDIR $appdir \
       --prefix LD_LIBRARY_PATH : "${runtimeLibs}" \
       --set ELECTRON_OZONE_PLATFORM_HINT "auto" \
       --set FOLIA_WINDOWTOLAYER_PATH $appdir/windowtolayer \
-      --set FOLIA_MNN_LIBRARY $appdir/build/mnn/linux-${nodeArch}/libfolia_mnn.so \
-      --add-flags "--enable-features=UseOzonePlatform --ozone-platform=x11 --enable-wayland-ime"
+      --set FOLIA_MNN_LIBRARY $appdir/build/mnn/linux-${nodeArch}/libfolia_mnn.so
     install -Dm644 packaging/linux/folia-major.desktop \
       $out/share/applications/folia-major.desktop
     install -Dm644 build/icon.png \

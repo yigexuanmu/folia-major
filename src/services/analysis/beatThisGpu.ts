@@ -64,6 +64,7 @@
 
 import { noteGpuAnalysisUnit } from './gpuActivity';
 import type { PacedRunStats } from './gpuSlices';
+import { errorMessage } from '../../utils/errorText';
 import { createScheduler, watchFrames, type UnitRequest } from './scheduler';
 
 const IDLE_MS = 120_000;
@@ -129,8 +130,25 @@ let unsupported = false;
  * failing does not take the GPU from the other: htdemucs failing must not send Beat This! to the CPU.
  */
 const failedModels = new Set<GpuModel>();
+/**
+ * Why the GPU path last answered null - no worker or adapter, a pipeline this device would not
+ * build, weights missing, a run that died - for the performance check to show the listener a
+ * reason and the next step instead of a bare "cannot". Set wherever a load or a run fails, cleared
+ * when one succeeds. Not a latch of its own: the latches are `unsupported` and `failedModels`, and
+ * the next track tries again either way.
+ */
+let failureReason: string | null = null;
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
 let nextId = 0;
+
+/**
+ * Records a load's or run's failure as the reason. When a worker dies under a request, its
+ * in-flight replies are settled with the generic 'worker dropped' - that one never replaces a more
+ * specific reason already recorded (the worker's own error line said what actually broke).
+ */
+const noteFailure = (error: string) => {
+    failureReason = error === 'worker dropped' && failureReason ? failureReason : error;
+};
 
 /** What the GPU models may hold together (phase 4); both fit, with room for a short chunk's graph. */
 const GPU_BUDGET_BYTES = 512 * 1024 * 1024;
@@ -224,6 +242,13 @@ export const estimateGpuFinish = (kind: string, units: number, urgency: GpuRunOp
  * API (automix/stems.ts).
  */
 export const gpuStemsUsable = (): boolean => !unsupported && !failedModels.has('htdemucs');
+
+/**
+ * Why the GPU path cannot run right now - the reason behind `gpuStemsUsable()` being false, or
+ * behind the latest run's null - for the performance check to say more than "cannot". Null while
+ * nothing has failed or a run just succeeded.
+ */
+export const gpuStemsUnavailableReason = (): string | null => failureReason;
 
 /** Set while the performance check runs in its own window: this window's units wait (components/perfCheck/). */
 let heldForPerfCheck = false;
@@ -344,6 +369,7 @@ const spawn = (): Worker | null => {
         worker = new Worker(new URL('../../workers/beatThisGpu.worker.ts', import.meta.url), { type: 'module' });
     } catch (error) {
         console.warn(`[beat-this-gpu] no worker: ${error}`);
+        failureReason = `no worker: ${errorMessage(error)}`;
         unsupported = true;
         return null;
     }
@@ -355,6 +381,7 @@ const spawn = (): Worker | null => {
     };
     worker.onerror = (event) => {
         console.warn(`[beat-this-gpu] worker error: ${event.message}`);
+        failureReason = event.message;
         drop();
     };
     return worker;
@@ -364,12 +391,19 @@ const start = async (model: GpuModel): Promise<boolean> => {
     const fetchWeights = model === 'htdemucs'
         ? window.electron?.getHtdemucsGpuWeights
         : window.electron?.getBeatThisGpuWeights && (() => window.electron!.getBeatThisGpuWeights!(model));
-    if (typeof fetchWeights !== 'function') return false;
+    if (typeof fetchWeights !== 'function') {
+        failureReason = 'no weights channel in this build';
+        return false;
+    }
     // Not there only in a checkout without the models (both ship in the installer); asked again on the next track.
     makeRoom(model);
     const started = performance.now();
     const found = await fetchWeights();
-    if (!found || !spawn()) return false;
+    if (!found) {
+        failureReason = 'the WebGPU weights are not on disk';
+        return false;
+    }
+    if (!spawn()) return false;
 
     const reply = await ask({ kind: 'load', model, weights: found.weights, manifest: found.manifest }, [found.weights.buffer]);
     if (!reply.error) scheduler.noteLoad(model, performance.now() - started);
@@ -377,6 +411,7 @@ const start = async (model: GpuModel): Promise<boolean> => {
         // Before the first chunk: no WebGPU, no adapter, or a pipeline this device will not build.
         // None of those changes within a session - but only the first three are the machine's.
         console.warn(`[beat-this-gpu] ${model} unavailable: ${reply.error}`);
+        noteFailure(reply.error);
         if (reply.scope === 'model') {
             failedModels.add(model);
             ready.delete(model);
@@ -449,6 +484,7 @@ export const runPercussiveEnergyGpu = (
         if (worker) idleTimer = setTimeout(drop, IDLE_MS);
         if (reply.error) {
             console.warn(`[beat-this-gpu] percussive energy unavailable: ${reply.error}`);
+            noteFailure(reply.error);
             if (reply.scope === 'device') {
                 unsupported = true;
                 drop();
@@ -510,6 +546,7 @@ export const runHtdemucsGpu = (
         used('htdemucs');
         if (reply.error) {
             console.warn(`[beat-this-gpu] htdemucs run failed: ${reply.error}`);
+            noteFailure(reply.error);
             drop();
             return null;
         }
@@ -517,6 +554,7 @@ export const runHtdemucsGpu = (
         const { stems, paced } = reply.result as { stems: StemChannels[]; paced?: PacedRunStats };
         notePacing('htdemucs', paced);
         if (options.urgency === 'onScreen') noteOnScreenSegment(took);
+        failureReason = null;
         return { left: stems[0].left, right: stems[0].right, stems };
     } });
 };
@@ -541,11 +579,17 @@ const runNow = async (
     used(model);
     if (reply.error) {
         console.warn(`[beat-this-gpu] run failed, falling back to the CPU for this track: ${reply.error}`);
+        noteFailure(reply.error);
         drop();
         return null;
     }
     if (worker) idleTimer = setTimeout(drop, IDLE_MS);
     const logits = reply.result as Logits;
     notePacing(model, logits.paced);
-    return logits.beat.length === chunks.length ? logits : null;
+    if (logits.beat.length === chunks.length) {
+        failureReason = null;
+        return logits;
+    }
+    failureReason = 'the run answered fewer chunks than it was given';
+    return null;
 };

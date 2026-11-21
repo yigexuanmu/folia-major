@@ -1,4 +1,4 @@
-import { HTDEMUCS_GPU_SEGMENT, SEGMENT_ADVANCE_MS, gpuModelBytes, runBeatThisGpu, runHtdemucsGpu } from '../../services/analysis/beatThisGpu';
+import { HTDEMUCS_GPU_SEGMENT, SEGMENT_ADVANCE_MS, gpuModelBytes, gpuStemsUnavailableReason, runBeatThisGpu, runHtdemucsGpu } from '../../services/analysis/beatThisGpu';
 import { requestUncappedAnimationFrame } from '../../utils/frameRateLimiter';
 import { buildFixtureMel, buildFixtureSegment } from './perfCheckFixture';
 import {
@@ -141,7 +141,13 @@ export const runPerfCheck = async ({ current, apply, onProgress, signal }: PerfC
     await wait(SETTLE_MS, signal);
     // Loads both models and lets their first runs measure the GPU (gpuSlices.ts): not counted.
     let gpuAnalysis = (await separate()) !== null;
-    if (gpuAnalysis) gpuAnalysis = (await separate()) !== null && (await separate()) !== null;
+    // The reason is read the moment the decision lands: the shared failure slot is overwritten by
+    // whatever runs next (a successful beat_this wipes an htdemucs failure, and vice versa).
+    let gpuAnalysisReason = gpuAnalysis ? null : gpuStemsUnavailableReason();
+    if (gpuAnalysis) {
+        gpuAnalysis = (await separate()) !== null && (await separate()) !== null;
+        gpuAnalysisReason ??= gpuAnalysis ? null : gpuStemsUnavailableReason();
+    }
     await beats();
     await beats();
 
@@ -203,5 +209,14 @@ export const runPerfCheck = async ({ current, apply, onProgress, signal }: PerfC
         const withAnalysis = frameStats(intervals, target);
         steps.push({ settings, changes, picture, withAnalysis, inference, smooth: stepSmooth(withAnalysis, inference) });
     }
-    return { steps, memory, refreshHz: 1000 / refreshMs, recommended: recommendStep(steps), gpuAnalysis };
+    // The GPU path's own account of a failure goes into the report, so the results can say why the
+    // analysis could not run here instead of leaving the listener at "cannot".
+    return {
+        steps,
+        memory,
+        refreshHz: 1000 / refreshMs,
+        recommended: recommendStep(steps),
+        gpuAnalysis,
+        gpuAnalysisReason: gpuAnalysis ? null : gpuAnalysisReason,
+    };
 };
