@@ -934,6 +934,16 @@ declare global {
           source: 'setting' | 'command-line';
           activeGpu: string | null;
       } | null>;
+      /**
+       * Linux only: whether the sandbox switch is stored (enabled) and what this run started with
+       * (applied + source, electron/sandboxSetting.cjs). null off Linux or when the asking page is
+       * not the main window.
+       */
+      getLinuxNoSandboxState?: () => Promise<{
+          enabled: boolean;
+          applied: boolean;
+          source: 'setting' | 'env' | 'command-line' | null;
+      } | null>;
       /** The connected displays and the display chosen for wallpaper mode. null when the asking page is not the main window. */
       getWallpaperDisplays?: () => Promise<ElectronWallpaperDisplaysState | null>;
       /** Chooses a connected display by id, or automatic with null; a running wallpaper moves at once. Answers the new state. */

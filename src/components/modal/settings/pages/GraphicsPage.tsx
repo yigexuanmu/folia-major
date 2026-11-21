@@ -14,13 +14,15 @@ import { lyricAntialiasChoices, lyricRenderScaleChoices } from '../../../visuali
 import { openPerfCheck } from '../../../perfCheck/openPerfCheck';
 import { Button, Group, Link, Reveal, Row, Segmented, Toggle, option, useSettingsKitTheme, type SettingsGroupDef, type SettingsOptionDef } from '../kit';
 import { GpuPreferenceRow } from './graphics/GpuPreferenceRow';
+import { NoSandboxRow } from './graphics/NoSandboxRow';
 import { useSettingsPage } from './settingsPageContext';
 
 // src/components/modal/settings/pages/GraphicsPage.tsx
 // The 动画与性能 page: what trades picture for smoothness or works around a renderer problem
 // (static mode, the home background, native blur, the frame-rate cap, the lyric canvas resolution and
 // anti-aliasing every canvas / WebGL lyric style follows by default, background throttling, the
-// Linux glow fix, the Windows render GPU), and which parts of the interface play reduced motion.
+// Linux glow fix, the Windows render GPU, the Linux sandbox switch the GPU analysis needs), and
+// which parts of the interface play reduced motion.
 
 /** Docs page behind the "Fix lyric animation freeze on Linux" switch. */
 const CHROMIUM_FD_EXHAUSTION_DOCS_URL = 'https://folia-site.cielaniska.top/guide/chromium-fd-exhaustion';
@@ -49,6 +51,7 @@ const O = {
     backgroundThrottling: option(PERFORMANCE, 'backgroundThrottling', 'options.backgroundThrottling', { electronOnly: true }),
     glowFix: option(PERFORMANCE, 'glowBlurQuantize', 'options.glowBlurQuantize'),
     gpuPreference: option(PERFORMANCE, 'gpuPreference', 'options.gpuPreference', { electronOnly: true, available: () => IS_WINDOWS_DESKTOP }),
+    noSandbox: option(PERFORMANCE, 'noSandbox', 'options.noSandbox', { electronOnly: true, available: () => IS_LINUX }),
     followSystem: option(MOTION, 'reduceMotionFollowSystem', 'options.reduceMotionFollowSystem'),
 };
 
@@ -173,6 +176,7 @@ const GraphicsPage: React.FC = () => {
                     <Toggle checked={visualizer.glowFix} onChange={visualizer.setGlowFix} />
                 </Row>
                 {IS_WINDOWS_DESKTOP && <GpuPreferenceRow option={O.gpuPreference} />}
+                {isElectron && IS_LINUX && <NoSandboxRow option={O.noSandbox} />}
             </Group>
 
             <Group def={MOTION} foot={t('options.reduceMotionSectionDesc')}>

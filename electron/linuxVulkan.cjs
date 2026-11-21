@@ -17,7 +17,8 @@
 // One layer this cannot fix, on either backend: the GPU process's own sandbox. On NixOS the driver
 // manifests live under /run/opengl-driver, which the sandboxed GPU process cannot open (the loader
 // logs "loader_get_json: Failed to open JSON file"), so even with the feature on, WebGPU finds no
-// adapter there; launching with --no-sandbox is the only workaround, and it is the user's call
+// adapter there; the sandbox has to go, via the settings switch (electron/sandboxSetting.cjs,
+// 动画与性能 page) or --no-sandbox / FOLIA_LINUX_NO_SANDBOX=1, and that is the user's call
 // (verified 2026-11-21 on NixOS 26.11, Electron 45, on both x11 and native Wayland). See
 // packaging/linux/README-LINUX.txt.
 

@@ -33,7 +33,11 @@ Linux 图形兼容性：
 - WebGPU（显卡分析/智能动感模式的鼓点分离）与 Vulkan 特性（`electron/linuxVulkan.cjs`）：
   - 原生 Wayland：不需要 Vulkan 特性（WebGPU 走 Dawn 自己的 Vulkan 路径；开了反而会让合成器报 “'--ozone-platform=wayland' is not compatible with Vulkan”），应用在 Wayland 下不会开启它。
   - X11（含 XWayland）：Chromium 默认不开 Vulkan，WebGPU 会找不到适配器。应用检测到本机有硬件 Vulkan 驱动（ICD 清单；lavapipe/SwiftShader 等软件渲染器不算）时自动开启；手动控制：`FOLIA_LINUX_VULKAN=1` 强制开启（没有驱动清单也开），`FOLIA_LINUX_VULKAN=0` 强制关闭；除 0/1 外的值按未设置处理（自动）。壁纸模式包装会话在系统图形路径下始终需要 Vulkan，不受该变量影响。
-- NixOS 注意：NVIDIA 的 Vulkan 驱动清单在 `/run/opengl-driver/share/vulkan/icd.d/`，Chromium 的 GPU 进程沙箱读不到它，所以无论 Wayland 还是 x11，WebGPU 都找不到适配器（Chromium 上游问题：GPU 沙箱阻止读取 ICD 清单）。此时可用 `--no-sandbox` 启动绕过，或设环境变量 `FOLIA_LINUX_NO_SANDBOX=1`（效果相同）——这会关闭整个浏览器沙箱（含渲染进程），请自行权衡安全取舍。2026-11-21 在 NixOS 26.11 + Electron 45 验证（RTX 4060 Ti）：`folia-major --no-sandbox` 下性能检测约 20 倍实时分析，原生 Wayland 与 x11 均通过。
+- NixOS 注意：NVIDIA 的 Vulkan 驱动清单在 `/run/opengl-driver/share/vulkan/icd.d/`，Chromium 的 GPU 进程沙箱读不到它，所以无论 Wayland 还是 x11，WebGPU 都找不到适配器（Chromium 上游问题：GPU 沙箱阻止读取 ICD 清单）。绕过方式三选一，都会关闭整个浏览器沙箱（含渲染进程），请自行权衡安全取舍：
+  1. 「设置 → 动画与性能」打开「关闭浏览器沙箱」，重启 Folia 生效（推荐）；
+  2. 环境变量 `FOLIA_LINUX_NO_SANDBOX=1`（`=0` 可强制保持开启沙箱，优先于设置开关）；
+  3. 启动参数 `--no-sandbox`。
+  2026-11-21 在 NixOS 26.11 + Electron 45 验证（RTX 4060 Ti）：关闭沙箱后性能检测约 20 倍实时分析，原生 Wayland 与 x11 均通过。
 
 这些变量只影响 Electron Linux 启动参数，不改变 Web 端或同步服务配置。排查时先确认可执行文件和 `resources/` 位于同一便携包目录。
 

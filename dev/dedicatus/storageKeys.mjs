@@ -24,6 +24,7 @@ export const STORAGE_KEYS = [
     'main:KUGOU_API_SESSION_V1',
     'main:KUGOU_API_SESSION_V2',
     'main:LAST_SEEN_UPDATE_VERSION',
+    'main:LINUX_NO_SANDBOX',
     'main:MAIN_WINDOW_ALWAYS_ON_TOP',
     'main:MINIMIZE_TO_TRAY',
     'main:MODELS_DIRECTORY',

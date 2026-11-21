@@ -133,6 +133,7 @@ contextBridge.exposeInMainWorld('electron', {
         return () => ipcRenderer.removeListener('wallpaper-accessibility-suggested', listener);
     },
     getGpuPreferenceState: () => ipcRenderer.invoke('gpu-preference-state'),
+    getLinuxNoSandboxState: () => ipcRenderer.invoke('linux-no-sandbox-state'),
     getWallpaperDisplays: () => ipcRenderer.invoke('wallpaper-displays-get'),
     setWallpaperDisplay: (displayId) => ipcRenderer.invoke('wallpaper-display-set', displayId),
     onWallpaperDisplaysChanged: (callback) => {

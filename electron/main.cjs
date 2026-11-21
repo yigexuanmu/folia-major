@@ -25,6 +25,7 @@ const {
   logGpuPreference,
   normalizeGpuPreference,
 } = require('./gpuPreference.cjs');
+const { applySandboxSetting, logSandboxChoice, SETTING_KEY: LINUX_NO_SANDBOX_SETTING_KEY } = require('./sandboxSetting.cjs');
 const {
   REMOTE_CONTROL_HIDE_TITLEBAR_SETTING_KEY,
   REMOTE_CONTROL_CLICK_THROUGH_SETTING_KEY,
@@ -236,16 +237,6 @@ if (process.platform === 'linux') {
     appendChromiumFeature('Vulkan', 'disable-features');
   }
 
-  // NixOS and friends keep the Vulkan driver manifests where the GPU process's sandbox cannot open
-  // them (/run/opengl-driver on NixOS; Chromium upstream bug), so WebGPU finds no adapter even with
-  // Vulkan on and the perf check reads "no WebGPU adapter". The only workaround today is Chromium's
-  // --no-sandbox, which unprotects the renderer as well - a real tradeoff, so it stays behind this
-  // explicit opt-in rather than a default or a heuristic.
-  if (process.env.FOLIA_LINUX_NO_SANDBOX === '1') {
-    console.warn('[LinuxGraphics] Chromium sandbox disabled by FOLIA_LINUX_NO_SANDBOX=1: the renderer runs unsandboxed too');
-    app.commandLine.appendSwitch('no-sandbox');
-  }
-
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
   app.commandLine.appendSwitch('log-level', '3');
 
@@ -309,6 +300,8 @@ if (process.platform === 'darwin' && process.arch === 'x64') {
 const store = new Store({ projectName: 'Folia' });
 // Before ready: the GPU process reads its switches when it starts.
 const gpuPreferenceApplied = applyGpuPreference({ app, store });
+// Must also run before the ready event: --no-sandbox is read when the GPU process starts.
+const sandboxChoice = applySandboxSetting({ app, store });
 const readActiveGpu = createActiveGpuReader(app);
 const transcodeService = createTranscodeService({
   app,
@@ -2898,6 +2891,7 @@ function getPublicSettings() {
     'enable_player_page_native_blur': store.get('enable_player_page_native_blur') === true,
     'wallpaper_attach_mode': process.platform === 'win32' ? wallpaperWindowsAttachMode : null,
     [GPU_PREFERENCE_SETTING_KEY]: normalizeGpuPreference(store.get(GPU_PREFERENCE_SETTING_KEY)),
+    [LINUX_NO_SANDBOX_SETTING_KEY]: store.get(LINUX_NO_SANDBOX_SETTING_KEY) === true,
     [WALLPAPER_MODE_SETTING_KEY]: isWallpaperModeEnabled(),
     [WALLPAPER_ENTRY_CONFIRMED_SETTING_KEY]: readStoredBoolean(WALLPAPER_ENTRY_CONFIRMED_SETTING_KEY, false),
     [WALLPAPER_MAC_AUTOHIDE_DOCK_SETTING_KEY]: readStoredBoolean(WALLPAPER_MAC_AUTOHIDE_DOCK_SETTING_KEY, true),
@@ -6448,6 +6442,7 @@ app.whenReady().then(async () => {
     app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
   }
   logGpuPreference(gpuPreferenceApplied);
+  logSandboxChoice(sandboxChoice);
   // The active adapter is read only when the settings page asks: the 'complete' info behind it holds the
   // GPU process's main thread about half a second (CollectDawnInfo), and every window's frames stop with it.
   // Measured 2026-11-10: read 10 s after launch, it froze the picture 0.5 s on every start.
@@ -6882,6 +6877,19 @@ ipcMain.handle('gpu-preference-state', async (event) => {
   return { applied: gpuPreferenceApplied.preference, source: gpuPreferenceApplied.source, activeGpu };
 });
 
+// The Linux sandbox switch (electron/sandboxSetting.cjs): what this run started with, so the row
+// can say "restart needed" or that the environment has taken over.
+ipcMain.handle('linux-no-sandbox-state', (event) => {
+  if (process.platform !== 'linux' || !isTrustedMainWindowContents(event.sender)) {
+    return null;
+  }
+  return {
+    applied: sandboxChoice.disabled,
+    source: sandboxChoice.source,
+    enabled: store.get(LINUX_NO_SANDBOX_SETTING_KEY) === true,
+  };
+});
+
 // The settings page's choice of the display wallpaper mode uses (see "Wallpaper display choice").
 ipcMain.handle('wallpaper-displays-get', (event) => {
   if (!isTrustedMainWindowContents(event.sender)) {
@@ -6963,6 +6971,12 @@ ipcMain.handle('save-settings', firstParty('save-settings', (event, key, value) 
     }
     console.info(`[Gpu] Preference set to ${value}; takes effect on the next launch`);
   }
+  if (key === LINUX_NO_SANDBOX_SETTING_KEY) {
+    if (typeof value !== 'boolean') {
+      return getPublicSettings();
+    }
+    console.info(`[LinuxGraphics] Sandbox switch set to ${value}; takes effect on the next launch`);
+  }
   if (
     key === MINIMIZE_TO_TRAY_SETTING_KEY ||
     key === CLOSE_TO_TRAY_SETTING_KEY ||
@@ -6984,7 +6998,8 @@ ipcMain.handle('save-settings', firstParty('save-settings', (event, key, value) 
     key === WALLPAPER_FORWARD_MOUSE_SETTING_KEY ||
     key === WALLPAPER_ZGUARD_SETTING_KEY ||
     key === WALLPAPER_MAC_AUTOHIDE_DOCK_SETTING_KEY ||
-    key === USE_NATIVE_MAC_TRAFFIC_LIGHTS_SETTING_KEY
+    key === USE_NATIVE_MAC_TRAFFIC_LIGHTS_SETTING_KEY ||
+    key === LINUX_NO_SANDBOX_SETTING_KEY
   ) {
     nextValue = Boolean(value);
   }
