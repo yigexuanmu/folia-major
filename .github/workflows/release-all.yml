@@ -17,10 +17,9 @@ jobs:
     continue-on-error: ${{ matrix.continue-on-error || false }}
     strategy:
       fail-fast: false
-      # macOS 不在这个矩阵里：本 fork 拿不到 mac 的 hosted runner（macos-latest /
-      # macos-15 / macos-14 三次都排队到超时被判 cancelled），而作业级 if 不能引用
-      # matrix，没法只跳过它。mac 包走同仓库的 Publish Realeco（electron-release.yml，
-      # 四平台含 mac）。这里只负责 Windows + Linux 的发版，跑完必定进 release。
+      # macOS 曾三次排队超时被移出矩阵（当时 mac 包走 Publish Realeco）；按 2026-11-21 的
+      # 决定加回 macos-latest。发版门槛只查 Windows/Linux 的产物（release 任务里），
+      # mac 的 runner 再出问题也不拦着 win/linux 照常发布。
       matrix:
         include:
           - os: windows-latest
@@ -29,6 +28,9 @@ jobs:
           - os: ubuntu-latest
             target: --linux
             upload_pattern: 'release/*.tar.gz'
+          - os: macos-latest
+            target: --mac
+            upload_pattern: 'release/*.dmg'
 
     steps:
       - name: Check out Git repository
