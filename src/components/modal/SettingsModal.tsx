@@ -1253,7 +1253,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                     <div className="st-page-in">
                                         <HelpPage
                                             onOpenReleaseNotes={() => setShowReleaseNotes(true)}
-                                            onOpenAiHelp={() => setShowAiHelpPrompt(true)}
                                             onProjectLabelClick={handleAuthorLabelClick}
                                         />
                                     </div>

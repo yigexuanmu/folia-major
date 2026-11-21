@@ -4086,7 +4086,7 @@ export default {
     "macManualUpdateNotice": "Lưu ý: macOS yêu cầu tải thủ công bộ cài đầy đủ để cập nhật.",
     "linuxManualUpdateNotice": "Linux không hỗ trợ cập nhật tự động. Tải gói deb, rpm hoặc tar.gz hoàn chỉnh để nâng cấp thủ công; chỉ bản cài đặt AUR ổn định mới nên nâng cấp folia-major-bin qua trình quản lý gói.",
     "manualUpdateNotice": "Lưu ý: Nền tảng này chưa hỗ trợ cập nhật tự động. Tải gói cài đặt thủ công để nâng cấp.",
-    "unofficialBuildNotice": "Bản dựng không chính thức (fork): đây là fork cá nhân yigexuanmu/folia-major, không phải Folia chính thức (nguồn gốc chthollyphile/folia-major) - chứa các thay đổi riêng của fork này như bản sửa phân tích GPU trên Linux, công tắc sandbox và đóng gói nix. Hãy báo lỗi vào repo fork này; ĐỪNG báo lên nguồn gốc! Bản chính thức vẫn ở GitHub Releases của nguồn gốc.",
+    "unofficialBuildNotice": "Bản dựng không chính thức (fork): đây là bản sửa đổi cá nhân yigexuanmu/folia-major, không phải Folia chính thức (nguồn gốc chthollyphile/folia-major) - chứa một số thay đổi riêng của fork này. Hãy báo lỗi vào repo fork này; ĐỪNG báo lên nguồn gốc! Bản chính thức vẫn ở GitHub Releases của nguồn gốc.",
     "selfHostedBuildNotice": "Bản tự lưu trữ: do người triển khai tự build và quản lý, bao gồm cả backend nền tảng âm nhạc. Vui lòng liên hệ người triển khai trước; chỉ báo cáo lên GitHub khi xác định rõ là lỗi của Folia.",
     "nowPlayingStatusHint": "Kết nối tới ws://localhost:9863/api/ws/lyric. Khởi chạy dịch vụ now-playing trước.",
     "globalLyricTimelineOffset": "Độ lệch thời gian toàn cục",

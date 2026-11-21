@@ -4087,7 +4087,7 @@ export default {
     "macManualUpdateNotice": "提示：macOS 版本需要下载完整安装包手动覆盖更新。",
     "linuxManualUpdateNotice": "提示：Linux 不支持自动更新。请下载完整的 deb、rpm 或 tar.gz 包手动升级；仅正式版且通过 AUR 安装的用户可使用包管理器升级 folia-major-bin。",
     "manualUpdateNotice": "提示：当前平台暂不支持自动更新，请下载安装包手动覆盖更新。",
-    "unofficialBuildNotice": "非官方构建（fork）：这是 yigexuanmu/folia-major 的个人定制版，不是官方 Folia（上游 chthollyphile/folia-major）——包含 Linux 显卡分析修复、沙箱开关、nix 打包等本 fork 的改动。遇到 bug 请到本 fork 的仓库提 issue，不要向上游提交！官方版本仍从上游的 GitHub Releases 下载。",
+    "unofficialBuildNotice": "非官方构建(fork):这是 yigexuanmu/folia-major 的个人修改版，不是官方 Folia(上游 chthollyphile/folia-major)——包含一些本fork特有的改动。遇到 bug 请到本 fork 的仓库提 issue，不要向上游提交！官方版本仍从上游的 GitHub Releases 下载。",
     "selfHostedBuildNotice": "自部署版本：由部署者自行构建并托管，音乐平台的后端服务也由部署者配置。遇到问题请先联系部署者；确认是 Folia 本身的问题再到 GitHub 反馈。",
     "nowPlayingStatusHint": "固定连接 ws://localhost:9863/api/ws/lyric，请先在本机启动 now-playing 服务。",
     "globalLyricTimelineOffset": "全局时间偏移",

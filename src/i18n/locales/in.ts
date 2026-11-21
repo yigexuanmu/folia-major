@@ -4086,7 +4086,7 @@ export default {
     "macManualUpdateNotice": "Catatan: macOS memerlukan pengunduhan installer lengkap secara manual untuk memperbarui.",
     "linuxManualUpdateNotice": "Linux tidak mendukung pembaruan otomatis. Unduh paket deb, rpm, atau tar.gz lengkap untuk memperbarui secara manual; hanya instalasi AUR stabil yang boleh memperbarui folia-major-bin melalui pengelola paket.",
     "manualUpdateNotice": "Catatan: Pembaruan otomatis tidak didukung di platform ini. Silakan unduh paket secara manual.",
-    "unofficialBuildNotice": "Build tidak resmi (fork): ini adalah fork pribadi yigexuanmu/folia-major, bukan Folia resmi (hulu chthollyphile/folia-major) - berisi perubahan khas fork ini seperti perbaikan analisis GPU Linux, sakelar sandbox, dan pengemasan nix. Laporkan bug ke repositori fork ini; jangan laporkan ke hulu! Build resmi tetap di GitHub Releases hulu.",
+    "unofficialBuildNotice": "Build tidak resmi (fork): ini adalah modifikasi pribadi yigexuanmu/folia-major, bukan Folia resmi (hulu chthollyphile/folia-major) - berisi beberapa perubahan khas fork ini. Laporkan bug ke repositori fork ini; jangan laporkan ke hulu! Build resmi tetap di GitHub Releases hulu.",
     "selfHostedBuildNotice": "Self-hosted: dibangun dan di-hosting oleh pihak yang men-deploy, termasuk layanan backend platform musik. Hubungi pihak tersebut terlebih dahulu, dan laporkan di GitHub jika memang masalah Folia.",
     "nowPlayingStatusHint": "Terhubung ke ws://localhost:9863/api/ws/lyric. Jalankan layanan now-playing terlebih dahulu.",
     "globalLyricTimelineOffset": "Offset Waktu Global",
