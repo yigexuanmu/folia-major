@@ -21,12 +21,16 @@ import { iconLabel } from './iconLabel';
 // is not in pages/index.ts and the search does not list it; the settings window mounts it itself
 // and hands it the two dialogs it opens.
 
-const REPOSITORY_URL = 'https://github.com/chthollyphile/folia-major';
-const REPOSITORY_NAME = 'chthollyphile/folia-major';
+const REPOSITORY_URL = 'https://github.com/yigexuanmu/folia-major';
+const REPOSITORY_NAME = 'yigexuanmu/folia-major';
+const UPSTREAM_REPOSITORY_URL = 'https://github.com/chthollyphile/folia-major';
+const UPSTREAM_REPOSITORY_NAME = 'chthollyphile/folia-major';
 const BUILD_KIND = getBuildKind();
+// 本 fork 的构建在版本号上带 -mioha 后缀：一行贴进 issue 就能看出它不是上游（官方）的构建。
+const FORK_VERSION_SUFFIX = '-mioha';
 const VERSION_INFO = (__DOCKER_STACK_VERSION__
-    ? `${__APP_VERSION_LABEL__} v${__APP_VERSION__} · Stack ${__DOCKER_STACK_VERSION__} · ${__COMMIT_HASH__}`
-    : `${__APP_VERSION_LABEL__} v${__APP_VERSION__} - ${__GIT_BRANCH__} - ${__COMMIT_HASH__}`)
+    ? `${__APP_VERSION_LABEL__} v${__APP_VERSION__}${FORK_VERSION_SUFFIX} · Stack ${__DOCKER_STACK_VERSION__} · ${__COMMIT_HASH__}`
+    : `${__APP_VERSION_LABEL__} v${__APP_VERSION__}${FORK_VERSION_SUFFIX} - ${__GIT_BRANCH__} - ${__COMMIT_HASH__}`)
     // Self-hosted and unofficial builds always carry a tag, in English, so a line pasted into an
     // issue says where the build came from.
     + (BUILD_KIND === 'official' ? '' : ` · ${BUILD_KIND_TAGS[BUILD_KIND]}`);
@@ -173,6 +177,12 @@ const HelpPage: React.FC<HelpPageProps> = ({ onOpenReleaseNotes, onOpenAiHelp, o
                 >
                     <Button variant="quiet" onClick={() => openOutsideLink(REPOSITORY_URL)}>
                         {REPOSITORY_NAME}
+                        <ExternalLink size={12} />
+                    </Button>
+                </Row>
+                <Row label={t('help.upstreamProject')}>
+                    <Button variant="quiet" onClick={() => { void openOutsideLink(UPSTREAM_REPOSITORY_URL); }}>
+                        {UPSTREAM_REPOSITORY_NAME}
                         <ExternalLink size={12} />
                     </Button>
                 </Row>
