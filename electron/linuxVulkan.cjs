@@ -107,7 +107,7 @@ function resolveLinuxVulkanChoice({
 /** Records the decision: the opt-in, the automatic turn-on, and the refusals a user asked for. */
 function logLinuxVulkanChoice(choice, graphicsMode) {
   if (choice.enabled && choice.source === 'auto') {
-    console.info('[LinuxGraphics] Vulkan enabled on the x11 backend (a Vulkan driver was found); FOLIA_LINUX_VULKAN=0 keeps it off outside wallpaper sessions');
+    console.info('[LinuxGraphics] Vulkan enabled on the x11 backend (a Vulkan driver was found); FOLIA_LINUX_VULKAN=0 keeps it off');
   } else if (choice.enabled) {
     console.info('[LinuxGraphics] Vulkan enabled by FOLIA_LINUX_VULKAN=1 on the x11 backend');
   } else if (choice.refused === 'graphics-mode') {

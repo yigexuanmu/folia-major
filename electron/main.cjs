@@ -224,13 +224,12 @@ if (process.platform === 'linux') {
     app.commandLine.appendSwitch('password-store', linuxPasswordStore);
   }
 
-  // A wallpaper session reaches the compositor through the windowtolayer proxy, where the default
-  // GL/EGL backend stalls the GPU process; ANGLE-on-Vulkan is the only backend that initialises
-  // through the proxy, so the Vulkan ban below must not hit those sessions (fork 私房菜：Linux 壁纸模式).
-  const isWallpaperWrappedSession = process.env.FOLIA_WRAPPED_BY_WINDOWTOLAYER === '1';
-  const wallpaperNeedsVulkan = isWallpaperWrappedSession && linuxGraphicsMode === 'system';
-
-  if (linuxVulkan.enabled || wallpaperNeedsVulkan) {
+  // Wallpaper sessions used to bypass the Vulkan ban here: the old GL/EGL path stalled the GPU
+  // process behind the windowtolayer proxy. That workaround is obsolete — the wrapped child is
+  // pinned to native Wayland, where Chromium's Vulkan feature is incompatible with the ozone
+  // platform and leaves the layer surface black (seen on niri). Wallpaper sessions now follow the
+  // same backend decision as every other session; see electron/linuxVulkan.cjs.
+  if (linuxVulkan.enabled) {
     appendChromiumFeature('Vulkan');
   } else {
     app.commandLine.appendSwitch('disable-vulkan');
@@ -258,9 +257,6 @@ if (process.platform === 'linux') {
     app.commandLine.appendSwitch('enable-unsafe-swiftshader');
   } else {
     appendChromiumFeature('WaylandWindowDecorations');
-    if (wallpaperNeedsVulkan) {
-      app.commandLine.appendSwitch('use-angle', 'vulkan');
-    }
   }
 }
 

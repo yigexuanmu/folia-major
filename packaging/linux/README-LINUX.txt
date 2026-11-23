@@ -32,7 +32,8 @@ Linux 图形兼容性：
 - `FOLIA_LINUX_GRAPHICS_MODE=system` 恢复系统路径。调试非标准 AppImage 运行时可设置 `ELECTRON_LINUX_PACKAGED_GRAPHICS=true`。
 - WebGPU（显卡分析/智能动感模式的鼓点分离）与 Vulkan 特性（`electron/linuxVulkan.cjs`）：
   - 原生 Wayland：不需要 Vulkan 特性（WebGPU 走 Dawn 自己的 Vulkan 路径；开了反而会让合成器报 “'--ozone-platform=wayland' is not compatible with Vulkan”），应用在 Wayland 下不会开启它。
-  - X11（含 XWayland）：Chromium 默认不开 Vulkan，WebGPU 会找不到适配器。应用检测到本机有硬件 Vulkan 驱动（ICD 清单；lavapipe/SwiftShader 等软件渲染器不算）时自动开启；手动控制：`FOLIA_LINUX_VULKAN=1` 强制开启（没有驱动清单也开），`FOLIA_LINUX_VULKAN=0` 强制关闭；除 0/1 外的值按未设置处理（自动）。壁纸模式包装会话在系统图形路径下始终需要 Vulkan，不受该变量影响。
+  - X11（含 XWayland）：Chromium 默认不开 Vulkan，WebGPU 会找不到适配器。应用检测到本机有硬件 Vulkan 驱动（ICD 清单；lavapipe/SwiftShader 等软件渲染器不算）时自动开启；手动控制：`FOLIA_LINUX_VULKAN=1` 强制开启（没有驱动清单也开），`FOLIA_LINUX_VULKAN=0` 强制关闭；除 0/1 外的值按未设置处理（自动）。
+  - 壁纸模式（windowtolayer 包装会话）也遵循上述规则：包装后的子进程固定在原生 Wayland，因此不会再强制打开 Vulkan 或设置 `use-angle=vulkan`。此前为该会话保留的 Vulkan 豁免会在 niri 等合成器上让壁纸层表面变黑，已移除。
 - NixOS 注意：NVIDIA 的 Vulkan 驱动清单在 `/run/opengl-driver/share/vulkan/icd.d/`，Chromium 的 GPU 进程沙箱读不到它，所以无论 Wayland 还是 x11，WebGPU 都找不到适配器（Chromium 上游问题：GPU 沙箱阻止读取 ICD 清单）。绕过方式三选一，都会关闭整个浏览器沙箱（含渲染进程），请自行权衡安全取舍：
   1. 「设置 → 动画与性能」打开「关闭浏览器沙箱」，重启 Folia 生效（推荐）；
   2. 环境变量 `FOLIA_LINUX_NO_SANDBOX=1`（`=0` 可强制保持开启沙箱，优先于设置开关）；
